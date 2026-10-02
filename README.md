@@ -80,20 +80,22 @@ Python package `__init__.py` files and detailed tool-generated configuration fil
 ### Backend & Simulation
 | Library / Technology | Version | Purpose |
 |:--|:--|:--|
-| FastAPI | | High-performance backend REST API framework |
-| Uvicorn | | ASGI web server |
-| Pydantic | | Data validation and settings management |
-| RocketPy | | 6-DoF trajectory and rocket dynamics simulation |
-| NumPy | | Numerical computation and vectorized array data processing |
-| Python Multiprocessing | | Dedicated worker process for non-blocking simulation computation |
+| Python | 3.13.5 | Core backend execution runtime |
+| uv | 0.12.21 | Fast Python package and environment manager |
+| FastAPI | 0.142.2 | High-performance backend REST API framework |
+| Uvicorn | 0.54.0 | ASGI web server |
+| Pydantic | 2.13.5 | Data validation and settings management |
+| RocketPy | 1.13.0 | 6-DoF trajectory and rocket dynamics simulation |
+| NumPy | 2.5.3 | Numerical computation and vectorized array data processing |
+| Python Multiprocessing | stdlib | Dedicated worker process for non-blocking simulation computation |
 | RocketSerializer | | Open OpenRocket file (.ork) |
 
 ### Storage & Data Management
 | Technology / Format | Version | Purpose |
 |:--|:--|:--|
-| JSON | | Simulation configurations and rocket parameter files |
-| NumPy File (.npy / .npz) | | High-volume trajectory and simulation telemetry array storage |
-| SQLite | | Simulation run history, metadata, and session management |
+| JSON | stdlib | Simulation configurations and rocket parameter files |
+| NumPy File (.npy / .npz) | 2.5.3 | High-volume trajectory and simulation telemetry array storage |
+| SQLite | stdlib (3.x) | Simulation run history, metadata, and session management |
 
 ### Planned Additions
 | Library / Technology | Version | Purpose |
