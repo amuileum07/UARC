@@ -1,9 +1,11 @@
-# UNIST-AERO ROCKEET SIMULATOR
+# UNIST-AERO ROCKET SIMULATOR
 
-This project aimed gui rocket simulator for AERO, undergraduate rocket club of UNIST.
-It's For eay of use and high-fidelity simulation.
+UARC aims to provide a GUI-based rocket simulator for AERO, UNIST's undergraduate rocket club.
+The project focuses on ease of use and high-fidelity simulation as development goals.
 
-# Directory Structure
+**Development status:** This project is in early development. Only the backend dependency configuration and initial file skeleton are in place; the GUI and simulation functionality are not yet implemented.
+
+## Directory Structure
 
 The following is the **proposed structure before implementation**. Keep the frontend and backend in one repository, and create files and directories only as their features are implemented.
 
@@ -60,11 +62,11 @@ UARC/
 
 Python package `__init__.py` files and detailed tool-generated configuration files are omitted from the tree. Once package managers are selected, commit their lockfiles to version control.
 
-# Built Steck
+## Tech Stack
 
-## Libraries
+### Libraries
 
-### Frontend
+#### Frontend
 | Library / Technology | Version | Purpose |
 |:--|:--|:--|
 | React | | Core UI component library |
@@ -77,7 +79,7 @@ Python package `__init__.py` files and detailed tool-generated configuration fil
 | Plotly.js / react-plotly.js | | Interactive 2D/3D flight trajectory and telemetry plotting |
 | Fetch API | | REST API communication and simulation status polling |
 
-### Backend & Simulation
+#### Backend & Simulation
 | Library / Technology | Version | Purpose |
 |:--|:--|:--|
 | Python | 3.13.5 | Core backend execution runtime |
@@ -90,14 +92,14 @@ Python package `__init__.py` files and detailed tool-generated configuration fil
 | Python Multiprocessing | stdlib | Dedicated worker process for non-blocking simulation computation |
 | RocketSerializer | | Open OpenRocket file (.ork) |
 
-### Storage & Data Management
+#### Storage & Data Management
 | Technology / Format | Version | Purpose |
 |:--|:--|:--|
 | JSON | stdlib | Simulation configurations and rocket parameter files |
 | NumPy File (.npy / .npz) | 2.5.3 | High-volume trajectory and simulation telemetry array storage |
 | SQLite | stdlib (3.x) | Simulation run history, metadata, and session management |
 
-### Planned Additions
+#### Planned Additions
 | Library / Technology | Version | Purpose |
 |:--|:--|:--|
 | Three.js | | 3D rocket model and trajectory visualization |
@@ -105,13 +107,13 @@ Python package `__init__.py` files and detailed tool-generated configuration fil
 | Dockview | | IDE-style dockable panel layout for engineering UI |
 | Desktop Packager (PyInstaller / Tauri) | | Standalone desktop application packaging |
 
-# Contributors
+## Contributors
 
 <a href="https://github.com/amuileum07/UARC/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=amuileum07/UARC" />
 </a>
 
-# Licenses
+## Licenses
 
 License for this project : [License](./LICENSE)
 Third-Party Licenses : [Licenses](./Licenses/)
