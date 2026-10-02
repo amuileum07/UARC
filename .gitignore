@@ -1,0 +1,33 @@
+# Python / Virtual Environments
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+backend/.venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+
+# Node / Frontend
+node_modules/
+frontend/node_modules/
+frontend/dist/
+*.local
+
+# Environment variables & secrets
+.env
+.env.*
+!.env.example
+
+# Runtime simulation data & database
+data/uarc.sqlite3
+data/runs/*
+!data/runs/.gitkeep
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
