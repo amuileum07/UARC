@@ -5,6 +5,61 @@ It's For eay of use and high-fidelity simulation.
 
 # Directory Structure
 
+The following is the **proposed structure before implementation**. Keep the frontend and backend in one repository, and create files and directories only as their features are implemented.
+
+```text
+UARC/
+├── frontend/                      # React + TypeScript + Vite
+│   ├── src/
+│   │   ├── main.tsx               # React entry point
+│   │   ├── App.tsx                # Application layout and feature composition
+│   │   ├── features/
+│   │   │   ├── rocket/            # Rocket and motor inputs, .ork import UI
+│   │   │   ├── environment/       # Launch site, atmosphere, and wind settings
+│   │   │   ├── simulation/        # Run requests, status, and history
+│   │   │   └── results/           # Trajectory and telemetry charts, result views
+│   │   ├── components/
+│   │   │   └── ui/                # Shared UI components, including shadcn/ui
+│   │   ├── lib/
+│   │   │   └── api.ts             # Shared Fetch calls and HTTP error handling
+│   │   └── styles.css             # Tailwind and global styles
+│   ├── index.html
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── vite.config.ts
+├── backend/                       # FastAPI + Python simulation processes
+│   ├── app/
+│   │   ├── main.py                # App creation, configuration loading, and lifecycle
+│   │   ├── config.py              # Server settings, including storage paths
+│   │   ├── api.py                 # Input validation and run, status, and result APIs
+│   │   ├── schemas.py             # Pydantic request, response, and configuration models
+│   │   ├── simulation/
+│   │   │   ├── jobs.py            # Run IDs, process lifecycle, and state transitions
+│   │   │   ├── worker.py          # Simulation entry point in a separate process
+│   │   │   └── engine.py          # RocketPy model construction and result conversion
+│   │   ├── importers/
+│   │   │   └── openrocket.py      # .ork conversion using RocketSerializer
+│   │   └── storage.py             # SQLite and per-run file access
+│   ├── tests/                     # API, simulation, file conversion, and storage tests
+│   │   └── fixtures/              # Small, reproducible test inputs
+│   └── pyproject.toml             # Python dependencies and tool configuration
+├── examples/                      # Small rocket and environment examples tracked in Git
+├── docs/                          # Input units, API usage, and simulation model documentation
+├── data/                          # Local data generated at runtime
+│   ├── uarc.sqlite3               # Run status, history, and result paths
+│   └── runs/
+│       └── <run-id>/
+│           ├── input.json         # Input snapshot for reproducing the run
+│           ├── summary.json       # Summary results, such as apogee
+│           └── telemetry.npz      # Time series and trajectory arrays
+├── Licenses/                      # Third-party licenses
+├── .gitignore
+├── LICENSE
+└── README.md
+```
+
+Python package `__init__.py` files and detailed tool-generated configuration files are omitted from the tree. Once package managers are selected, commit their lockfiles to version control.
+
 # Built Steck
 
 ## Libraries
