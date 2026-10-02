@@ -48,6 +48,12 @@ It's For eay of use and high-fidelity simulation.
 | Dockview | | IDE-style dockable panel layout for engineering UI |
 | Desktop Packager (PyInstaller / Tauri) | | Standalone desktop application packaging |
 
+# Contributors
+
+<a href="https://github.com/amuileum07/UARC/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=amuileum07/UARC" />
+</a>
+
 # Licenses
 
 License for this project : [License](./LICENSE)
