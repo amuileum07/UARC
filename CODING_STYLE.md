@@ -1,0 +1,197 @@
+# UARC Coding Style & Architecture Guide
+
+This document defines the architectural principles, coding conventions, and implementation guidelines for the UARC backend (`backend/app/simulation/engine.py`, `backend/app/schemas.py`, `backend/tests/`).
+
+All new contributions and refactorings must adhere to these standards.
+
+---
+
+## 1. Core Principles
+
+1. **Separation of Concerns**
+   * **Data Validation & DTOs**: Handled exclusively by `schemas.py` (Pydantic V2).
+   * **Hardware Assembly & Numerical Solvers**: Handled exclusively by `engine.py` (RocketPy wrapper).
+   * **API & Routing**: Handled by `api.py` and `main.py` (FastAPI).
+   * **Persistence**: Handled by `storage.py`.
+
+2. **Explicit Over Implicit**
+   * Avoid generic `**kwargs` or untyped dictionaries.
+   * Prefer explicitly typed Config models and keyword-only arguments.
+
+3. **Fail-Fast & Strict Contracts**
+   * Reject invalid configurations at the schema layer before launching numerical solvers.
+   * Use precise built-in exceptions (`ValueError`, `TypeError`, `RuntimeError`) rather than generic `Exception`.
+
+4. **Units and Coordinate Conventions**
+   * **SI Units**: All physical quantities use standard SI units (m, kg, s, Pa, K, N, kg·m²).
+   * **Angles**: User-facing angles use degrees (°). Inclinations are normalized to $(0, 90]^\circ$; headings are normalized modulo $360^\circ$.
+   * **Altitudes**: Explicitly differentiate and label ASL (Above Sea Level) versus AGL (Above Ground Level).
+
+---
+
+## 2. Data Schemas & DTOs (`app/schemas.py`)
+
+Models in `schemas.py` serve as the single source of truth for API serialization, request validation, and reproducibility snapshots (`input.json`).
+
+### 2.1 Pure Serializable DTO Rule
+
+* **No Runtime Objects**: Never include non-serializable RocketPy runtime objects (`AeroSurface`, `Tank`, `Flight`) as Pydantic fields. Do not enable `arbitrary_types_allowed`.
+* **Round-Trip Guarantee**: Every config model must be capable of lossless round-trip serialization:
+  $$\text{model} \equiv \text{type}(\text{model}).\text{model\_validate\_json}(\text{model}.\text{model\_dump\_json}())$$
+
+### 2.2 Base Configuration
+
+All configuration models must inherit from `EngineConfig`, which strictly forbids unmodeled extra fields:
+
+```python
+class EngineConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+```
+
+### 2.3 Strict Numeric Constraints (`Annotated`)
+
+* Use standard Python 3.10+ union syntax (`A | B`, `T | None`) instead of `Optional` or `Union`.
+* Annotate numeric constraints declaratively:
+
+```python
+Number = Annotated[float, Field(strict=True, allow_inf_nan=False)]
+Positive = Annotated[Number, Field(gt=0)]
+NonNegative = Annotated[Number, Field(ge=0)]
+```
+
+### 2.4 Polymorphism: Discriminated Unions
+
+Model variants (e.g., motor types) using Pydantic discriminated unions:
+
+```python
+class SolidMotorConfig(GrainMotorBase):
+    motor_type: Literal["solid"] = "solid"
+
+class LiquidMotorConfig(MotorBase):
+    motor_type: Literal["liquid"] = "liquid"
+
+MotorConfig = Annotated[
+    SolidMotorConfig | LiquidMotorConfig | HybridMotorConfig | GenericMotorConfig,
+    Field(discriminator="motor_type"),
+]
+```
+
+### 2.5 Validation Layer
+
+* Use `@field_validator` for field-level sanitization and format checks.
+* Use `@model_validator(mode="after")` for cross-field consistency and physical sanity checks:
+
+```python
+@model_validator(mode="after")
+def compatible_weather(self):
+    if self.max_expected_height <= self.elevation:
+        raise ValueError("max_expected_height must be above the launch elevation.")
+    return self
+```
+
+---
+
+## 3. Simulation Engine (`app/simulation/engine.py`)
+
+`engine.py` consumes validated Config objects and drives RocketPy simulations.
+
+### 3.1 Zero Redundant In-Line Validation
+
+* Do not duplicate Pydantic validation checks inside engine functions.
+* Accept typed Config models directly:
+
+```python
+# Correct
+def build_environment(config: EnvironmentConfig) -> Environment: ...
+
+# Incorrect: Raw parameters with manual assertion clutter
+def build_environment(latitude: float, longitude: float, ...) -> Environment:
+    if not -90 <= latitude <= 90:
+        raise ValueError(...)
+```
+
+### 3.2 Keyword-Only Parameters for Non-Serializable Inputs
+
+Pass runtime instances (`AeroSurface`, `Tank`) through explicit keyword-only arguments:
+
+```python
+def build_motor(config: MotorConfig, *, tanks: Sequence[tuple[Tank, float]] = ()) -> Motor:
+    ...
+
+def build_rocket(
+    motor: Motor | None,
+    config: RocketConfig,
+    *,
+    surfaces: Sequence[tuple[AeroSurface, float | tuple[float, float, float]]] = (),
+) -> Rocket:
+    ...
+```
+
+### 3.3 Mutation and Side-Effect Isolation
+
+* RocketPy mutates stateful components during flight (e.g., mass depletion, parachute events).
+* Always isolate reusable objects using `deepcopy()`:
+
+```python
+flight = Flight(
+    rocket=deepcopy(rocket),
+    environment=environment,
+    ...
+)
+```
+
+### 3.4 Solver Solution Integrity Check
+
+Validate raw numerical integration solutions before returning to callers:
+
+```python
+solution = np.asarray(flight.solution, dtype=float)
+if solution.ndim != 2 or solution.shape[1] != 14 or not np.isfinite(solution).all():
+    raise RuntimeError("RocketPy returned an invalid flight solution.")
+```
+
+---
+
+## 4. Testing Guidelines (`backend/tests/`)
+
+1. **Hermetic & Offline Execution**
+   * Tests must execute entirely offline without network access or live weather API queries.
+   * Use synthetic hardware fixtures:
+
+     ```python
+     def motor_parameters(kind="generic"): ...
+     def rocket_parameters(): ...
+     def surface_fixture(): ...
+     ```
+
+2. **Both Positive & Negative Coverage**
+   * Test successful trajectory solves as well as expected boundary rejections (`ValidationError`, `ValueError`).
+
+3. **Schema Round-Trip Verification**
+   * Every model must be verified for JSON serialization / deserialization fidelity:
+
+     ```python
+     encoded = config.model_dump_json()
+     restored = type(config).model_validate_json(encoded)
+     self.assertEqual(encoded, restored.model_dump_json())
+     ```
+
+4. **Use Subtests**
+   * Wrap parameterized test matrices (e.g., iterating across motor types or atmosphere models) with `with self.subTest(...):`.
+
+---
+
+## 5. Code Style & Tooling
+
+* **Runtime**: Python 3.13+
+* **Environment & Packaging**: `uv` (`pyproject.toml`, `uv.lock`)
+* **Formatting & Naming**: PEP 8
+  * Functions & variables: `snake_case`
+  * Classes & types: `PascalCase`
+  * Constants: `SCREAMING_SNAKE_CASE`
+* **Import Ordering**:
+  1. Standard library (`math`, `copy`, `collections.abc`, etc.)
+  2. Third-party packages (`numpy`, `pydantic`, `rocketpy`, etc.)
+  3. Local application imports (`app.schemas`, `app.simulation.engine`, etc.)
+* **Docstrings**:
+  * Concise and contract-focused. Specify input units, coordinate frames, and assumptions. Avoid repeating obvious variable names.
