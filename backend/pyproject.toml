@@ -1,23 +1,27 @@
 [project]
 name = "backend"
 version = "0.1.0"
-description = "Add your description here"
+description = "UARC desktop host and RocketPy simulation engine"
 readme = "README.md"
 authors = [
     { name = "Park Changyeong", email = "amuileum07@gmail.com" }
 ]
 requires-python = ">=3.13"
 dependencies = [
-    "fastapi>=0.142.2",
     "numpy>=2.5.3",
     "pydantic>=2.13.5",
+    "pywebview>=6.2.1; sys_platform != 'linux'",
+    "pywebview[pyside6]>=6.2.1; sys_platform == 'linux'",
     "rocketpy>=1.13.0",
-    "uvicorn[standard]>=0.54.0",
 ]
 
 [project.scripts]
-backend = "backend:main"
+uarc = "app.main:main"
 
 [build-system]
 requires = ["uv_build>=0.12.21,<0.13.0"]
 build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "app"
+module-root = ""

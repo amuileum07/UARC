@@ -1,4 +1,56 @@
-# Simulation engine
+# Desktop host and simulation engine
+
+## Setup and desktop entry point
+
+From the `backend/` directory:
+
+```bash
+uv sync --locked
+uv run uarc --help
+```
+
+The project installs `app/` directly and exposes `uarc` through `app.main:main`.
+FastAPI/Uvicorn have been replaced with pywebview. Linux installs the PySide6
+renderer automatically; Windows and macOS use pywebview's platform dependencies.
+Windows also needs its WebView2 runtime; platform details are in the
+[pywebview installation guide](https://pywebview.flowrl.com/guide/installation.html).
+
+The React/Vite application has not been implemented yet. Once a local Vite
+server or built frontend is available, launch it inside the desktop window:
+
+```bash
+uv run uarc --dev-url http://localhost:5173
+uv run uarc --frontend ../frontend/dist/index.html
+```
+
+Without options, the launcher looks for `frontend/dist/index.html` in this
+checkout. A missing build produces an explicit error rather than an empty
+window. Use `--frontend` to supply assets when running an installed wheel.
+Distributable executable packaging and actual GUI rendering still require
+separate verification on each target OS.
+
+## Desktop bridge
+
+`app/bridge.py` exposes only `validate_config(kind, payload_json)` for now;
+`kind` is `environment`, `motor`, `rocket`, or `flight`. Job execution, status,
+and persistence are not implemented. The frontend helper in
+`frontend/src/lib/bridge.ts` waits for `pywebviewready`, sends JSON text, and
+propagates validation errors as rejected promises:
+
+```typescript
+const config = await validateConfig("environment", {
+  latitude: 35.57, longitude: 129.18, elevation: 53,
+});
+```
+
+The bridge uses Pydantic's JSON validation mode so JavaScript arrays populate
+tuple fields, including inertia and curves, without weakening strict Python
+validation. `engine.py` and `schemas.py` are unchanged by the desktop migration:
+neither module depends on FastAPI or pywebview. Native RocketPy objects remain
+inside Python. Numerical work will run in a separate process when job management
+is implemented; the GUI loop stays on the main thread.
+
+## Simulation engine
 
 `app/simulation/engine.py` assembles caller-supplied RocketPy models and runs a
 single flight. It contains no preset rocket, motor, launch location, or data-file
@@ -138,6 +190,18 @@ print(summary)
 cd backend
 .venv/bin/python -m unittest discover -s tests -v
 ```
+
+From the repository root, Node.js 22.20+ can run the bridge tests without npm
+dependencies (TypeScript syntax is stripped for this runtime check):
+
+```bash
+node --experimental-strip-types --test frontend/src/lib/bridge.test.mjs
+```
+
+Desktop tests exercise bridge validation and launcher wiring without opening a
+window. Frontend tests cover bridge readiness, JSON transport, Python errors,
+and use outside the desktop host. They do not replace a future TypeScript build
+or native GUI test.
 
 Tests use synthetic hardware and offline weather. They compare actual flight
 results with native RocketPy, exercise all four motor types, and check early

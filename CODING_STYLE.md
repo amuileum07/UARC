@@ -11,7 +11,7 @@ All new contributions and refactorings must adhere to these standards.
 1. **Separation of Concerns**
    * **Data Validation & DTOs**: Handled exclusively by `schemas.py` (Pydantic V2).
    * **Hardware Assembly & Numerical Solvers**: Handled exclusively by `engine.py` (RocketPy wrapper).
-   * **API & Routing**: Handled by `api.py` and `main.py` (FastAPI).
+   * **Desktop Boundary & Lifecycle**: Handled by `bridge.py` and `main.py` (pywebview); simulations belong in separate worker processes.
    * **Persistence**: Handled by `storage.py`.
 
 2. **Explicit Over Implicit**
@@ -31,7 +31,7 @@ All new contributions and refactorings must adhere to these standards.
 
 ## 2. Data Schemas & DTOs (`app/schemas.py`)
 
-Models in `schemas.py` serve as the single source of truth for API serialization, request validation, and reproducibility snapshots (`input.json`).
+Models in `schemas.py` serve as the single source of truth for bridge serialization, input validation, and reproducibility snapshots (`input.json`). The bridge validates JSON text with `model_validate_json` or `TypeAdapter.validate_json`, so JavaScript arrays can populate tuple fields without weakening strict Python validation.
 
 ### 2.1 Pure Serializable DTO Rule
 
