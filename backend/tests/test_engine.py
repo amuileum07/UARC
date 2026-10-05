@@ -8,13 +8,16 @@ from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 from rocketpy import (
     CylindricalTank, Flight, Fluid, GenericMotor, HybridMotor, LiquidMotor,
     MassBasedTank, NoseCone, SolidMotor, TrapezoidalFins,
 )
 
-from app.schemas import EnvironmentConfig, FlightConfig, MotorConfig, RocketConfig
+from app.schemas import (
+    EnvironmentConfig, FlightConfig, GenericMotorConfig, HybridMotorConfig,
+    LiquidMotorConfig, MotorConfig, ParachuteConfig, RocketConfig, SolidMotorConfig,
+)
 from app.simulation.engine import (
     build_environment, build_motor, build_rocket, run_simulation, summarize_flight,
 )
@@ -55,21 +58,26 @@ def rocket_parameters():
         radius=0.025, mass=1.2, inertia=(0.08, 0.08, 0.002),
         power_off_drag=0.5, power_on_drag=0.4, center_of_mass_without_motor=0,
         motor_position=-0.45,
-        surfaces=[
-            (NoseCone(length=0.2, kind="conical", base_radius=0.025), 0.7),
-            (TrapezoidalFins(n=4, root_chord=0.12, tip_chord=0.05,
-                             span=0.08, rocket_radius=0.025), -0.35),
-        ],
         parachutes=[dict(name="recovery", cd_s=0.3, trigger="apogee", lag=0.1)],
         rail_buttons=dict(upper_button_position=-0.1, lower_button_position=-0.35),
     )
 
 
+def surface_fixture():
+    return [
+        (NoseCone(length=0.2, kind="conical", base_radius=0.025), 0.7),
+        (TrapezoidalFins(n=4, root_chord=0.12, tip_chord=0.05,
+                         span=0.08, rocket_radius=0.025), -0.35),
+    ]
+
+
 class GeneralEngineTests(unittest.TestCase):
     def setUp(self):
         self.environment = build_environment(EnvironmentConfig(latitude=0, longitude=0, elevation=120))
-        self.motor = build_motor(MotorConfig(motor_type="generic", parameters=motor_parameters()))
-        self.rocket = build_rocket(self.motor, RocketConfig(**rocket_parameters()))
+        self.motor = build_motor(GenericMotorConfig(**motor_parameters()))
+        self.rocket = build_rocket(
+            self.motor, RocketConfig(**rocket_parameters()), surfaces=surface_fixture(),
+        )
 
     def run_flight(self, **options):
         return run_simulation(self.rocket, self.environment, FlightConfig(
@@ -116,20 +124,26 @@ class GeneralEngineTests(unittest.TestCase):
         baseline = self.run_flight(terminate_on_apogee=True)
         parameters = rocket_parameters()
         parameters["mass"] = 1.6
-        heavier = build_rocket(self.motor, RocketConfig(**parameters))
+        heavier = build_rocket(self.motor, RocketConfig(**parameters), surfaces=surface_fixture())
         changed = run_simulation(heavier, self.environment, FlightConfig(
             rail_length=1.5, inclination=85, heading=0, terminate_on_apogee=True
         ))
         self.assertLess(changed.apogee, baseline.apogee)
 
     def test_all_motor_types_can_fly(self):
-        for kind, expected in (("generic", GenericMotor), ("solid", SolidMotor),
-                               ("liquid", LiquidMotor), ("hybrid", HybridMotor)):
+        for kind, model, expected in (
+            ("generic", GenericMotorConfig, GenericMotor),
+            ("solid", SolidMotorConfig, SolidMotor),
+            ("liquid", LiquidMotorConfig, LiquidMotor),
+            ("hybrid", HybridMotorConfig, HybridMotor),
+        ):
             with self.subTest(kind=kind):
                 tanks = [(tank_fixture(), 0.1)] if kind in {"liquid", "hybrid"} else []
-                motor = build_motor(MotorConfig(motor_type=kind, tanks=tanks, parameters=motor_parameters(kind)))
+                config = model(**motor_parameters(kind))
+                motor = build_motor(config, tanks=tanks)
                 self.assertIsInstance(motor, expected)
-                rocket = build_rocket(motor, RocketConfig(**rocket_parameters()))
+                self.assertEqual(config.model_dump_json(), model.model_validate_json(config.model_dump_json()).model_dump_json())
+                rocket = build_rocket(motor, RocketConfig(**rocket_parameters()), surfaces=surface_fixture())
                 flight = run_simulation(rocket, self.environment, FlightConfig(
                     rail_length=1.5, inclination=85, heading=0, terminate_on_apogee=True
                 ))
@@ -137,7 +151,9 @@ class GeneralEngineTests(unittest.TestCase):
 
     def test_resume_uses_the_previous_flights_final_state(self):
         partial = self.run_flight(max_time=0.5)
-        resumed = self.run_flight(initial_solution=partial, terminate_on_apogee=True)
+        resumed = self.run_flight(
+            initial_solution=tuple(partial.solution[-1]), terminate_on_apogee=True,
+        )
         self.assertEqual(resumed.t_initial, partial.t_final)
         np.testing.assert_allclose(resumed.solution[0], partial.solution[-1])
         self.assertEqual(summarize_flight(resumed)["termination_reason"], "apogee")
@@ -147,14 +163,14 @@ class GeneralEngineTests(unittest.TestCase):
             path = Path(directory) / "wind.csv"
             path.write_text("0,0\n1000,10\n")
             env = build_environment(EnvironmentConfig(
-                latitude=0, longitude=0, elevation=120, wind_u=path,
+                latitude=0, longitude=0, elevation=120, wind_u=str(path),
                 temperature=[(0, 290), (1000, 280)],
             ))
             self.assertAlmostEqual(env.wind_velocity_x(500), 5)
             self.assertAlmostEqual(env.temperature(500), 285)
             self.assertLess(env.pressure(1000), env.pressure(0))
         with self.assertRaisesRegex(ValueError, "Could not read") as error:
-            build_environment(EnvironmentConfig(latitude=0, longitude=0, elevation=0, wind_u=path))
+            build_environment(EnvironmentConfig(latitude=0, longitude=0, elevation=0, wind_u=str(path)))
         self.assertIsInstance(error.exception.__cause__, FileNotFoundError)
         with self.assertRaises(ValueError):
             build_environment(EnvironmentConfig(latitude=0, longitude=0, elevation=0, wind_u=[(1000, 0), (0, 10)]))
@@ -198,9 +214,11 @@ class GeneralEngineTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     build_rocket(self.motor, RocketConfig(**args))
         with self.assertRaises(ValueError):
-            build_motor(MotorConfig(motor_type="liquid", parameters=motor_parameters("liquid")))
+            build_motor(LiquidMotorConfig(**motor_parameters("liquid")))
         with self.assertRaises(ValueError):
-            build_motor(MotorConfig(motor_type="generic", parameters={
+            build_motor(GenericMotorConfig(**motor_parameters()), tanks=[(tank_fixture(), 0.1)])
+        with self.assertRaises(ValueError):
+            build_motor(GenericMotorConfig(**{
                 **motor_parameters(), "misspelled_parameter": 1,
             }))
 
@@ -210,21 +228,55 @@ class GeneralEngineTests(unittest.TestCase):
         self.assertEqual(error.exception.errors()[0]["loc"], ("radius",))
         for overrides in ({"chamber_height": None}, {"grain_number": 1}):
             with self.subTest(overrides=overrides), self.assertRaises(ValidationError):
-                MotorConfig(motor_type="generic", parameters={
+                GenericMotorConfig(**{
                     **motor_parameters(), **overrides,
                 })
         parameters = motor_parameters()
         del parameters["chamber_radius"]
         with self.assertRaises(ValidationError):
-            MotorConfig(motor_type="generic", parameters=parameters)
+            GenericMotorConfig(**parameters)
 
     def test_omitted_motor_parameters_keep_native_defaults(self):
         parameters = motor_parameters()
         del parameters["dry_inertia"]
-        motor = build_motor(MotorConfig(motor_type="generic", parameters=parameters))
+        motor = build_motor(GenericMotorConfig(**parameters))
         self.assertEqual(motor.dry_I_11, 0)
         self.assertEqual(motor.dry_I_22, 0)
         self.assertEqual(motor.dry_I_33, 0)
+
+    def test_schemas_round_trip_as_json_and_expose_json_schema(self):
+        configs = [
+            EnvironmentConfig(latitude=0, longitude=0, elevation=120,
+                              date=(2026, 10, 5, 12), wind_u=[(0, 0), (1000, 10)]),
+            RocketConfig(**rocket_parameters()),
+            FlightConfig(rail_length=1.5, inclination=85, heading=0),
+        ]
+        for config in configs:
+            with self.subTest(model=type(config).__name__):
+                encoded = config.model_dump_json()
+                restored = type(config).model_validate_json(encoded)
+                self.assertEqual(encoded, restored.model_dump_json())
+                json.dumps(type(config).model_json_schema(), allow_nan=False)
+        adapter = TypeAdapter(MotorConfig)
+        config = GenericMotorConfig(**motor_parameters())
+        self.assertIsInstance(adapter.validate_json(config.model_dump_json()), GenericMotorConfig)
+        self.assertEqual(adapter.json_schema()["discriminator"]["propertyName"], "motor_type")
+
+    def test_runtime_objects_are_not_accepted_as_dto_fields(self):
+        with self.assertRaises(ValidationError):
+            RocketConfig(**rocket_parameters(), surfaces=surface_fixture())
+        with self.assertRaises(ValidationError):
+            EnvironmentConfig(latitude=0, longitude=0, elevation=0, wind_u=lambda h: h / 100)
+        with self.assertRaises(ValidationError):
+            FlightConfig(rail_length=1.5, inclination=85, heading=0, initial_solution=self.run_flight(max_time=0.1))
+        with self.assertRaises(ValidationError):
+            ParachuteConfig(name="custom", cd_s=0.3, trigger=lambda *args: False)
+
+    def test_invalid_solver_results_are_not_exposed_as_success(self):
+        with patch("app.simulation.engine.Flight") as flight_class:
+            flight_class.return_value.solution = [[float("nan")] * 14]
+            with self.assertRaisesRegex(RuntimeError, "invalid flight solution"):
+                self.run_flight()
 
 
 if __name__ == "__main__":

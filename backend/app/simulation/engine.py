@@ -1,13 +1,22 @@
 """Assemble validated RocketPy inputs and compute flights without HTTP or storage."""
 
+from collections.abc import Sequence
 from copy import deepcopy
 from math import isfinite
 from typing import Any
 
 import numpy as np
-from rocketpy import Environment, Flight, HybridMotor, LiquidMotor, Motor, Rocket
+from rocketpy import (
+    AeroSurface, Environment, Flight, GenericMotor, HybridMotor, LiquidMotor,
+    Motor, Rocket, SolidMotor, Tank,
+)
 
-from app.schemas import EnvironmentConfig, FlightConfig, MOTOR_TYPES, MotorConfig, RocketConfig
+from app.schemas import EnvironmentConfig, FlightConfig, MotorConfig, RocketConfig
+
+MOTOR_TYPES = {
+    "solid": SolidMotor, "liquid": LiquidMotor,
+    "hybrid": HybridMotor, "generic": GenericMotor,
+}
 
 
 def build_environment(config: EnvironmentConfig) -> Environment:
@@ -32,16 +41,25 @@ def build_environment(config: EnvironmentConfig) -> Environment:
     return env
 
 
-def build_motor(config: MotorConfig) -> Motor:
+def build_motor(config: MotorConfig, *, tanks: Sequence[tuple[Tank, float]] = ()) -> Motor:
     """Create caller-defined hardware, including tanks for liquid/hybrid motors."""
-    motor = MOTOR_TYPES[config.motor_type](**config.parameters.model_dump(exclude_unset=True))
+    motor = MOTOR_TYPES[config.motor_type](**config.model_dump(exclude={"motor_type"}))
     if isinstance(motor, (LiquidMotor, HybridMotor)):
-        for tank, position in config.tanks:
+        if not tanks:
+            raise ValueError("Liquid and hybrid motors require configured tanks.")
+        for tank, position in tanks:
             motor.add_tank(deepcopy(tank), position)
+    elif tanks:
+        raise ValueError("Tanks are supported only for liquid and hybrid motors.")
     return motor
 
 
-def build_rocket(motor: Motor | None, config: RocketConfig) -> Rocket:
+def build_rocket(
+    motor: Motor | None,
+    config: RocketConfig,
+    *,
+    surfaces: Sequence[tuple[AeroSurface, float | tuple[float, float, float]]] = (),
+) -> Rocket:
     """Assemble the body, positioned surfaces, recovery system, and rail buttons.
 
     Body mass/inertia exclude the entire motor. Surface positions use the rocket
@@ -49,11 +67,11 @@ def build_rocket(motor: Motor | None, config: RocketConfig) -> Rocket:
     sensors/controllers/air brakes can be attached to the returned Rocket.
     """
     rocket = Rocket(**config.model_dump(exclude={
-        "motor_position", "surfaces", "parachutes", "rail_buttons",
+        "motor_position", "parachutes", "rail_buttons",
     }))
     if motor is not None:
         rocket.add_motor(deepcopy(motor), position=config.motor_position)
-    for surface, position in config.surfaces:
+    for surface, position in surfaces:
         rocket.add_surfaces(deepcopy(surface), position)
     for parachute in config.parachutes:
         rocket.add_parachute(**parachute.model_dump())
@@ -69,9 +87,12 @@ def run_simulation(rocket: Rocket, environment: Environment, config: FlightConfi
     callbacks remain the caller's responsibility; do not mutate a shared
     environment during/after a run. max_time is simulated time, not a timeout.
     """
-    if not isinstance(rocket, Rocket) or not isinstance(environment, Environment):
-        raise TypeError("rocket and environment must be RocketPy objects.")
-    flight = Flight(rocket=deepcopy(rocket), environment=environment, **config.model_dump())
+    options = config.model_dump(exclude={"max_time_step"})
+    flight = Flight(
+        rocket=deepcopy(rocket), environment=environment,
+        max_time_step=config.max_time_step if config.max_time_step is not None else float("inf"),
+        **options,
+    )
     solution = np.asarray(flight.solution, dtype=float)
     if solution.ndim != 2 or solution.shape[1] != 14 or not np.isfinite(solution).all():
         raise RuntimeError("RocketPy returned an invalid flight solution.")
