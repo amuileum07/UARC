@@ -73,48 +73,56 @@ Bridge methods will submit jobs and return run IDs promptly; the UI will poll th
 
 The tables describe the target stack. Blank versions indicate planned dependencies whose versions have not been selected.
 
+Python requirements are the published `Requires-Python` constraints for the listed package versions, checked on 2026-10-10. They describe installation constraints, not a guarantee that every newer Python release has been tested. `N/A` marks JavaScript/TypeScript libraries, `Follows interpreter` marks Python standard-library modules, and `TBD` marks Python dependencies whose versions have not been selected. The uv row refers to its PyPI installation requirement; its standalone CLI does not require Python to run.
+
 ### Libraries
 
 #### Frontend
-| Library / Technology | Version | Purpose |
-|:--|:--|:--|
-| React | | Core UI component library |
-| TypeScript | | Static type checking and safety |
-| Vite | | Frontend build tool and development server |
-| shadcn/ui | | Accessible and customizable UI components |
-| Tailwind CSS | | Utility-first CSS styling framework |
-| React Hook Form | | Form state management and input handling |
-| Zod | | Schema validation and form data parsing |
-| Plotly.js / react-plotly.js | | Interactive 2D/3D flight trajectory and telemetry plotting |
-| pywebview JS API | | Promise-based Python calls and simulation status polling through `bridge.ts` |
+
+| Library / Technology | Version | Python requirement | Purpose |
+|:--|:--|:--|:--|
+| React | | N/A | Core UI component library |
+| TypeScript | | N/A | Static type checking and safety |
+| Vite | | N/A | Frontend build tool and development server |
+| shadcn/ui | | N/A | Accessible and customizable UI components |
+| Tailwind CSS | | N/A | Utility-first CSS styling framework |
+| React Hook Form | | N/A | Form state management and input handling |
+| Zod | | N/A | Schema validation and form data parsing |
+| Plotly.js / react-plotly.js | | N/A | Interactive 2D/3D flight trajectory and telemetry plotting |
+| pywebview JS API | | Follows pywebview host | Promise-based Python calls and simulation status polling through `bridge.ts` |
 
 #### Desktop & Simulation
-| Library / Technology | Version | Purpose |
-|:--|:--|:--|
-| Python | 3.13.5 | Desktop host and simulation execution runtime |
-| uv | 0.12.21 | Fast Python package and environment manager |
-| pywebview | 6.2.1 | Native desktop window, JavaScript–Python bridge, and file dialogs |
-| PySide6 | 6.11.2 | Qt/WebEngine renderer installed automatically on Linux |
-| Pydantic | 2.13.5 | Data validation and settings management |
-| RocketPy | 1.13.0 | 6-DoF trajectory and rocket dynamics simulation |
-| NumPy | 2.5.3 | Numerical computation and vectorized array data processing |
-| Python Multiprocessing | stdlib | Dedicated simulation worker processes managed by the desktop host |
-| RocketSerializer | | Open OpenRocket file (.ork) |
+
+| Library / Technology | Version | Python requirement | Purpose |
+|:--|:--|:--|:--|
+| Python | 3.13.5 | Project minimum: `>=3.13` | Desktop host and simulation execution runtime |
+| uv | [0.12.21](https://pypi.org/project/uv/0.12.21/) | `>=3.8` (PyPI install) | Fast Python package and environment manager |
+| pywebview | [6.2.1](https://pypi.org/project/pywebview/6.2.1/) | `>=3.8` | Native desktop window, JavaScript–Python bridge, and file dialogs |
+| PySide6 | [6.11.2](https://pypi.org/project/PySide6/6.11.2/) | `>=3.10, <3.15` | Qt/WebEngine renderer installed automatically on Linux |
+| Pydantic | [2.13.5](https://pypi.org/project/pydantic/2.13.5/) | `>=3.9` | Data validation and settings management |
+| RocketPy | [1.13.0](https://pypi.org/project/rocketpy/1.13.0/) | `>=3.10` | 6-DoF trajectory and rocket dynamics simulation |
+| NumPy | [2.5.3](https://pypi.org/project/numpy/2.5.3/) | `>=3.12` | Numerical computation and vectorized array data processing |
+| Python Multiprocessing | stdlib | Follows interpreter | Dedicated simulation worker processes managed by the desktop host |
+| RocketSerializer | | TBD | Open OpenRocket file (.ork) |
+
+For the current Linux setup, the project minimum (`>=3.13`) and locked PySide6 requirement (`<3.15`) limit Python to the 3.13 or 3.14 series. The verified UARC environment uses Python 3.13.5; this constraint intersection does not establish runtime compatibility with 3.14.
 
 #### Storage & Data Management
-| Technology / Format | Version | Purpose |
-|:--|:--|:--|
-| JSON | stdlib | Simulation configurations and rocket parameter files |
-| NumPy File (.npy / .npz) | 2.5.3 | High-volume trajectory and simulation telemetry array storage |
-| SQLite | stdlib (3.x) | Simulation run history, metadata, and session management |
+
+| Technology / Format | Version | Python requirement | Purpose |
+|:--|:--|:--|:--|
+| JSON | stdlib | Follows interpreter | Simulation configurations and rocket parameter files |
+| NumPy File (.npy / .npz) | 2.5.3 | `>=3.12` (NumPy) | High-volume trajectory and simulation telemetry array storage |
+| SQLite | stdlib (3.x) | Follows interpreter (`sqlite3`) | Simulation run history, metadata, and session management |
 
 #### Planned Additions
-| Library / Technology | Version | Purpose |
-|:--|:--|:--|
-| Three.js | | 3D rocket model and trajectory visualization |
-| TanStack Query | | Asynchronous bridge result caching and polling, if needed |
-| Dockview | | IDE-style dockable panel layout for engineering UI |
-| Desktop Packager (PyInstaller / py2app) | | Bundle Python and frontend assets; select and test per target OS |
+
+| Library / Technology | Version | Python requirement | Purpose |
+|:--|:--|:--|:--|
+| Three.js | | N/A | 3D rocket model and trajectory visualization |
+| TanStack Query | | N/A | Asynchronous bridge result caching and polling, if needed |
+| Dockview | | N/A | IDE-style dockable panel layout for engineering UI |
+| Desktop Packager (PyInstaller / py2app) | | TBD | Bundle Python and frontend assets; select and test per target OS |
 
 Desktop distribution also depends on the target platform's [webview runtime](https://pywebview.flowrl.com/guide/web_engine) and [packaging setup](https://pywebview.flowrl.com/guide/freezing). Renderer compatibility and packaged builds must be tested on each supported OS.
 
