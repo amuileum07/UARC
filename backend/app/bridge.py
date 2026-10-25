@@ -1,6 +1,7 @@
 """Small JSON boundary exposed to the desktop UI through pywebview."""
 
 import json
+from pathlib import Path
 from threading import BoundedSemaphore
 from typing import Literal
 
@@ -8,18 +9,35 @@ from pydantic import TypeAdapter
 
 from app.design import compile_design
 from app.schemas import (
+    DesignPreview,
+    DesignReport,
     EnvironmentConfig,
     FlightConfig,
+    FlightSummary,
+    ImportedFile,
     MotorConfig,
+    OpenRocketImport,
+    OpenRocketOptions,
     RocketConfig,
     RocketDesign,
+    RunRecord,
+    SavedDesignRecord,
     SimulationConfig,
     TelemetryQuery,
+    TelemetryResult,
 )
 from app.simulation.jobs import JobManager
 from app.storage import MAX_PAYLOAD_BYTES
 
-ConfigKind = Literal["environment", "motor", "rocket", "flight", "simulation", "design"]
+ConfigKind = Literal[
+    "environment",
+    "motor",
+    "rocket",
+    "flight",
+    "simulation",
+    "design",
+    "openrocket_options",
+]
 _CONFIG_ADAPTERS = {
     "environment": TypeAdapter(EnvironmentConfig),
     "motor": TypeAdapter(MotorConfig),
@@ -27,6 +45,17 @@ _CONFIG_ADAPTERS = {
     "flight": TypeAdapter(FlightConfig),
     "simulation": TypeAdapter(SimulationConfig),
     "design": TypeAdapter(RocketDesign),
+    "openrocket_options": TypeAdapter(OpenRocketOptions),
+}
+_RESULT_MODELS = {
+    "run": RunRecord,
+    "summary": FlightSummary,
+    "telemetry": TelemetryResult,
+    "design_report": DesignReport,
+    "design_preview": DesignPreview,
+    "saved_design": SavedDesignRecord,
+    "imported_file": ImportedFile,
+    "openrocket": OpenRocketImport,
 }
 
 
@@ -75,6 +104,12 @@ class DesktopBridge:
         except KeyError as error:
             raise ValueError(f"Unknown configuration kind: {kind}") from error
 
+    def get_result_schema(self, kind: str) -> dict:
+        try:
+            return _RESULT_MODELS[kind].model_json_schema()
+        except KeyError as error:
+            raise ValueError(f"Unknown result kind: {kind}") from error
+
     def submit_simulation(self, payload_json: str) -> dict:
         self._check_payload(payload_json)
         config = SimulationConfig.model_validate_json(payload_json)
@@ -107,6 +142,44 @@ class DesktopBridge:
 
     def get_design_report(self, run_id: str) -> dict:
         return self._manager().get_design_report(run_id)
+
+    def save_design(self, payload_json: str) -> dict:
+        self._check_payload(payload_json)
+        return self._manager().save_design(
+            RocketDesign.model_validate_json(payload_json)
+        )
+
+    def get_saved_design(self, design_id: str) -> dict:
+        return self._manager().get_saved_design(design_id)
+
+    def list_designs(self, limit: int = 50, offset: int = 0) -> list[dict]:
+        return self._manager().list_designs(limit, offset)
+
+    def select_input_file(self) -> dict | None:
+        """Only a file explicitly selected in the native dialog may enter inputs/."""
+        import webview
+
+        selected = webview.windows[0].create_file_dialog(
+            webview.FileDialog.OPEN, allow_multiple=False
+        )
+        return self._manager().import_file(Path(selected[0])) if selected else None
+
+    def import_openrocket(self, asset_path: str, options_json: str) -> dict:
+        self._check_payload(options_json)
+        options = OpenRocketOptions.model_validate_json(options_json)
+        return self._manager().import_openrocket(asset_path, options)
+
+    def export_csv(self, run_id: str) -> str | None:
+        """A native save dialog authorizes the destination; existing files survive."""
+        import webview
+
+        self._manager().get_summary(run_id)
+        selected = webview.windows[0].create_file_dialog(
+            webview.FileDialog.SAVE, save_filename=f"{run_id}.csv"
+        )
+        if not selected:
+            return None
+        return str(self._manager().export_csv(run_id, Path(selected[0])))
 
     def rerun(self, run_id: str) -> dict:
         return self._manager().rerun(run_id)

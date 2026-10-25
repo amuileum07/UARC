@@ -36,10 +36,15 @@ def frontend_entrypoint(
             raise ValueError("The development URL must be a local HTTP server.")
         return dev_url
 
+    asset_root = (
+        Path(sys._MEIPASS)
+        if getattr(sys, "frozen", False)
+        else Path(__file__).resolve().parents[2]
+    )
     entry = (
         frontend
         if frontend is not None
-        else (Path(__file__).resolve().parents[2] / "frontend" / "dist" / "index.html")
+        else (asset_root / "frontend" / "dist" / "index.html")
     )
     entry = entry.expanduser().resolve()
     if not entry.is_file():

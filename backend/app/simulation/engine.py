@@ -30,6 +30,7 @@ from rocketpy import (
 from app.schemas import (
     EnvironmentConfig,
     FlightConfig,
+    FlightSummary,
     MotorConfig,
     NoseConeConfig,
     RocketConfig,
@@ -222,7 +223,7 @@ def summarize_flight(flight: Flight) -> dict[str, Any]:
         reason = "stopped"
     solution = np.asarray(flight.solution_array, dtype=float)
     maximum_altitude = _result_number(np.max(solution[:, 3]))
-    return {
+    summary = {
         "name": flight.name,
         "initial_mass_kg": _result_number(flight.rocket.total_mass(flight.t_initial)),
         "final_mass_kg": _result_number(flight.rocket.total_mass(flight.t_final)),
@@ -257,6 +258,7 @@ def summarize_flight(flight: Flight) -> dict[str, Any]:
             for time, parachute in flight.parachute_events
         ],
     }
+    return FlightSummary.model_validate(summary).model_dump(mode="json")
 
 
 def build_simulation(config: SimulationConfig) -> tuple[Rocket, Environment]:

@@ -167,6 +167,13 @@ Reject empty and time-reversed solutions as well as invalid shapes/non-finite da
 * The host owns SQLite writes and locks the data directory. Snapshot authorized
   local input files before queuing, and publish completion only after result files.
 * Preserve numerical extrema and event samples when reducing chart data.
+* Keep result contracts in `schemas.py` alongside inputs. Result JSON Schema is
+  exposed through the bridge; do not weaken strict input validation for JavaScript.
+* Standalone designs are immutable snapshots with their own copied input assets.
+  CLI/native dialogs authorize local file import and export; arbitrary bridge
+  paths do not grant filesystem access. Preserve existing export destinations.
+* External importers must bound archive/XML input and reject unsupported physical
+  features explicitly. Use declared mappings and reference fixtures.
 
 ---
 

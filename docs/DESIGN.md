@@ -112,13 +112,21 @@ compute attachment-point torque or a separate suspended-body dynamics model.
 
 ## Persistence and replay
 
+`save_design` stores a new immutable design snapshot independently of simulation
+history. `list_designs` and `get_saved_design` enumerate/load these snapshots.
+Each save creates a new `design_id`; edits never replace earlier snapshots.
+Referenced local files are copied into `designs/<design-id>/` and remain usable
+after the originals are removed. The file CLI is `uv run uarc-data`; see the
+[backend usage guide](../backend/README.md#design-files-external-inputs-and-exports).
+
 `submit_design` compiles the design, snapshots accepted local files, and saves
 `design.json`, `design_report.json`, and the derived `input.json` in a new run.
 The worker receives only solver inputs and keeps all flight objects locally.
 
 `get_design(run_id)` returns an editable model whose file references point to
 saved input assets. Such assets may be copied into a subsequent run; metadata
-files and arbitrary paths remain disallowed. Editing/re-submitting never changes
+files and arbitrary paths remain disallowed. Copied assets of known standalone
+saved designs can also be reused. Editing/re-submitting never changes
 the original run. `rerun(run_id)` reuses frozen solver inputs with a new run ID;
 edit and submit the design to recalculate mass properties instead. Live weather
 provider responses are not frozen by local-file snapshots.

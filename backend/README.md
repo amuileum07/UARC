@@ -41,14 +41,15 @@ exit with status 1. The same scheduler and storage serve the GUI bridge.
 Without options, the launcher looks for `frontend/dist/index.html` in this
 checkout. A missing build produces an explicit error rather than an empty
 window. Use `--frontend` to supply assets when running an installed wheel.
-Distributable executable packaging and actual GUI rendering still require
-separate verification on each target OS.
+Build scripts support Python distributions and PyInstaller folder bundles.
+See [packaging and platform verification](../docs/PACKAGING.md). Actual GUI
+rendering still requires frontend assets and a graphical session on each target OS.
 
 ## Desktop bridge
 
 `app/bridge.py` exposes validation, simulation jobs, and stored results;
-`kind` is `environment`, `motor`, `rocket`, `flight`, or `simulation`.
-Parametric component inputs additionally use `kind="design"`.
+`kind` is `environment`, `motor`, `rocket`, `flight`, `simulation`, `design`,
+or `openrocket_options`.
 The existing frontend helper in
 `frontend/src/lib/bridge.ts` waits for `pywebviewready`, sends JSON text, and
 propagates validation errors as rejected promises:
@@ -68,6 +69,7 @@ inside the worker process. The GUI loop stays on the main thread.
 | Bridge method | Result |
 | --- | --- |
 | `get_config_schema(kind)` | JSON Schema for an input model |
+| `get_result_schema(kind)` | JSON Schema for run, summary, telemetry, design report/preview, saved design, imported file, or OpenRocket import results |
 | `validate_config(kind, payload_json)` | Validated JSON-compatible config |
 | `submit_simulation(payload_json)` | Queued run record, including `run_id` |
 | `preview_design(payload_json)` | Derived solver input and component/assembly mass report |
@@ -80,6 +82,12 @@ inside the worker process. The GUI loop stays on the main thread.
 | `cancel_run(run_id)` | Updated record; running jobs pass through `cancelling` |
 | `get_summary(run_id)` | Small summary for a succeeded run |
 | `get_telemetry(run_id, query_json="{}")` | Bounded rows for selected columns and time range |
+| `save_design(payload_json)` | New immutable saved-design record, without running a flight |
+| `get_saved_design(design_id)` | Load an independently saved editable design |
+| `list_designs(limit=50, offset=0)` | Newest-first saved designs |
+| `select_input_file()` | Native open dialog; copy the selected file into inputs; cancellation returns null |
+| `import_openrocket(asset_path, options_json)` | Validated component design plus conversion warnings |
+| `export_csv(run_id)` | Native save dialog; stream all telemetry rows to a new CSV; cancellation returns null |
 
 `SimulationConfig` combines `environment`, `motor` (or `null` for an unpowered
 flight), `rocket`, and `flight`, with optional `surfaces` and `tanks`.
@@ -107,6 +115,13 @@ const telemetry = await api.get_telemetry(run.run_id, JSON.stringify({
 
 The React job UI is not implemented yet. `bridge.ts` wraps input validation,
 design preview/submission, saved design/report loading, and replay requests.
+It remains a partial JSON adapter. No frontend files are needed for the Python
+bridge to expose its complete API. Result models (`RunRecord`, `FlightSummary`,
+`TelemetryResult`, `DesignReport`, `DesignPreview`, etc.) live in `schemas.py`;
+their JSON Schemas supply the future frontend's field/type contracts.
+
+Result-schema kinds are `run`, `summary`, `telemetry`, `design_report`,
+`design_preview`, `saved_design`, `imported_file`, and `openrocket`.
 
 ## Numeric component design
 
@@ -132,6 +147,39 @@ solver input and copied files. `get_design()` returns a model that can be edited
 and submitted again even after its original local files are removed. A replay
 uses a new run ID and never overwrites prior results. Flight summaries include
 initial/final mass and CG for the complete rocket, including motor and propellant.
+
+## Design files, external inputs, and exports
+
+From `backend/`:
+
+```bash
+uv run uarc-data --data-dir ../data save-design ../examples/design.json
+uv run uarc-data --data-dir ../data list-designs
+uv run uarc-data --data-dir ../data load-design DESIGN_ID --output ../data/edited-design.json
+uv run uarc-data --data-dir ../data import-file /path/to/thrust.csv
+uv run uarc-data --data-dir ../data list-runs
+uv run uarc-data --data-dir ../data summary RUN_ID
+uv run uarc-data --data-dir ../data telemetry RUN_ID --query '{"columns":["time_s","z_asl_m"],"max_points":2000}'
+uv run uarc-data --data-dir ../data export-csv RUN_ID ../data/flight.csv
+```
+
+`DESIGN_ID` and `RUN_ID` are the 32-character identifiers returned by the
+corresponding save/run commands. `get_design(run_id)` still retrieves a run's
+design; `get_saved_design(design_id)` retrieves an independent design snapshot.
+Saving an edit creates a new ID and preserves the prior design. Files referenced
+by a saved design are copied alongside it, so removing the source input does not
+break future editing or simulation. The importer returns an opaque relative asset
+path: use its `path` value in file-valued input fields.
+
+Exports preserve existing destination files and stream full telemetry in bounded
+chunks without chart decimation. JSON commands print to stdout unless `--output`
+is available and supplied. These file/history commands own the data directory:
+close a desktop host using that directory before running them. A running desktop
+uses its bridge for equivalent operations instead.
+
+For `.ork` conversion and its explicit support limits, see
+[OpenRocket import](../docs/OPENROCKET.md). Python's standard XML/ZIP/gzip modules
+handle conversion; Java and RocketSerializer are not runtime requirements.
 
 ## Scheduling, storage, and resource limits
 
@@ -166,11 +214,13 @@ SQLite contains metadata only. Each `runs/<run-id>/` directory contains
 stage/error diagnostics and copied input files may also be present. A completion
 marker is published only after results are saved, and the scheduler additionally
 requires a successful worker exit. Failed or cancelled runs do not expose results.
-Existing published runs are never overwritten. Partial files are retained for
-inspection; automatic retention/deletion is not implemented.
+Existing published runs and saved designs are never overwritten. Partial files
+are retained for inspection; there is no automatic retention/deletion policy.
+Independent saved designs live under `designs/<design-id>/` with `design.json`
+and their own copied input assets. SQLite indexes their names and creation times.
 
 JSON requests are limited to 2 MiB. Local file references must resolve to regular
-files inside `<data-dir>/inputs/` or copied input assets of known runs; relative
+files inside `<data-dir>/inputs/` or copied input assets of known runs/saved designs; relative
 paths are resolved under `inputs/`. Run metadata files cannot be used as assets. Accepted
 files are copied into the run directory at submission, with a combined 64 MiB
 limit and a check for source changes during copying. Provider identifiers such
@@ -188,6 +238,17 @@ scan buffers are bounded, but a wide time range still scans its source rows;
 very large interactive histories may need precomputed multiresolution data.
 RocketPy still keeps full integration histories in a worker's RAM, so memory
 mapping does not eliminate the solver's memory cost.
+
+Run an isolated, repeatable workload measurement with:
+
+```bash
+uv run python scripts/benchmark_backend.py ../examples/design.json --design --runs 4 --workers 2
+```
+
+The report includes success/failure counts, throughput, sampled Linux RSS,
+host status-query latency, and the sample-window size. P95 covers the last
+10,000 queries; the maximum covers the whole run. This measures backend queries,
+not GUI rendering. Temporary benchmark history is removed after measurement.
 
 ## Simulation engine
 

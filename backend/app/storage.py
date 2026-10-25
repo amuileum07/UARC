@@ -1,5 +1,6 @@
 """Single-owner run metadata and immutable, atomically published result files."""
 
+import csv
 import json
 import os
 import re
@@ -17,8 +18,11 @@ import numpy as np
 from app.schemas import (
     TELEMETRY_COLUMNS,
     RocketDesign,
+    RunRecord,
+    SavedDesignRecord,
     SimulationConfig,
     TelemetryQuery,
+    TelemetryResult,
 )
 
 TERMINAL_STATES = frozenset(
@@ -28,7 +32,16 @@ MAX_PAYLOAD_BYTES = 2 * 1024**2
 MAX_INPUT_FILE_BYTES = 64 * 1024**2
 
 
-def atomic_json(path: Path, value: object) -> None:
+def _sync_directory(directory: Path) -> None:
+    if os.name != "nt":
+        descriptor = os.open(directory, os.O_RDONLY)
+        try:
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+
+
+def atomic_json(path: Path, value: object, *, overwrite: bool = True) -> None:
     """Publish a complete JSON file; failed writes leave the old file intact."""
     temporary = None
     try:
@@ -44,13 +57,11 @@ def atomic_json(path: Path, value: object) -> None:
             json.dump(value, stream, allow_nan=False, separators=(",", ":"))
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(temporary, path)
-        if os.name != "nt":
-            descriptor = os.open(path.parent, os.O_RDONLY)
-            try:
-                os.fsync(descriptor)
-            finally:
-                os.close(descriptor)
+        if overwrite:
+            os.replace(temporary, path)
+        else:
+            os.link(temporary, path)
+        _sync_directory(path.parent)
     finally:
         if temporary is not None:
             temporary.unlink(missing_ok=True)
@@ -95,8 +106,10 @@ class RunStore:
         self.directory.mkdir(parents=True, exist_ok=True)
         self.runs = self.directory / "runs"
         self.inputs = self.directory / "inputs"
+        self.designs = self.directory / "designs"
         self.runs.mkdir(exist_ok=True)
         self.inputs.mkdir(exist_ok=True)
+        self.designs.mkdir(exist_ok=True)
         self._lock = RLock()
         self._read_slots = BoundedSemaphore(2)
         self._closed = False
@@ -142,6 +155,13 @@ class RunStore:
                     "CREATE INDEX IF NOT EXISTS runs_created ON runs (created_at DESC, run_id)"
                 )
                 self._db.execute(
+                    "CREATE TABLE IF NOT EXISTS designs (design_id TEXT PRIMARY KEY, "
+                    "name TEXT NOT NULL, created_at TEXT NOT NULL)"
+                )
+                self._db.execute(
+                    "CREATE INDEX IF NOT EXISTS designs_created ON designs (created_at DESC, design_id)"
+                )
+                self._db.execute(
                     "UPDATE runs SET state='interrupted', stage='interrupted', "
                     "finished_at=?, error='Application exited before completion.' "
                     "WHERE state IN ('queued', 'running', 'cancelling')",
@@ -154,17 +174,32 @@ class RunStore:
             raise
 
     def run_directory(self, run_id: str) -> Path:
+        return self._document_directory(self.runs, run_id, "run")
+
+    @staticmethod
+    def _document_directory(root: Path, run_id: str, kind: str) -> Path:
         if not isinstance(run_id, str) or len(run_id) != 32:
-            raise ValueError("Invalid run ID.")
+            raise ValueError(f"Invalid {kind} ID.")
         try:
             if UUID(hex=run_id).hex != run_id:
-                raise ValueError("Invalid run ID.")
+                raise ValueError(f"Invalid {kind} ID.")
         except ValueError as error:
-            raise ValueError("Invalid run ID.") from error
-        path = (self.runs / run_id).resolve()
-        if path.parent != self.runs:
-            raise ValueError("Run directory must remain inside the data directory.")
+            raise ValueError(f"Invalid {kind} ID.") from error
+        path = (root / run_id).resolve()
+        if path.parent != root:
+            raise ValueError(
+                "Document directory must remain inside the data directory."
+            )
         return path
+
+    @staticmethod
+    def _editable_payload(design: RocketDesign, payload: dict) -> dict:
+        editable = design.model_dump(mode="json")
+        for field in ("environment", "motor", "tanks"):
+            editable[field] = payload[field]
+        for field in ("power_off_drag", "power_on_drag"):
+            editable[field] = payload["rocket"][field]
+        return editable
 
     def create(
         self,
@@ -192,11 +227,7 @@ class RunStore:
             self._snapshot_files(payload, directory)
             atomic_json(directory / "input.json", payload)
             if design is not None:
-                editable = design.model_dump(mode="json")
-                for field in ("environment", "motor", "tanks"):
-                    editable[field] = payload[field]
-                for field in ("power_off_drag", "power_on_drag"):
-                    editable[field] = payload["rocket"][field]
+                editable = self._editable_payload(design, payload)
                 atomic_json(directory / "design.json", editable)
                 atomic_json(directory / "design_report.json", report)
             with self._lock, self._db:
@@ -210,6 +241,110 @@ class RunStore:
             raise
         return run_id
 
+    def save_design(self, design: RocketDesign, config: SimulationConfig) -> dict:
+        """Save a new immutable design snapshot without creating a simulation run."""
+        if len(design.model_dump_json().encode("utf-8")) > MAX_PAYLOAD_BYTES:
+            raise ValueError("Design input exceeds the 2 MiB payload limit.")
+        design_id = uuid4().hex
+        directory = self._document_directory(self.designs, design_id, "design")
+        directory.mkdir()
+        record = SavedDesignRecord(
+            design_id=design_id,
+            name=design.name,
+            created_at=datetime.now(UTC).isoformat(),
+        ).model_dump(mode="json")
+        try:
+            payload = config.model_dump(mode="json")
+            self._snapshot_files(payload, directory)
+            atomic_json(
+                directory / "design.json", self._editable_payload(design, payload)
+            )
+            with self._lock, self._db:
+                self._db.execute(
+                    "INSERT INTO designs (design_id, name, created_at) VALUES (?, ?, ?)",
+                    (design_id, record["name"], record["created_at"]),
+                )
+        except Exception:
+            shutil.rmtree(directory)
+            raise
+        return record
+
+    def get_saved_design(self, design_id: str) -> dict:
+        directory = self._document_directory(self.designs, design_id, "design")
+        with self._lock:
+            if (
+                self._db.execute(
+                    "SELECT 1 FROM designs WHERE design_id=?", (design_id,)
+                ).fetchone()
+                is None
+            ):
+                raise ValueError("Unknown design ID.")
+        return read_json(directory / "design.json")
+
+    def list_designs(self, limit: int = 50, offset: int = 0) -> list[dict]:
+        self._pagination(limit, offset)
+        with self._lock:
+            return [
+                dict(row)
+                for row in self._db.execute(
+                    "SELECT * FROM designs ORDER BY created_at DESC, design_id LIMIT ? OFFSET ?",
+                    (limit, offset),
+                ).fetchall()
+            ]
+
+    def import_file(self, source: Path) -> dict:
+        """Copy a CLI- or native-dialog-selected file into the authorized input root."""
+        source = source.expanduser().resolve(strict=True)
+        if not source.is_file():
+            raise ValueError("Select a regular input file.")
+        suffix = source.suffix.lower()
+        suffix = suffix if re.fullmatch(r"\.[a-z0-9]{1,12}", suffix) else ""
+        destination = self.inputs / f"{uuid4().hex}{suffix}"
+        temporary = None
+        try:
+            with (
+                source.open("rb") as reader,
+                tempfile.NamedTemporaryFile(dir=self.inputs, delete=False) as writer,
+            ):
+                temporary = Path(writer.name)
+                before = os.fstat(reader.fileno())
+                size = 0
+                while chunk := reader.read(65_536):
+                    size += len(chunk)
+                    if size > MAX_INPUT_FILE_BYTES:
+                        raise ValueError("Input file exceeds the 64 MiB limit.")
+                    writer.write(chunk)
+                after = os.fstat(reader.fileno())
+                if (before.st_size, before.st_mtime_ns) != (
+                    after.st_size,
+                    after.st_mtime_ns,
+                ):
+                    raise ValueError("An input file changed while it was being copied.")
+                writer.flush()
+                os.fsync(writer.fileno())
+            os.link(temporary, destination)
+            _sync_directory(destination.parent)
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
+        return {
+            "path": destination.name,
+            "original_name": source.name,
+            "size_bytes": size,
+        }
+
+    def input_path(self, name: str) -> Path:
+        """Resolve an already-authorized asset, never arbitrary bridge paths."""
+        if not isinstance(name, str) or not name:
+            raise ValueError("An input asset path is required.")
+        source = Path(name)
+        if not source.is_absolute():
+            source = self.inputs / source
+        source = source.resolve(strict=True)
+        if not self._authorized_input(source):
+            raise ValueError("Input path is outside the authorized data directory.")
+        return source
+
     def _authorized_input(self, source: Path) -> bool:
         if not source.is_file():
             return False
@@ -222,6 +357,14 @@ class RunStore:
         ):
             self.get(source.parent.name)
             return self.run_directory(source.parent.name) == source.parent
+        if source.parent.parent == self.designs and re.fullmatch(
+            r"input-\d+(?:\.[^/]+)?", source.name
+        ):
+            self.get_saved_design(source.parent.name)
+            return (
+                self._document_directory(self.designs, source.parent.name, "design")
+                == source.parent
+            )
         return False
 
     def _snapshot_files(self, payload: dict, directory: Path) -> None:
@@ -288,13 +431,10 @@ class RunStore:
             ).fetchone()
         if row is None:
             raise ValueError("Unknown run ID.")
-        return dict(row)
+        return RunRecord.model_validate(dict(row)).model_dump(mode="json")
 
     def list_runs(self, limit: int = 50, offset: int = 0) -> list[dict]:
-        if type(limit) is not int or not 1 <= limit <= 1000:
-            raise ValueError("limit must be an integer between 1 and 1000.")
-        if type(offset) is not int or not 0 <= offset <= 2**31 - 1:
-            raise ValueError("offset must be a nonnegative 32-bit integer.")
+        self._pagination(limit, offset)
         with self._lock:
             # OFFSET scans preceding metadata rows; use cursor pagination if
             # histories grow large enough for deep pages to become expensive.
@@ -302,7 +442,16 @@ class RunStore:
                 "SELECT * FROM runs ORDER BY created_at DESC, run_id LIMIT ? OFFSET ?",
                 (limit, offset),
             ).fetchall()
-        return [dict(row) for row in rows]
+        return [
+            RunRecord.model_validate(dict(row)).model_dump(mode="json") for row in rows
+        ]
+
+    @staticmethod
+    def _pagination(limit: int, offset: int) -> None:
+        if type(limit) is not int or not 1 <= limit <= 1000:
+            raise ValueError("limit must be an integer between 1 and 1000.")
+        if type(offset) is not int or not 0 <= offset <= 2**31 - 1:
+            raise ValueError("offset must be a nonnegative 32-bit integer.")
 
     def update(
         self,
@@ -427,15 +576,62 @@ class RunStore:
                                 high = maximum
                         required.update((low, high))
                 indices = sorted(required)
-            return {
-                "columns": query.columns,
-                "data": data[indices][:, columns].tolist(),
-                "total_rows": len(data),
-                "matched_rows": count,
-                "returned_rows": len(indices),
-                "decimated": count > len(indices),
-            }
+            return TelemetryResult.model_validate(
+                {
+                    "columns": query.columns,
+                    "data": data[indices][:, columns].tolist(),
+                    "total_rows": len(data),
+                    "matched_rows": count,
+                    "returned_rows": len(indices),
+                    "decimated": count > len(indices),
+                }
+            ).model_dump(mode="json")
         finally:
+            self._read_slots.release()
+
+    def export_csv(self, run_id: str, destination: Path) -> Path:
+        """Stream full telemetry, publishing a new file only after a successful write."""
+        self.get_summary(run_id)
+        destination = destination.expanduser().absolute()
+        if destination.exists():
+            raise FileExistsError(
+                "Choose a new export filename; existing files are preserved."
+            )
+        if not self._read_slots.acquire(blocking=False):
+            raise RuntimeError(
+                "Too many telemetry reads; retry after a request completes."
+            )
+        temporary = None
+        try:
+            data = np.load(
+                self.run_directory(run_id) / "telemetry.npy",
+                mmap_mode="r",
+                allow_pickle=False,
+            )
+            if data.ndim != 2 or data.shape[1] != len(TELEMETRY_COLUMNS):
+                raise RuntimeError("Stored telemetry has an invalid shape.")
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                newline="",
+                dir=destination.parent,
+                delete=False,
+            ) as stream:
+                temporary = Path(stream.name)
+                writer = csv.writer(stream)
+                writer.writerow(TELEMETRY_COLUMNS)
+                for start in range(0, len(data), 65_536):
+                    writer.writerows(data[start : start + 65_536])
+                stream.flush()
+                os.fsync(stream.fileno())
+            # A hard link publishes atomically and refuses an existing destination,
+            # including one created after the initial existence check.
+            os.link(temporary, destination)
+            _sync_directory(destination.parent)
+            return destination
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
             self._read_slots.release()
 
     def close(self) -> None:

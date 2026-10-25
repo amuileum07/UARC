@@ -7,6 +7,7 @@ import numpy as np
 
 from app.schemas import (
     BodyTubeDesign,
+    DesignReport,
     EllipticalFinsConfig,
     MassComponentDesign,
     NoseConeConfig,
@@ -343,4 +344,4 @@ def compile_design(design: RocketDesign) -> tuple[SimulationConfig, dict]:
             "A CG override shifts the effective CG without reconstructing component masses.",
         ],
     }
-    return config, report
+    return config, DesignReport.model_validate(report).model_dump(mode="json")

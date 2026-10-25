@@ -23,7 +23,10 @@ frontend/dist/
 !.env.example
 
 # Runtime simulation data & database
-data/uarc.sqlite3
+data/uarc.sqlite3*
+data/.owner.lock
+data/inputs/
+data/designs/
 data/runs/*
 !data/runs/.gitkeep
 

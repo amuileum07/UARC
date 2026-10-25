@@ -5,7 +5,7 @@ The project focuses on ease of use and high-fidelity simulation as development g
 
 The target application combines a React interface with a [pywebview desktop window and JavaScript–Python bridge](https://pywebview.flowrl.com/guide/interdomain). The UI calls Python through `window.pywebview.api`, so the local simulation workflow does not require a FastAPI/Uvicorn API service. An HTTP API can be added later if browser access or remote computation becomes a requirement.
 
-**Development status:** The RocketPy engine, serializable simulation inputs, desktop launcher, bounded process scheduler, cancellation, run history, result storage, and telemetry queries are implemented. The backend also runs without a GUI through `uv run python -m app.simulation ../examples/simulation.json` from `backend/`. The React UI, OpenRocket import, and executable packaging remain planned. See [backend/README.md](./backend/README.md) for setup, resource limits, bridge methods, and examples.
+**Development status:** The RocketPy engine, typed input/result schemas, desktop launcher, bounded process scheduler, cancellation, run history, result storage, and telemetry queries are implemented. Editable designs can be saved independently of simulations; input-file import, CSV export, and bounded single-stage OpenRocket import are available through the backend. Run without a GUI using `uv run python -m app.simulation ../examples/simulation.json` or manage files with `uv run uarc-data --help` from `backend/`. The React UI remains planned. Executable build scripts and their platform verification scope are documented in [docs/PACKAGING.md](./docs/PACKAGING.md). See [backend/README.md](./backend/README.md) for setup, resource limits, bridge methods, and examples.
 
 Numeric component designs now support material density, wall/plate thickness,
 positions, continuous Haack nose profiles, automatic mass/CG/inertia, and measured
@@ -20,28 +20,30 @@ During development, the pywebview window will load the Vite development server. 
 
 ```text
 UARC/
-├── frontend/                      # React + TypeScript + Vite
+├── frontend/                      # React + TypeScript + Vite [planned; bridge exists]
 │   ├── src/
-│   │   ├── main.tsx               # React entry point
-│   │   ├── App.tsx                # Application layout and feature composition
-│   │   ├── features/
+│   │   ├── main.tsx               # React entry point [planned]
+│   │   ├── App.tsx                # Application layout and feature composition [planned]
+│   │   ├── features/              # Feature screens [planned]
 │   │   │   ├── rocket/            # Rocket and motor inputs, .ork import UI
 │   │   │   ├── environment/       # Launch site, atmosphere, and wind settings
 │   │   │   ├── simulation/        # Run requests, status, and history
 │   │   │   └── results/           # Trajectory and telemetry charts, result views
-│   │   ├── components/
+│   │   ├── components/            # Reusable interface components [planned]
 │   │   │   └── ui/                # Shared UI components, including shadcn/ui
 │   │   ├── lib/
-│   │   │   └── bridge.ts          # Typed Python calls, pywebview readiness, and error handling
-│   │   └── styles.css             # Tailwind and global styles
+│   │   │   └── bridge.ts          # JSON calls, pywebview readiness; UI/result types pending
+│   │   └── styles.css             # Tailwind and global styles [planned]
 │   ├── dist/                      # Generated frontend assets bundled with the desktop app
-│   ├── index.html
-│   ├── package.json
-│   ├── tsconfig.json
-│   └── vite.config.ts
+│   ├── index.html                 # [planned]
+│   ├── package.json               # [planned]
+│   ├── tsconfig.json              # [planned]
+│   └── vite.config.ts             # [planned]
 ├── backend/                       # pywebview desktop host + Python simulation processes
 │   ├── app/
+│   │   ├── __main__.py            # Early freeze support and GUI/headless dispatch
 │   │   ├── main.py                # Main-thread GUI startup, window creation, and shutdown
+│   │   ├── cli.py                 # Design files, input import, history, and CSV export
 │   │   ├── config.py              # App settings, frontend asset paths, and user data location
 │   │   ├── bridge.py              # JSON validation, submission, status, cancellation, and results
 │   │   ├── schemas.py             # Serializable Pydantic input, result, and configuration models
@@ -52,15 +54,22 @@ UARC/
 │   │   │   ├── __main__.py        # Headless JSON simulation command
 │   │   │   └── engine.py          # RocketPy model construction and result conversion
 │   │   ├── importers/
-│   │   │   └── openrocket.py      # .ork conversion using RocketSerializer
+│   │   │   └── openrocket.py      # Bounded XML/ZIP/gzip .ork-to-design conversion
 │   │   └── storage.py             # SQLite and per-run file access
 │   ├── tests/                     # Bridge, simulation, file conversion, and storage tests
 │   │   └── fixtures/              # Small, reproducible test inputs
+│   ├── scripts/
+│   │   ├── build_desktop.py       # PyInstaller desktop/backend folder bundles
+│   │   ├── smoke_bundle.py        # Execute a bundle's file/solver/cancellation checks
+│   │   └── benchmark_backend.py   # Worker throughput, RSS, and host query latency
 │   └── pyproject.toml             # Python dependencies and tool configuration
 ├── examples/                      # Small rocket and environment examples tracked in Git
 ├── docs/                          # Input units, bridge contracts, and simulation model documentation
-├── data/                          # Runtime layout; packaged apps use a writable user data directory
-│   ├── uarc.sqlite3               # Run status, history, and result paths
+├── data/                          # Example runtime root; opt in with --data-dir
+│   ├── uarc.sqlite3               # Run/design metadata and history
+│   ├── inputs/                    # Explicitly imported local files
+│   ├── designs/
+│   │   └── <design-id>/           # Immutable design.json and copied input assets
 │   └── runs/
 │       └── <run-id>/
 │           ├── input.json         # Input snapshot for reproducing the run
@@ -69,6 +78,7 @@ UARC/
 │           ├── summary.json       # Summary results, such as apogee
 │           ├── telemetry.npy      # Full state history, readable through a memory map
 │           ├── runtime.json       # Python and numerical package versions
+│           ├── progress.json      # Worker stage; error.json accompanies failures
 │           └── complete.json      # Published only after result files are saved
 ├── Licenses/                      # Third-party licenses
 ├── .gitignore
@@ -77,6 +87,8 @@ UARC/
 ```
 
 Python package `__init__.py` files and detailed tool-generated configuration files are omitted from the tree. `backend/uv.lock` records the desktop dependencies. The `backend/app/` package is installed directly; the former `backend/src/backend/` template has been removed.
+
+Both development and installed launches default to the platform's writable user data directory, outside this checkout. `--data-dir ../data` selects the example layout above. Runtime inputs, saved designs, and results are ignored by Git. Backend linting/formatting uses Ruff; checks and tests are documented in [CODING_STYLE.md](./CODING_STYLE.md).
 
 Bridge methods submit jobs and return run IDs; the UI can poll status and request bounded result slices. Each simulation runs in a disposable `spawn` process, while the GUI event loop stays on the main thread. The default is one running worker plus eight pending slots. Only the host updates SQLite; workers publish result files atomically. See the pywebview [bridge documentation](https://pywebview.flowrl.com/guide/interdomain) and [threading FAQ](https://pywebview.flowrl.com/guide/faq).
 
@@ -114,7 +126,7 @@ Python requirements are the published `Requires-Python` constraints for the list
 | RocketPy | [1.13.0](https://pypi.org/project/rocketpy/1.13.0/) | `>=3.10` | 6-DoF trajectory and rocket dynamics simulation |
 | NumPy | [2.5.3](https://pypi.org/project/numpy/2.5.3/) | `>=3.12` | Numerical computation and vectorized array data processing |
 | Python Multiprocessing | stdlib | Follows interpreter | Dedicated simulation worker processes managed by the desktop host |
-| RocketSerializer | | TBD | Open OpenRocket file (.ork) |
+| OpenRocket importer | stdlib | Follows interpreter | Convert supported single-stage `.ork` designs without Java; see [support limits](./docs/OPENROCKET.md) |
 
 For the current Linux setup, the project minimum (`>=3.13`) and locked PySide6 requirement (`<3.15`) limit Python to the 3.13 or 3.14 series. The verified UARC environment uses Python 3.13.5; this constraint intersection does not establish runtime compatibility with 3.14.
 
@@ -133,9 +145,12 @@ For the current Linux setup, the project minimum (`>=3.13`) and locked PySide6 r
 | Three.js | | N/A | 3D rocket model and trajectory visualization |
 | TanStack Query | | N/A | Asynchronous bridge result caching and polling, if needed |
 | Dockview | | N/A | IDE-style dockable panel layout for engineering UI |
-| Desktop Packager (PyInstaller / py2app) | | TBD | Bundle Python and frontend assets; select and test per target OS |
+| PyInstaller (build tool) | 6.14.2 | `>=3.8, <3.14` | Folder-bundle recipe implemented; build and verify on each target OS |
 
 Desktop distribution also depends on the target platform's [webview runtime](https://pywebview.flowrl.com/guide/web_engine) and [packaging setup](https://pywebview.flowrl.com/guide/freezing). Renderer compatibility and packaged builds must be tested on each supported OS.
+
+See [docs/VALIDATION.md](./docs/VALIDATION.md) for the measured backend workload,
+regression checks, bundle verification, and the limits of that evidence.
 
 ## Contributors
 

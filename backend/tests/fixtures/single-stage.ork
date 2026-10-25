@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<openrocket version="1.10" creator="UARC synthetic fixture">
+  <rocket>
+    <name>Synthetic OpenRocket import</name>
+    <subcomponents>
+      <stage>
+        <name>Sustainer</name>
+        <subcomponents>
+          <nosecone>
+            <name>Haack nose</name>
+            <length>0.2</length><aftradius>auto</aftradius>
+            <shape>haack</shape><shapeparameter>0.1</shapeparameter>
+            <thickness>0.001</thickness>
+            <material type="bulk" density="1200">Synthetic polymer</material>
+          </nosecone>
+          <bodytube>
+            <name>Body</name><length>0.6</length><radius>0.025</radius>
+            <thickness>0.001</thickness>
+            <material type="bulk" density="1200">Synthetic polymer</material>
+            <subcomponents>
+              <trapezoidfinset>
+                <name>Fins</name><position type="bottom">0</position>
+                <fincount>4</fincount><rootchord>0.12</rootchord>
+                <tipchord>0.05</tipchord><height>0.08</height>
+                <sweeplength>0.035</sweeplength><thickness>0.002</thickness>
+                <cant>0</cant><crosssection>square</crosssection>
+                <material type="bulk" density="600">Synthetic fin stock</material>
+              </trapezoidfinset>
+              <masscomponent>
+                <name>Payload</name><axialoffset method="top">0.125</axialoffset>
+                <packedlength>0.15</packedlength><packedradius>0.015</packedradius>
+                <mass>1</mass>
+              </masscomponent>
+              <parachute>
+                <name>Recovery</name><axialoffset method="top">0.06</axialoffset>
+                <packedlength>0.08</packedlength><packedradius>0.02</packedradius>
+                <material type="surface" density="0.1">Synthetic fabric</material>
+                <diameter>0.6</diameter><cd>1.4</cd>
+                <linecount>5</linecount><linelength>1</linelength>
+                <linematerial type="line" density="0.002">Synthetic line</linematerial>
+                <deployevent>apogee</deployevent><deploydelay>0.1</deploydelay>
+              </parachute>
+            </subcomponents>
+          </bodytube>
+        </subcomponents>
+      </stage>
+    </subcomponents>
+  </rocket>
+</openrocket>

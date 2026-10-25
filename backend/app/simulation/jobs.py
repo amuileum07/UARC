@@ -13,7 +13,13 @@ from threading import Condition, Lock, Thread
 from time import monotonic
 
 from app.design import compile_design
-from app.schemas import RocketDesign, SimulationConfig, TelemetryQuery
+from app.importers.openrocket import import_openrocket
+from app.schemas import (
+    OpenRocketOptions,
+    RocketDesign,
+    SimulationConfig,
+    TelemetryQuery,
+)
 from app.simulation.worker import run_worker
 from app.storage import TERMINAL_STATES, RunStore, read_json
 
@@ -125,6 +131,30 @@ class JobManager:
 
     def get_design_report(self, run_id: str) -> dict:
         return self._store.get_design_report(run_id)
+
+    def save_design(self, design: RocketDesign) -> dict:
+        design = RocketDesign.model_validate_json(design.model_dump_json())
+        config, _ = compile_design(design)
+        with self._condition:
+            if self._closing or self._closed or self._fatal is not None:
+                raise RuntimeError("The simulation manager is closed or unavailable.")
+            return self._store.save_design(design, config)
+
+    def get_saved_design(self, design_id: str) -> dict:
+        return self._store.get_saved_design(design_id)
+
+    def list_designs(self, limit: int = 50, offset: int = 0) -> list[dict]:
+        return self._store.list_designs(limit, offset)
+
+    def import_file(self, source: Path) -> dict:
+        return self._store.import_file(source)
+
+    def import_openrocket(self, name: str, options: OpenRocketOptions) -> dict:
+        source = self._store.input_path(name)
+        return import_openrocket(source, options).model_dump(mode="json")
+
+    def export_csv(self, run_id: str, destination: Path) -> Path:
+        return self._store.export_csv(run_id, destination)
 
     def rerun(self, run_id: str) -> dict:
         if self._store.get(run_id)["state"] not in TERMINAL_STATES:

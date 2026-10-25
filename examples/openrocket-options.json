@@ -1,0 +1,19 @@
+{
+  "environment": {"latitude": 0, "longitude": 0, "elevation": 120},
+  "flight": {
+    "rail_length": 1.5, "inclination": 85, "heading": 0,
+    "max_time": 60, "max_time_step": 0.05
+  },
+  "power_off_drag": 0.5,
+  "power_on_drag": 0.4,
+  "motor": {
+    "motor_type": "generic",
+    "thrust_source": [[0, 0], [0.05, 60], [0.9, 60], [1, 0]],
+    "burn_time": 1,
+    "chamber_radius": 0.018, "chamber_height": 0.12, "chamber_position": 0.07,
+    "propellant_initial_mass": 0.1,
+    "nozzle_radius": 0.01, "dry_mass": 0.15,
+    "dry_inertia": [0.001, 0.001, 0.0001]
+  },
+  "motor_position": 0
+}

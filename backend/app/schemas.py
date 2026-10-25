@@ -644,3 +644,142 @@ class RocketDesign(EngineConfig):
         if needs_tanks != bool(self.tanks):
             raise ValueError("Only liquid/hybrid motors require and accept tanks.")
         return self
+
+
+RunState = Literal[
+    "queued",
+    "running",
+    "cancelling",
+    "succeeded",
+    "failed",
+    "cancelled",
+    "timed_out",
+    "interrupted",
+]
+
+
+class RunRecord(EngineConfig):
+    run_id: Annotated[str, Field(pattern=r"^[0-9a-f]{32}$")]
+    state: RunState
+    stage: str
+    created_at: str
+    started_at: str | None
+    finished_at: str | None
+    worker_pid: Annotated[int, Field(gt=0)] | None
+    peak_rss_bytes: Annotated[int, Field(ge=0)]
+    error: str | None
+
+
+class ParachuteEvent(EngineConfig):
+    name: str
+    trigger_time_s: Number
+
+
+class FlightSummary(EngineConfig):
+    name: str
+    initial_mass_kg: Positive
+    final_mass_kg: Positive
+    initial_center_of_mass_m: Number
+    final_center_of_mass_m: Number
+    termination_reason: Literal["impact", "apogee", "time_limit", "stopped"]
+    apogee_reached: bool
+    landed: bool
+    start_time_s: Number
+    end_time_s: Number
+    duration_s: NonNegative
+    apogee_asl_m: Number | None
+    apogee_agl_m: Number | None
+    apogee_time_s: Number | None
+    max_altitude_asl_m: Number
+    max_altitude_agl_m: Number
+    max_speed_m_s: NonNegative
+    max_speed_time_s: Number
+    impact_x_m: Number | None
+    impact_y_m: Number | None
+    impact_speed_m_s: NonNegative | None
+    parachute_events: list[ParachuteEvent]
+
+
+class TelemetryResult(EngineConfig):
+    columns: list[str]
+    data: list[list[Number]]
+    total_rows: Annotated[int, Field(ge=0)]
+    matched_rows: Annotated[int, Field(ge=0)]
+    returned_rows: Annotated[int, Field(ge=0)]
+    decimated: bool
+
+    @model_validator(mode="after")
+    def consistent_rows(self):
+        if not self.returned_rows <= self.matched_rows <= self.total_rows:
+            raise ValueError("Invalid telemetry row counts.")
+        if len(self.data) != self.returned_rows or any(
+            len(row) != len(self.columns) for row in self.data
+        ):
+            raise ValueError("Telemetry rows must match the declared dimensions.")
+        return self
+
+
+class MassProperties(EngineConfig):
+    mass_kg: Positive
+    center_of_mass_m: Number
+    inertia_kg_m2: Annotated[list[Number], Field(min_length=6, max_length=6)]
+
+
+class ComponentMassProperties(MassProperties):
+    id: str
+    name: str
+    mass_source: Literal["computed", "measured", "provided"]
+    outline_z_radius_m: list[Annotated[list[Number], Field(min_length=2, max_length=2)]]
+    effective_length_m: Positive | None
+
+
+class MassPropertySources(EngineConfig):
+    mass: Literal["computed", "measured"]
+    center_of_mass: Literal["computed", "measured"]
+    inertia: Literal["computed", "measured"]
+
+
+class DesignReport(EngineConfig):
+    schema_version: Literal[1] = 1
+    scope: Literal["airframe_without_motor"]
+    coordinate_system: Literal["tail_to_nose"]
+    automatic: MassProperties
+    effective: MassProperties
+    sources: MassPropertySources
+    components: list[ComponentMassProperties]
+    notes: list[str]
+
+
+class DesignPreview(EngineConfig):
+    simulation: SimulationConfig
+    mass_properties: DesignReport
+
+
+class SavedDesignRecord(EngineConfig):
+    design_id: Annotated[str, Field(pattern=r"^[0-9a-f]{32}$")]
+    name: str
+    created_at: str
+
+
+class ImportedFile(EngineConfig):
+    path: str
+    original_name: str
+    size_bytes: Annotated[int, Field(ge=0)]
+
+
+class OpenRocketOptions(EngineConfig):
+    """Explicit UARC simulation settings, not inferred from an OpenRocket flight."""
+
+    environment: EnvironmentConfig
+    flight: FlightConfig
+    power_off_drag: NonNegativeCurve
+    power_on_drag: NonNegativeCurve
+    motor: MotorConfig | None = None
+    motor_position: Number = 0.0
+    tanks: list[MassBasedTankConfig] = Field(default_factory=list)
+    parachute_trigger: Literal["apogee"] | NonNegative | None = None
+
+
+class OpenRocketImport(EngineConfig):
+    design: RocketDesign
+    warnings: list[str]
