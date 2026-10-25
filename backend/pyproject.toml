@@ -25,3 +25,15 @@ build-backend = "uv_build"
 [tool.uv.build-backend]
 module-name = "app"
 module-root = ""
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+# Leave whitespace and line wrapping to the formatter.
+select = ["E4", "E7", "E9", "F", "I", "N", "UP", "B", "SIM"]
+
+[dependency-groups]
+dev = [
+    "ruff",
+]

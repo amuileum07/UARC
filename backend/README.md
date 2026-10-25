@@ -5,9 +5,13 @@
 From the `backend/` directory:
 
 ```bash
-uv sync --locked
+uv sync
 uv run uarc --help
 ```
+
+`uv sync` includes development dependencies such as Ruff and updates `uv.lock`
+when dependency declarations change. Commit the updated lockfile with dependency
+changes; use `uv sync --locked` when the lockfile must remain unchanged.
 
 The project installs `app/` directly and exposes `uarc` through `app.main:main`.
 FastAPI/Uvicorn have been replaced with pywebview. Linux installs the PySide6
@@ -88,45 +92,72 @@ hardware. Production inputs must come from the vehicle being modeled.
 ```python
 from rocketpy import NoseCone, TrapezoidalFins
 from app.schemas import (
-    EnvironmentConfig, FlightConfig, GenericMotorConfig, RocketConfig,
+    EnvironmentConfig,
+    FlightConfig,
+    GenericMotorConfig,
+    RocketConfig,
 )
 from app.simulation.engine import (
-    build_environment, build_motor, build_rocket,
-    run_simulation, summarize_flight,
+    build_environment,
+    build_motor,
+    build_rocket,
+    run_simulation,
+    summarize_flight,
 )
 
-environment = build_environment(EnvironmentConfig(
-    latitude=0, longitude=0, elevation=120,
-))
-motor = build_motor(GenericMotorConfig(
-    thrust_source=[(0, 0), (0.05, 60), (0.9, 60), (1, 0)],
-    burn_time=1,
-    chamber_radius=0.018,
-    chamber_height=0.12,
-    chamber_position=0.07,
-    propellant_initial_mass=0.1,
-    nozzle_radius=0.01,
-    dry_mass=0.15,
-    dry_inertia=(0.001, 0.001, 0.0001),
-))
-rocket = build_rocket(motor, RocketConfig(
-    radius=0.025,
-    mass=1.2,
-    inertia=(0.08, 0.08, 0.002),
-    power_off_drag=0.5,
-    power_on_drag=0.4,
-    center_of_mass_without_motor=0,
-    motor_position=-0.45,
-    parachutes=[dict(name="recovery", cd_s=0.3, trigger="apogee", lag=0.1)],
-), surfaces=[
-    (NoseCone(length=0.2, kind="conical", base_radius=0.025), 0.7),
-    (TrapezoidalFins(n=4, root_chord=0.12, tip_chord=0.05,
-                     span=0.08, rocket_radius=0.025), -0.35),
-])
-flight = run_simulation(rocket, environment, FlightConfig(
-    rail_length=1.5, inclination=85, heading=0,
-    max_time=60, max_time_step=0.05,
-))
+environment = build_environment(
+    EnvironmentConfig(
+        latitude=0,
+        longitude=0,
+        elevation=120,
+    )
+)
+motor = build_motor(
+    GenericMotorConfig(
+        thrust_source=[(0, 0), (0.05, 60), (0.9, 60), (1, 0)],
+        burn_time=1,
+        chamber_radius=0.018,
+        chamber_height=0.12,
+        chamber_position=0.07,
+        propellant_initial_mass=0.1,
+        nozzle_radius=0.01,
+        dry_mass=0.15,
+        dry_inertia=(0.001, 0.001, 0.0001),
+    )
+)
+rocket = build_rocket(
+    motor,
+    RocketConfig(
+        radius=0.025,
+        mass=1.2,
+        inertia=(0.08, 0.08, 0.002),
+        power_off_drag=0.5,
+        power_on_drag=0.4,
+        center_of_mass_without_motor=0,
+        motor_position=-0.45,
+        parachutes=[dict(name="recovery", cd_s=0.3, trigger="apogee", lag=0.1)],
+    ),
+    surfaces=[
+        (NoseCone(length=0.2, kind="conical", base_radius=0.025), 0.7),
+        (
+            TrapezoidalFins(
+                n=4, root_chord=0.12, tip_chord=0.05, span=0.08, rocket_radius=0.025
+            ),
+            -0.35,
+        ),
+    ],
+)
+flight = run_simulation(
+    rocket,
+    environment,
+    FlightConfig(
+        rail_length=1.5,
+        inclination=85,
+        heading=0,
+        max_time=60,
+        max_time_step=0.05,
+    ),
+)
 summary = summarize_flight(flight)
 print(summary)
 ```
@@ -183,6 +214,59 @@ print(summary)
   to the launch site's elevation. `max_*` values cover only the simulated interval.
   `termination_reason` is `impact`, `apogee`, `time_limit`, or `stopped`.
   `impact_speed_m_s` is the full velocity magnitude, not signed vertical velocity.
+
+## Code quality
+
+Ruff uses `pyproject.toml` to lint and format `app/` and `tests/`. Its formatter
+also handles supported Python examples in Markdown files. `uv.lock` records
+its installed version.
+See [CODING_STYLE.md](../CODING_STYLE.md) for the enabled rules and conventions.
+All commands below run from `backend/`; `.` means the current directory and its
+subdirectories. `uv run` uses the project's environment, so activating `.venv`
+or installing Ruff globally is unnecessary.
+
+| Command | Purpose | Edits files? |
+| --- | --- | --- |
+| `uv run ruff check .` | Report lint violations such as import ordering or suspicious code | No |
+| `uv run ruff check --fix .` | Apply supported safe lint fixes and report remaining violations | Yes |
+| `uv run ruff format .` | Normalize spacing, indentation, and line wrapping | Yes |
+| `uv run ruff format --check .` | Report files whose formatting would change | No |
+
+For a normal development pass, apply safe lint fixes first, then format:
+
+```bash
+uv run ruff check --fix .
+uv run ruff format .
+```
+
+If `check --fix` still reports violations, read them and correct the code
+manually; a nonzero exit status can mean that some fixes succeeded but others
+remain. `format` only changes formatting and does not resolve every lint rule.
+Review changes with `git diff`, then verify:
+
+```bash
+uv run ruff check .
+uv run ruff format --check .
+uv run python -m unittest discover -s tests -v
+```
+
+`All checks passed!` means linting passed. `files already formatted` means
+formatting passed. `files would be reformatted` means the check found formatting
+changes but did not apply them; run `uv run ruff format .` to apply them.
+If the formatting check prints a long diff, use
+`uv run ruff format --check . --output-format concise` for a shorter report.
+
+A lint diagnostic such as
+`app/schemas.py:24:48: B905 ...` identifies the file, line, column, and rule code.
+The `[*]` marker identifies a supported safe automatic fix. To read a rule's
+explanation, run `uv run ruff rule B905`, substituting the reported code.
+Do not enable `--unsafe-fixes` by default: those fixes may change behavior.
+
+To limit work to one file, replace `.` with its path, for example
+`uv run ruff check app/schemas.py` or `uv run ruff format app/schemas.py`.
+Lint and formatting checks do not execute the application; the unittest command
+checks runtime behavior. Before committing, review both the code changes and
+the test results. Keep later style fixes scoped to the code being changed.
 
 ## Verification
 

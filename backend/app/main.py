@@ -1,9 +1,9 @@
 """Desktop entry point; keep the GUI loop on the main thread."""
 
 import argparse
+import sys
 from multiprocessing import freeze_support
 from pathlib import Path
-import sys
 
 from app.bridge import DesktopBridge
 from app.config import frontend_entrypoint
@@ -24,7 +24,9 @@ def main() -> None:
     # Delay GUI imports so --help and input checks also work without a display.
     import webview
 
-    webview.create_window("UARC", url=entry, js_api=DesktopBridge(), width=1280, height=800)
+    webview.create_window(
+        "UARC", url=entry, js_api=DesktopBridge(), width=1280, height=800
+    )
     webview.start(gui="qt" if sys.platform == "linux" else None)
 
 

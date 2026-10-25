@@ -9,6 +9,7 @@ backend/.venv/
 dist/
 build/
 .pytest_cache/
+.ruff_cache/
 
 # Node / Frontend
 node_modules/

@@ -1,31 +1,41 @@
 """Desktop boundary and launcher checks that do not open a GUI."""
 
 import json
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from pydantic import ValidationError
+from test_engine import motor_parameters, rocket_parameters
 
 from app.bridge import DesktopBridge
 from app.config import frontend_entrypoint
 from app.main import main
-from app.schemas import EnvironmentConfig, FlightConfig, GenericMotorConfig, RocketConfig
-from test_engine import motor_parameters, rocket_parameters
+from app.schemas import (
+    EnvironmentConfig,
+    FlightConfig,
+    GenericMotorConfig,
+    RocketConfig,
+)
 
 
 class DesktopBridgeTests(unittest.TestCase):
     def test_javascript_arrays_validate_without_relaxing_dto_types(self):
         configs = {
             "environment": EnvironmentConfig(
-                latitude=0, longitude=0, elevation=120, date=(2026, 10, 5, 12),
+                latitude=0,
+                longitude=0,
+                elevation=120,
+                date=(2026, 10, 5, 12),
                 wind_u=[(0, 0), (1000, 10)],
             ),
             "motor": GenericMotorConfig(**motor_parameters()),
             "rocket": RocketConfig(**rocket_parameters()),
             "flight": FlightConfig(
-                rail_length=1.5, inclination=85, heading=360,
+                rail_length=1.5,
+                inclination=85,
+                heading=360,
                 initial_solution=(1, 0, 0, 150, 0, 0, 10, 1, 0, 0, 0, 0, 0, 0),
             ),
         }
@@ -40,7 +50,9 @@ class DesktopBridgeTests(unittest.TestCase):
     def test_invalid_bridge_payloads_raise_errors(self):
         bridge = DesktopBridge()
         for payload in (
-            "{broken", "{}", "[]",
+            "{broken",
+            "{}",
+            "[]",
             '{"latitude": true, "longitude": 0, "elevation": 0}',
             '{"latitude": "35", "longitude": 0, "elevation": 0}',
             '{"latitude": 0, "longitude": 0, "elevation": 0, "extra": 1}',
@@ -53,10 +65,18 @@ class DesktopBridgeTests(unittest.TestCase):
 
 class DesktopLauncherTests(unittest.TestCase):
     def test_development_url_accepts_only_local_http(self):
-        for url in ("http://localhost:5173", "http://127.0.0.1:5173/", "http://[::1]:5173"):
+        for url in (
+            "http://localhost:5173",
+            "http://127.0.0.1:5173/",
+            "http://[::1]:5173",
+        ):
             self.assertEqual(frontend_entrypoint(dev_url=url), url)
-        for url in ("https://example.com", "http://localhost.example.com", "file:///tmp/a.html",
-                    "http://user:password@localhost:5173"):
+        for url in (
+            "https://example.com",
+            "http://localhost.example.com",
+            "file:///tmp/a.html",
+            "http://user:password@localhost:5173",
+        ):
             with self.subTest(url=url), self.assertRaises(ValueError):
                 frontend_entrypoint(dev_url=url)
 

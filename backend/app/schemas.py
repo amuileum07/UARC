@@ -1,12 +1,18 @@
 """Serializable simulation inputs; RocketPy runtime objects belong in the engine."""
 
 from datetime import datetime
+from itertools import pairwise
 from math import isclose
 from typing import Annotated, Literal
 
 import numpy as np
 from pydantic import (
-    AfterValidator, BaseModel, ConfigDict, Field, field_validator, model_validator,
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
 )
 
 Number = Annotated[float, Field(strict=True, allow_inf_nan=False)]
@@ -16,7 +22,7 @@ NonNegative = Annotated[Number, Field(ge=0)]
 
 def _ordered_curve(value):
     if isinstance(value, list) and any(
-        left[0] >= right[0] for left, right in zip(value, value[1:])
+        left[0] >= right[0] for left, right in pairwise(value)
     ):
         raise ValueError("Curve coordinates must be strictly increasing.")
     return value
@@ -32,7 +38,9 @@ PositiveCurve = Annotated[
     AfterValidator(_ordered_curve),
 ]
 NonNegativeCurve = Annotated[
-    NonNegative | str | Annotated[list[tuple[Number, NonNegative]], Field(min_length=2)],
+    NonNegative
+    | str
+    | Annotated[list[tuple[Number, NonNegative]], Field(min_length=2)],
     AfterValidator(_ordered_curve),
 ]
 Inertia = (
@@ -40,7 +48,9 @@ Inertia = (
     | tuple[Number, Number, Number, Number, Number, Number]
 )
 BurnTime = Positive | tuple[NonNegative, Number] | None
-Tolerance = Positive | Annotated[tuple[Positive, ...], Field(min_length=13, max_length=13)]
+Tolerance = (
+    Positive | Annotated[tuple[Positive, ...], Field(min_length=13, max_length=13)]
+)
 
 
 def _inertia(value: Inertia, *, allow_zero=False):
@@ -48,9 +58,13 @@ def _inertia(value: Inertia, *, allow_zero=False):
     i11, i22, i33, i12, i13, i23 = value if len(value) == 6 else (*value, 0, 0, 0)
     principal = np.linalg.eigvalsh([[i11, i12, i13], [i12, i22, i23], [i13, i23, i33]])
     if principal[0] < 0 or (not allow_zero and principal[0] == 0):
-        raise ValueError("Inertia needs positive principal moments (nonnegative for a motor).")
+        raise ValueError(
+            "Inertia needs positive principal moments (nonnegative for a motor)."
+        )
     if principal[2] > principal[0] + principal[1] + 1e-12 * max(1, principal[2]):
-        raise ValueError("Inertia principal moments must satisfy the triangle inequality.")
+        raise ValueError(
+            "Inertia principal moments must satisfy the triangle inequality."
+        )
     return value
 
 
@@ -71,10 +85,18 @@ class EnvironmentConfig(EngineConfig):
     temperature: PositiveCurve | None = None
     wind_u: Curve = 0.0
     wind_v: Curve = 0.0
-    atmosphere_type: Literal[
-        "standard_atmosphere", "custom_atmosphere", "forecast", "reanalysis",
-        "ensemble", "windy", "wyoming_sounding",
-    ] | None = None
+    atmosphere_type: (
+        Literal[
+            "standard_atmosphere",
+            "custom_atmosphere",
+            "forecast",
+            "reanalysis",
+            "ensemble",
+            "windy",
+            "wyoming_sounding",
+        ]
+        | None
+    ) = None
     atmosphere_file: str | None = None
     atmosphere_dictionary: dict[str, str | None] | str | None = None
     pressure_conversion_factor: Literal["Pa", "hPa", "mbar"] | Positive | None = None
@@ -97,8 +119,10 @@ class EnvironmentConfig(EngineConfig):
         if self.max_expected_height <= self.elevation:
             raise ValueError("max_expected_height must be above the launch elevation.")
         custom = (
-            self.pressure is not None or self.temperature is not None
-            or self.wind_u != 0 or self.wind_v != 0
+            self.pressure is not None
+            or self.temperature is not None
+            or self.wind_u != 0
+            or self.wind_v != 0
         )
         self.atmosphere_type = self.atmosphere_type or (
             "custom_atmosphere" if custom else "standard_atmosphere"
@@ -106,16 +130,26 @@ class EnvironmentConfig(EngineConfig):
         if self.atmosphere_type != "custom_atmosphere" and custom:
             raise ValueError("Weather overrides require custom_atmosphere.")
         local = self.atmosphere_type in {"standard_atmosphere", "custom_atmosphere"}
-        if local and any(v is not None for v in (
-            self.atmosphere_file, self.atmosphere_dictionary, self.pressure_conversion_factor,
-        )):
+        if local and any(
+            v is not None
+            for v in (
+                self.atmosphere_file,
+                self.atmosphere_dictionary,
+                self.pressure_conversion_factor,
+            )
+        ):
             raise ValueError("Local atmospheres do not use an external weather source.")
         if not local and self.atmosphere_file is None:
             raise ValueError("An external atmosphere requires atmosphere_file.")
-        if self.atmosphere_type in {"forecast", "reanalysis", "ensemble", "windy"} and self.date is None:
+        if (
+            self.atmosphere_type in {"forecast", "reanalysis", "ensemble", "windy"}
+            and self.date is None
+        ):
             raise ValueError("This atmosphere model requires a launch date.")
         if self.atmosphere_type != "ensemble" and self.ensemble_member != 0:
-            raise ValueError("ensemble_member is only used with an ensemble atmosphere.")
+            raise ValueError(
+                "ensemble_member is only used with an ensemble atmosphere."
+            )
         return self
 
 
@@ -163,7 +197,9 @@ class GrainMotorBase(MotorBase):
     @model_validator(mode="after")
     def grain_geometry(self):
         if self.grain_initial_inner_radius >= self.grain_outer_radius:
-            raise ValueError("The grain inner radius must be smaller than its outer radius.")
+            raise ValueError(
+                "The grain inner radius must be smaller than its outer radius."
+            )
         return self
 
 
@@ -227,7 +263,9 @@ class RocketConfig(EngineConfig):
     power_on_drag: NonNegativeCurve
     center_of_mass_without_motor: Number
     motor_position: Number = 0.0
-    coordinate_system_orientation: Literal["tail_to_nose", "nose_to_tail"] = "tail_to_nose"
+    coordinate_system_orientation: Literal["tail_to_nose", "nose_to_tail"] = (
+        "tail_to_nose"
+    )
     parachutes: list[ParachuteConfig] = Field(default_factory=list)
     rail_buttons: RailButtonsConfig | None = None
 
@@ -241,7 +279,9 @@ class FlightConfig(EngineConfig):
     rail_length: Positive
     inclination: Number
     heading: Number
-    initial_solution: Annotated[tuple[Number, ...], Field(min_length=14, max_length=14)] | None = None
+    initial_solution: (
+        Annotated[tuple[Number, ...], Field(min_length=14, max_length=14)] | None
+    ) = None
     terminate_on_apogee: bool = False
     max_time: Positive = 600.0
     # None means no upper step limit; unlike infinity, it round-trips through JSON.

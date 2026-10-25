@@ -7,24 +7,44 @@ from typing import Any
 
 import numpy as np
 from rocketpy import (
-    AeroSurface, Environment, Flight, GenericMotor, HybridMotor, LiquidMotor,
-    Motor, Rocket, SolidMotor, Tank,
+    AeroSurface,
+    Environment,
+    Flight,
+    GenericMotor,
+    HybridMotor,
+    LiquidMotor,
+    Motor,
+    Rocket,
+    SolidMotor,
+    Tank,
 )
 
 from app.schemas import EnvironmentConfig, FlightConfig, MotorConfig, RocketConfig
 
 MOTOR_TYPES = {
-    "solid": SolidMotor, "liquid": LiquidMotor,
-    "hybrid": HybridMotor, "generic": GenericMotor,
+    "solid": SolidMotor,
+    "liquid": LiquidMotor,
+    "hybrid": HybridMotor,
+    "generic": GenericMotor,
 }
 
 
 def build_environment(config: EnvironmentConfig) -> Environment:
     """Create the selected atmosphere; weather/file errors propagate to the caller."""
-    env = Environment(**config.model_dump(include={
-        "latitude", "longitude", "elevation", "date", "timezone", "gravity",
-        "datum", "max_expected_height",
-    }))
+    env = Environment(
+        **config.model_dump(
+            include={
+                "latitude",
+                "longitude",
+                "elevation",
+                "date",
+                "timezone",
+                "gravity",
+                "datum",
+                "max_expected_height",
+            }
+        )
+    )
     if config.atmosphere_type != "standard_atmosphere":
         env.set_atmospheric_model(
             type=config.atmosphere_type,
@@ -41,7 +61,9 @@ def build_environment(config: EnvironmentConfig) -> Environment:
     return env
 
 
-def build_motor(config: MotorConfig, *, tanks: Sequence[tuple[Tank, float]] = ()) -> Motor:
+def build_motor(
+    config: MotorConfig, *, tanks: Sequence[tuple[Tank, float]] = ()
+) -> Motor:
     """Create caller-defined hardware, including tanks for liquid/hybrid motors."""
     motor = MOTOR_TYPES[config.motor_type](**config.model_dump(exclude={"motor_type"}))
     if isinstance(motor, (LiquidMotor, HybridMotor)):
@@ -66,9 +88,15 @@ def build_rocket(
     frame; motor_position locates the motor frame origin. Additional native
     sensors/controllers/air brakes can be attached to the returned Rocket.
     """
-    rocket = Rocket(**config.model_dump(exclude={
-        "motor_position", "parachutes", "rail_buttons",
-    }))
+    rocket = Rocket(
+        **config.model_dump(
+            exclude={
+                "motor_position",
+                "parachutes",
+                "rail_buttons",
+            }
+        )
+    )
     if motor is not None:
         rocket.add_motor(deepcopy(motor), position=config.motor_position)
     for surface, position in surfaces:
@@ -80,7 +108,9 @@ def build_rocket(
     return rocket
 
 
-def run_simulation(rocket: Rocket, environment: Environment, config: FlightConfig) -> Flight:
+def run_simulation(
+    rocket: Rocket, environment: Environment, config: FlightConfig
+) -> Flight:
     """Compute a complete Flight object using validated launch/solver settings.
 
     A rocket copy isolates parachute/sensor histories across runs. Stateful user
@@ -89,8 +119,11 @@ def run_simulation(rocket: Rocket, environment: Environment, config: FlightConfi
     """
     options = config.model_dump(exclude={"max_time_step"})
     flight = Flight(
-        rocket=deepcopy(rocket), environment=environment,
-        max_time_step=config.max_time_step if config.max_time_step is not None else float("inf"),
+        rocket=deepcopy(rocket),
+        environment=environment,
+        max_time_step=config.max_time_step
+        if config.max_time_step is not None
+        else float("inf"),
         **options,
     )
     solution = np.asarray(flight.solution, dtype=float)
@@ -133,7 +166,9 @@ def summarize_flight(flight: Flight) -> dict[str, Any]:
         "end_time_s": _result_number(flight.t_final),
         "duration_s": _result_number(flight.t_final - flight.t_initial),
         "apogee_asl_m": _result_number(flight.apogee) if apogee_reached else None,
-        "apogee_agl_m": _result_number(flight.apogee - flight.env.elevation) if apogee_reached else None,
+        "apogee_agl_m": _result_number(flight.apogee - flight.env.elevation)
+        if apogee_reached
+        else None,
         "apogee_time_s": _result_number(flight.apogee_time) if apogee_reached else None,
         "max_altitude_asl_m": maximum_altitude,
         "max_altitude_agl_m": _result_number(maximum_altitude - flight.env.elevation),
@@ -141,7 +176,9 @@ def summarize_flight(flight: Flight) -> dict[str, Any]:
         "max_speed_time_s": _result_number(flight.max_speed_time),
         "impact_x_m": _result_number(flight.x_impact) if landed else None,
         "impact_y_m": _result_number(flight.y_impact) if landed else None,
-        "impact_speed_m_s": _result_number(np.linalg.norm(flight.impact_state[3:6])) if landed else None,
+        "impact_speed_m_s": _result_number(np.linalg.norm(flight.impact_state[3:6]))
+        if landed
+        else None,
         "parachute_events": [
             {"name": parachute.name, "trigger_time_s": _result_number(time)}
             for time, parachute in flight.parachute_events

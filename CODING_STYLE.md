@@ -185,7 +185,11 @@ if solution.ndim != 2 or solution.shape[1] != 14 or not np.isfinite(solution).al
 
 * **Runtime**: Python 3.13+
 * **Environment & Packaging**: `uv` (`pyproject.toml`, `uv.lock`)
-* **Formatting & Naming**: PEP 8
+* **Linting & Formatting**: [Ruff](https://docs.astral.sh/ruff/), installed through the `uv` development dependency group and configured in `backend/pyproject.toml`.
+  * Run `uv run ruff check .` and `uv run ruff format --check .` from `backend/` before submitting changes.
+  * The linter checks errors (`E4`, `E7`, `E9`, `F`), import ordering (`I`), naming (`N`), modern Python syntax (`UP`), common bug patterns (`B`), and simplifications (`SIM`). The Python target is inferred from `requires-python`.
+  * Use `uv run ruff check --fix .` for supported safe fixes and `uv run ruff format .` for formatting. Review the diff; do not enable unsafe fixes by default or reformat unrelated code.
+* **Formatting & Naming**: PEP 8 naming; Ruff formatting with a target line length of 88 characters and four-space indentation. Whitespace and line wrapping are handled by the formatter rather than duplicate lint rules.
   * Functions & variables: `snake_case`
   * Classes & types: `PascalCase`
   * Constants: `SCREAMING_SNAKE_CASE`
