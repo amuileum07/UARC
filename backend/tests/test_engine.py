@@ -440,10 +440,19 @@ class GeneralEngineTests(unittest.TestCase):
             ParachuteConfig(name="custom", cd_s=0.3, trigger=lambda *args: False)
 
     def test_invalid_solver_results_are_not_exposed_as_success(self):
-        with patch("app.simulation.engine.Flight") as flight_class:
-            flight_class.return_value.solution = [[float("nan")] * 14]
-            with self.assertRaisesRegex(RuntimeError, "invalid flight solution"):
-                self.run_flight()
+        for solution in (
+            np.full((1, 14), float("nan")),
+            np.empty((0, 14)),
+            np.zeros((2, 13)),
+            np.array([[2, *([0] * 13)], [1, *([0] * 13)]], dtype=float),
+        ):
+            with (
+                self.subTest(solution=solution),
+                patch("app.simulation.engine.Flight") as flight_class,
+            ):
+                flight_class.return_value.solution_array = solution
+                with self.assertRaisesRegex(RuntimeError, "invalid flight solution"):
+                    self.run_flight()
 
 
 if __name__ == "__main__":

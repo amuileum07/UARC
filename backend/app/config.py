@@ -1,7 +1,25 @@
 """Resolve the desktop UI entry point without depending on the working directory."""
 
+import os
+import sys
 from pathlib import Path
 from urllib.parse import urlsplit
+
+
+def default_data_directory() -> Path:
+    """Keep installed applications' writable data outside their package assets."""
+    if sys.platform == "win32":
+        base = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
+    elif sys.platform == "darwin":
+        base = Path.home() / "Library" / "Application Support"
+    else:
+        configured = os.environ.get("XDG_DATA_HOME")
+        base = (
+            Path(configured)
+            if configured and Path(configured).is_absolute()
+            else (Path.home() / ".local" / "share")
+        )
+    return base / "uarc"
 
 
 def frontend_entrypoint(

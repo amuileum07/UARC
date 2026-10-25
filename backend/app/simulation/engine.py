@@ -8,18 +8,34 @@ from typing import Any
 import numpy as np
 from rocketpy import (
     AeroSurface,
+    CylindricalTank,
+    EllipticalFins,
     Environment,
     Flight,
+    Fluid,
+    Function,
     GenericMotor,
     HybridMotor,
     LiquidMotor,
+    MassBasedTank,
     Motor,
+    NoseCone,
     Rocket,
     SolidMotor,
+    Tail,
     Tank,
+    TrapezoidalFins,
 )
 
-from app.schemas import EnvironmentConfig, FlightConfig, MotorConfig, RocketConfig
+from app.schemas import (
+    EnvironmentConfig,
+    FlightConfig,
+    MotorConfig,
+    NoseConeConfig,
+    RocketConfig,
+    SimulationConfig,
+    SurfaceConfig,
+)
 
 MOTOR_TYPES = {
     "solid": SolidMotor,
@@ -27,6 +43,49 @@ MOTOR_TYPES = {
     "hybrid": HybridMotor,
     "generic": GenericMotor,
 }
+
+
+class _HaackNoseCone(NoseCone):
+    """Continuous sharp Haack profile with a volume-based small-angle CP."""
+
+    def __init__(self, config: NoseConeConfig):
+        super().__init__(
+            length=config.length,
+            kind="vonkarman",
+            base_radius=config.base_radius,
+            rocket_radius=config.rocket_radius,
+        )
+        length, radius, coefficient = self.length, self.base_radius, config.haack_c
+
+        def profile(x):
+            theta = np.arccos(1 - 2 * np.clip(np.asarray(x) / length, 0, 1))
+            squared = (
+                theta - np.sin(2 * theta) / 2 + coefficient * np.sin(theta) ** 3
+            ) / np.pi
+            return radius * np.sqrt(np.maximum(squared, 0))
+
+        self._kind = "haack"
+        self.haack_c = coefficient
+        self.y_nosecone = Function(profile)
+        # Barrowman body-of-revolution CP: L - volume / base_area.
+        # The Haack volume is base_area * L * (1/2 + 3*C/16).
+        self.k = 0.5 - 3 * coefficient / 16
+        self.evaluate_center_of_pressure()
+        self.evaluate_nose_shape()
+
+
+def build_surface(config: SurfaceConfig) -> AeroSurface:
+    if isinstance(config, NoseConeConfig) and config.kind == "haack":
+        return _HaackNoseCone(config)
+    surface_types = {
+        "nose": NoseCone,
+        "trapezoidal_fins": TrapezoidalFins,
+        "elliptical_fins": EllipticalFins,
+        "tail": Tail,
+    }
+    return surface_types[config.surface_type](
+        **config.model_dump(exclude={"surface_type", "position", "haack_c"})
+    )
 
 
 def build_environment(config: EnvironmentConfig) -> Environment:
@@ -126,8 +185,14 @@ def run_simulation(
         else float("inf"),
         **options,
     )
-    solution = np.asarray(flight.solution, dtype=float)
-    if solution.ndim != 2 or solution.shape[1] != 14 or not np.isfinite(solution).all():
+    solution = np.asarray(flight.solution_array, dtype=float)
+    if (
+        solution.ndim != 2
+        or solution.shape[1] != 14
+        or len(solution) == 0
+        or not np.isfinite(solution).all()
+        or np.any(np.diff(solution[:, 0]) < 0)
+    ):
         raise RuntimeError("RocketPy returned an invalid flight solution.")
     return flight
 
@@ -155,10 +220,18 @@ def summarize_flight(flight: Flight) -> dict[str, Any]:
         reason = "time_limit"
     else:
         reason = "stopped"
-    solution = np.asarray(flight.solution, dtype=float)
+    solution = np.asarray(flight.solution_array, dtype=float)
     maximum_altitude = _result_number(np.max(solution[:, 3]))
     return {
         "name": flight.name,
+        "initial_mass_kg": _result_number(flight.rocket.total_mass(flight.t_initial)),
+        "final_mass_kg": _result_number(flight.rocket.total_mass(flight.t_final)),
+        "initial_center_of_mass_m": _result_number(
+            flight.rocket.center_of_mass(flight.t_initial)
+        ),
+        "final_center_of_mass_m": _result_number(
+            flight.rocket.center_of_mass(flight.t_final)
+        ),
         "termination_reason": reason,
         "apogee_reached": apogee_reached,
         "landed": landed,
@@ -184,3 +257,35 @@ def summarize_flight(flight: Flight) -> dict[str, Any]:
             for time, parachute in flight.parachute_events
         ],
     }
+
+
+def build_simulation(config: SimulationConfig) -> tuple[Rocket, Environment]:
+    """Build all runtime objects locally; only the config crosses processes."""
+    tanks = [
+        (
+            MassBasedTank(
+                name=tank.name,
+                geometry=CylindricalTank(
+                    radius_function=tank.radius,
+                    height=tank.height,
+                    spherical_caps=tank.spherical_caps,
+                ),
+                flux_time=tank.flux_time,
+                liquid=Fluid(**tank.liquid.model_dump()),
+                gas=Fluid(**tank.gas.model_dump()),
+                liquid_mass=tank.liquid_mass,
+                gas_mass=tank.gas_mass,
+                discretize=tank.discretize,
+            ),
+            tank.position,
+        )
+        for tank in config.tanks
+    ]
+    surfaces = [
+        (build_surface(surface), surface.position) for surface in config.surfaces
+    ]
+    motor = build_motor(config.motor, tanks=tanks) if config.motor is not None else None
+    return (
+        build_rocket(motor, config.rocket, surfaces=surfaces),
+        build_environment(config.environment),
+    )

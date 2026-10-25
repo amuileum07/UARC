@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "name": "Synthetic parametric rocket",
+  "materials": {
+    "body_stock": {"name": "Synthetic polymer", "density": 1200},
+    "fin_stock": {"name": "Synthetic fin stock", "density": 600},
+    "fabric": {"name": "Synthetic canopy fabric", "density": 1000}
+  },
+  "components": [
+    {
+      "id": "body", "name": "Body tube", "component_type": "body_tube",
+      "material": "body_stock", "position": 0, "length": 0.6,
+      "outer_radius": 0.025, "thickness": 0.001
+    },
+    {
+      "id": "nose", "name": "Haack nose", "component_type": "surface",
+      "material": "body_stock", "thickness": 0.001,
+      "surface": {
+        "surface_type": "nose", "position": 0.8, "length": 0.2,
+        "rocket_radius": 0.025, "base_radius": 0.025,
+        "kind": "haack", "haack_c": 0.1
+      }
+    },
+    {
+      "id": "fins", "name": "Fin set", "component_type": "surface",
+      "material": "fin_stock", "thickness": 0.002,
+      "surface": {
+        "surface_type": "trapezoidal_fins", "position": 0.12,
+        "rocket_radius": 0.025, "n": 4, "root_chord": 0.12,
+        "tip_chord": 0.05, "span": 0.08, "sweep_length": 0.035,
+        "cant_angle": 0
+      }
+    },
+    {
+      "id": "payload", "name": "Payload and electronics", "component_type": "mass",
+      "mass": 1, "position": 0.4, "radius": 0.015, "length": 0.15
+    },
+    {
+      "id": "recovery", "name": "Packed recovery system", "component_type": "parachute",
+      "material": "fabric", "position": 0.5, "attachment_position": 0.55,
+      "canopy_area": 0.3, "thickness": 0.0001, "line_mass": 0.01,
+      "packed_radius": 0.02, "packed_length": 0.08,
+      "deployment": {
+        "name": "recovery", "radius": 0.3, "drag_coefficient": 1.4,
+        "trigger": "apogee", "lag": 0.1
+      }
+    }
+  ],
+  "motor": {
+    "motor_type": "generic",
+    "thrust_source": [[0, 0], [0.05, 60], [0.9, 60], [1, 0]],
+    "burn_time": 1,
+    "chamber_radius": 0.018, "chamber_height": 0.12, "chamber_position": 0.07,
+    "propellant_initial_mass": 0.1,
+    "nozzle_radius": 0.01, "dry_mass": 0.15,
+    "dry_inertia": [0.001, 0.001, 0.0001]
+  },
+  "motor_position": 0,
+  "power_off_drag": 0.5,
+  "power_on_drag": 0.4,
+  "rail_buttons": {"upper_button_position": 0.2, "lower_button_position": 0.05},
+  "environment": {"latitude": 0, "longitude": 0, "elevation": 120},
+  "flight": {
+    "rail_length": 1.5, "inclination": 85, "heading": 0,
+    "max_time": 60, "max_time_step": 0.05
+  }
+}

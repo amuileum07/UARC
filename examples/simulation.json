@@ -1,0 +1,40 @@
+{
+  "environment": {"latitude": 0, "longitude": 0, "elevation": 120},
+  "motor": {
+    "motor_type": "generic",
+    "thrust_source": [[0, 0], [0.05, 60], [0.9, 60], [1, 0]],
+    "burn_time": 1,
+    "chamber_radius": 0.018,
+    "chamber_height": 0.12,
+    "chamber_position": 0.07,
+    "propellant_initial_mass": 0.1,
+    "nozzle_radius": 0.01,
+    "dry_mass": 0.15,
+    "dry_inertia": [0.001, 0.001, 0.0001]
+  },
+  "rocket": {
+    "radius": 0.025,
+    "mass": 1.2,
+    "inertia": [0.08, 0.08, 0.002],
+    "power_off_drag": 0.5,
+    "power_on_drag": 0.4,
+    "center_of_mass_without_motor": 0,
+    "motor_position": -0.45,
+    "parachutes": [{"name": "recovery", "cd_s": 0.3, "trigger": "apogee", "lag": 0.1}],
+    "rail_buttons": {"upper_button_position": -0.1, "lower_button_position": -0.35}
+  },
+  "flight": {
+    "rail_length": 1.5,
+    "inclination": 85,
+    "heading": 0,
+    "max_time": 60,
+    "max_time_step": 0.05
+  },
+  "surfaces": [
+    {"surface_type": "nose", "position": 0.7, "length": 0.2, "rocket_radius": 0.025},
+    {
+      "surface_type": "trapezoidal_fins", "position": -0.35, "n": 4,
+      "root_chord": 0.12, "tip_chord": 0.05, "span": 0.08, "rocket_radius": 0.025
+    }
+  ]
+}

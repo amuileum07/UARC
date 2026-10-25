@@ -91,7 +91,16 @@ class DesktopLauncherTests(unittest.TestCase):
             entry = Path(directory) / "index.html"
             entry.write_text("<title>UARC test</title>")
             with (
-                patch("sys.argv", ["uarc", "--frontend", str(entry)]),
+                patch(
+                    "sys.argv",
+                    [
+                        "uarc",
+                        "--frontend",
+                        str(entry),
+                        "--data-dir",
+                        str(Path(directory) / "data"),
+                    ],
+                ),
                 patch("app.main.freeze_support") as freeze,
                 patch("webview.create_window") as create,
                 patch("webview.start") as start,

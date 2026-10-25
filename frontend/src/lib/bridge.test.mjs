@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
-import { validateConfig } from "./bridge.ts";
+import {
+  getDesign, getDesignReport, previewDesign, rerunSimulation, submitDesign, validateConfig,
+} from "./bridge.ts";
 
 afterEach(() => { delete globalThis.window; });
 
@@ -37,4 +39,29 @@ test("fails clearly when opened outside the desktop host", async (context) => {
   const result = validateConfig("flight", {});
   context.mock.timers.tick(10_000);
   await assert.rejects(result, /UARC desktop window/);
+});
+
+test("transports numeric designs as JSON for preview and submission", async () => {
+  for (const [method, call] of [["preview_design", previewDesign], ["submit_design", submitDesign]]) {
+    globalThis.window = new EventTarget();
+    const input = { materials: { stock: { density: 1200 } }, components: [{ position: 0.4 }] };
+    window.pywebview = { api: { [method]: async (payload) => {
+      assert.deepEqual(JSON.parse(payload), input);
+      return { mass_properties: { mass_kg: 1.2 } };
+    } } };
+    assert.deepEqual(await call(input), { mass_properties: { mass_kg: 1.2 } });
+  }
+});
+
+test("loads saved designs and requests reruns by run ID", async () => {
+  for (const [method, call] of [
+    ["get_design", getDesign], ["get_design_report", getDesignReport], ["rerun", rerunSimulation],
+  ]) {
+    globalThis.window = new EventTarget();
+    window.pywebview = { api: { [method]: async (runId) => {
+      assert.equal(runId, "saved-run");
+      return { name: "saved design" };
+    } } };
+    assert.deepEqual(await call("saved-run"), { name: "saved design" });
+  }
 });

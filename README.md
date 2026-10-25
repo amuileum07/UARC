@@ -5,7 +5,12 @@ The project focuses on ease of use and high-fidelity simulation as development g
 
 The target application combines a React interface with a [pywebview desktop window and JavaScript–Python bridge](https://pywebview.flowrl.com/guide/interdomain). The UI calls Python through `window.pywebview.api`, so the local simulation workflow does not require a FastAPI/Uvicorn API service. An HTTP API can be added later if browser access or remote computation becomes a requirement.
 
-**Development status:** The RocketPy engine, Pydantic input models, desktop launcher, and JSON input-validation bridge are implemented and tested. Python dependencies now use pywebview, with PySide6 on Linux; FastAPI/Uvicorn have been removed. The React UI, simulation job management, import, and storage features remain planned, so there is not yet a complete desktop simulation workflow. See [backend/README.md](./backend/README.md) for setup, launcher options, and the working engine example.
+**Development status:** The RocketPy engine, serializable simulation inputs, desktop launcher, bounded process scheduler, cancellation, run history, result storage, and telemetry queries are implemented. The backend also runs without a GUI through `uv run python -m app.simulation ../examples/simulation.json` from `backend/`. The React UI, OpenRocket import, and executable packaging remain planned. See [backend/README.md](./backend/README.md) for setup, resource limits, bridge methods, and examples.
+
+Numeric component designs now support material density, wall/plate thickness,
+positions, continuous Haack nose profiles, automatic mass/CG/inertia, and measured
+overrides. Edit [examples/design.json](./examples/design.json); see
+[docs/DESIGN.md](./docs/DESIGN.md) for the coordinate and mass-model conventions.
 
 ## Directory Structure
 
@@ -38,11 +43,13 @@ UARC/
 │   ├── app/
 │   │   ├── main.py                # Main-thread GUI startup, window creation, and shutdown
 │   │   ├── config.py              # App settings, frontend asset paths, and user data location
-│   │   ├── bridge.py              # JSON config validation; job and result methods are planned
+│   │   ├── bridge.py              # JSON validation, submission, status, cancellation, and results
 │   │   ├── schemas.py             # Serializable Pydantic input, result, and configuration models
+│   │   ├── design.py              # Component mass properties and design-to-solver conversion
 │   │   ├── simulation/
-│   │   │   ├── jobs.py            # Run IDs, worker lifecycle, and thread-safe job state
-│   │   │   ├── worker.py          # Simulation entry point in a separate process
+│   │   │   ├── jobs.py            # Bounded scheduling, deadlines, and worker lifecycle
+│   │   │   ├── worker.py          # Build, solve, and save one run in a spawn process
+│   │   │   ├── __main__.py        # Headless JSON simulation command
 │   │   │   └── engine.py          # RocketPy model construction and result conversion
 │   │   ├── importers/
 │   │   │   └── openrocket.py      # .ork conversion using RocketSerializer
@@ -57,8 +64,12 @@ UARC/
 │   └── runs/
 │       └── <run-id>/
 │           ├── input.json         # Input snapshot for reproducing the run
+│           ├── design.json        # Editable component design, for parametric runs
+│           ├── design_report.json # Computed/measured mass properties and outlines
 │           ├── summary.json       # Summary results, such as apogee
-│           └── telemetry.npz      # Time series and trajectory arrays
+│           ├── telemetry.npy      # Full state history, readable through a memory map
+│           ├── runtime.json       # Python and numerical package versions
+│           └── complete.json      # Published only after result files are saved
 ├── Licenses/                      # Third-party licenses
 ├── .gitignore
 ├── LICENSE
@@ -67,7 +78,7 @@ UARC/
 
 Python package `__init__.py` files and detailed tool-generated configuration files are omitted from the tree. `backend/uv.lock` records the desktop dependencies. The `backend/app/` package is installed directly; the former `backend/src/backend/` template has been removed.
 
-Bridge methods will submit jobs and return run IDs promptly; the UI will poll their status through the bridge. RocketPy computation stays in a separate worker process, while the GUI event loop stays on the main thread. Shared job state must handle concurrent bridge calls. See the pywebview [bridge documentation](https://pywebview.flowrl.com/guide/interdomain) and [threading FAQ](https://pywebview.flowrl.com/guide/faq).
+Bridge methods submit jobs and return run IDs; the UI can poll status and request bounded result slices. Each simulation runs in a disposable `spawn` process, while the GUI event loop stays on the main thread. The default is one running worker plus eight pending slots. Only the host updates SQLite; workers publish result files atomically. See the pywebview [bridge documentation](https://pywebview.flowrl.com/guide/interdomain) and [threading FAQ](https://pywebview.flowrl.com/guide/faq).
 
 ## Tech Stack
 

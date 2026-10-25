@@ -313,3 +313,334 @@ class FlightConfig(EngineConfig):
         if self.max_time_step is not None and self.min_time_step > self.max_time_step:
             raise ValueError("min_time_step must not exceed max_time_step.")
         return self
+
+
+Position = Number | tuple[Number, Number, Number]
+
+
+class SurfaceBase(EngineConfig):
+    position: Position
+    rocket_radius: Positive
+
+
+class NoseConeConfig(SurfaceBase):
+    surface_type: Literal["nose"] = "nose"
+    length: Positive
+    kind: Literal[
+        "conical",
+        "ogive",
+        "elliptical",
+        "parabolic",
+        "lvhaack",
+        "vonkarman",
+        "powerseries",
+        "haack",
+    ] = "conical"
+    base_radius: Positive | None = None
+    bluffness: Annotated[Number, Field(ge=0, lt=1)] | None = None
+    power: Annotated[Number, Field(gt=0, le=1)] | None = None
+    haack_c: Annotated[Number, Field(ge=0, le=1 / 3)] | None = None
+
+    @model_validator(mode="after")
+    def compatible_power_series(self):
+        if self.kind == "haack":
+            if self.haack_c is None:
+                raise ValueError("A Haack nose cone requires haack_c.")
+            if self.bluffness not in (None, 0):
+                raise ValueError(
+                    "Continuous Haack profiles currently require a sharp tip."
+                )
+        elif self.haack_c is not None:
+            raise ValueError("haack_c is only used with kind='haack'.")
+        if self.kind == "powerseries":
+            if self.power is None:
+                raise ValueError("A power-series nose cone requires power.")
+            if self.bluffness not in (None, 0):
+                raise ValueError("A power-series nose cone cannot use bluffness.")
+        return self
+
+
+class TrapezoidalFinsConfig(SurfaceBase):
+    surface_type: Literal["trapezoidal_fins"] = "trapezoidal_fins"
+    n: Annotated[int, Field(ge=3)]
+    root_chord: Positive
+    tip_chord: NonNegative
+    span: Positive
+    cant_angle: Number = 0.0
+    sweep_length: Number | None = None
+    sweep_angle: Annotated[Number, Field(gt=-90, lt=90)] | None = None
+
+    @model_validator(mode="after")
+    def one_sweep_definition(self):
+        if self.sweep_length is not None and self.sweep_angle is not None:
+            raise ValueError("Specify sweep_length or sweep_angle, not both.")
+        return self
+
+
+class EllipticalFinsConfig(SurfaceBase):
+    surface_type: Literal["elliptical_fins"] = "elliptical_fins"
+    n: Annotated[int, Field(ge=3)]
+    root_chord: Positive
+    span: Positive
+    cant_angle: Number = 0.0
+
+
+class TailConfig(SurfaceBase):
+    surface_type: Literal["tail"] = "tail"
+    top_radius: Positive
+    bottom_radius: Positive
+    length: Positive
+
+
+SurfaceConfig = Annotated[
+    NoseConeConfig | TrapezoidalFinsConfig | EllipticalFinsConfig | TailConfig,
+    Field(discriminator="surface_type"),
+]
+
+
+class FluidConfig(EngineConfig):
+    name: str
+    density: Positive
+
+
+class MassBasedTankConfig(EngineConfig):
+    """A cylindrical tank with caller-supplied phase masses, in SI units."""
+
+    name: str
+    position: Number
+    radius: Positive
+    height: Positive
+    spherical_caps: bool = False
+    flux_time: Positive | tuple[NonNegative, Number]
+    liquid: FluidConfig
+    gas: FluidConfig
+    liquid_mass: NonNegativeCurve
+    gas_mass: NonNegativeCurve
+    discretize: Annotated[int, Field(ge=2, le=100_000)] = 100
+
+    @field_validator("flux_time")
+    @classmethod
+    def positive_duration(cls, value):
+        if isinstance(value, tuple) and value[1] <= value[0]:
+            raise ValueError("flux_time must describe a positive duration.")
+        return value
+
+
+class SimulationConfig(EngineConfig):
+    environment: EnvironmentConfig
+    motor: MotorConfig | None
+    rocket: RocketConfig
+    flight: FlightConfig
+    surfaces: list[SurfaceConfig] = Field(default_factory=list)
+    tanks: list[MassBasedTankConfig] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def compatible_tanks(self):
+        needs_tanks = isinstance(self.motor, (LiquidMotorConfig, HybridMotorConfig))
+        if needs_tanks and not self.tanks:
+            raise ValueError("Liquid and hybrid motors require configured tanks.")
+        if not needs_tanks and self.tanks:
+            raise ValueError("Tanks are supported only for liquid and hybrid motors.")
+        return self
+
+
+TELEMETRY_COLUMNS = (
+    "time_s",
+    "x_m",
+    "y_m",
+    "z_asl_m",
+    "vx_m_s",
+    "vy_m_s",
+    "vz_m_s",
+    "e0",
+    "e1",
+    "e2",
+    "e3",
+    "w1_rad_s",
+    "w2_rad_s",
+    "w3_rad_s",
+)
+
+
+class TelemetryQuery(EngineConfig):
+    columns: Annotated[list[str], Field(min_length=1, max_length=14)] = Field(
+        default_factory=lambda: ["time_s", "x_m", "y_m", "z_asl_m"]
+    )
+    start_time: Number | None = None
+    end_time: Number | None = None
+    max_points: Annotated[int, Field(ge=32, le=10_000)] = 2000
+
+    @field_validator("columns")
+    @classmethod
+    def known_columns(cls, value):
+        if len(set(value)) != len(value) or any(
+            v not in TELEMETRY_COLUMNS for v in value
+        ):
+            raise ValueError("Telemetry columns must be unique known column names.")
+        return value
+
+    @model_validator(mode="after")
+    def ordered_interval(self):
+        if (
+            self.start_time is not None
+            and self.end_time is not None
+            and self.start_time > self.end_time
+        ):
+            raise ValueError("start_time must not exceed end_time.")
+        return self
+
+
+class MaterialConfig(EngineConfig):
+    name: Annotated[str, Field(min_length=1, max_length=128)]
+    density: Positive
+
+
+class DesignComponent(EngineConfig):
+    id: Annotated[str, Field(pattern=r"^[A-Za-z0-9_-]{1,64}$")]
+    name: Annotated[str, Field(max_length=128)] = ""
+
+
+class MaterialComponent(DesignComponent):
+    material: str
+    mass_override: Positive | None = None
+
+
+class BodyTubeDesign(MaterialComponent):
+    component_type: Literal["body_tube"] = "body_tube"
+    position: Number = Field(
+        description="Aft-end axial position; tube extends in +z, m."
+    )
+    length: Positive
+    outer_radius: Positive
+    thickness: Positive = Field(
+        description="Radial wall thickness, m; radius gives a solid cylinder."
+    )
+
+    @model_validator(mode="after")
+    def valid_wall(self):
+        if self.thickness > self.outer_radius:
+            raise ValueError("Tube thickness cannot exceed its outer radius.")
+        return self
+
+
+class SurfaceDesign(MaterialComponent):
+    component_type: Literal["surface"] = "surface"
+    surface: SurfaceConfig
+    thickness: Positive = Field(
+        description="Fin plate thickness or radial nose/tail wall thickness, m."
+    )
+
+    @model_validator(mode="after")
+    def valid_geometry(self):
+        if isinstance(self.surface.position, tuple):
+            raise ValueError(
+                "Parametric designs currently use axial surface positions."
+            )
+        if isinstance(self.surface, NoseConeConfig):
+            radius = self.surface.base_radius or self.surface.rocket_radius
+            if self.thickness > radius:
+                raise ValueError("Nose thickness cannot exceed its base radius.")
+        if isinstance(self.surface, TailConfig) and self.thickness > min(
+            self.surface.top_radius, self.surface.bottom_radius
+        ):
+            raise ValueError("Tail thickness cannot exceed either end radius.")
+        return self
+
+
+class MassComponentDesign(DesignComponent):
+    """Axis-centered payload/hardware; use measured intrinsic inertia when available."""
+
+    component_type: Literal["mass"] = "mass"
+    position: Number = Field(description="Component CG in rocket coordinates, m.")
+    mass: Positive
+    radius: NonNegative = 0.0
+    length: NonNegative = 0.0
+    inertia: Inertia | None = None
+
+    @field_validator("inertia")
+    @classmethod
+    def physical_tensor(cls, value):
+        return _inertia(value, allow_zero=True) if value is not None else None
+
+
+class ParachuteDeployment(ParachuteConfig):
+    radius: Positive
+    cd_s: Positive | None = Field(
+        default=None,
+        description="Optional measured Cd*A override; default is Cd*pi*radius².",
+    )
+
+
+class ParachuteDesign(MaterialComponent):
+    component_type: Literal["parachute"] = "parachute"
+    position: Number = Field(description="Packed parachute CG, m.")
+    attachment_position: Number = Field(
+        description="Design attachment coordinate only; no attachment-point torque model."
+    )
+    canopy_area: Positive = Field(
+        description="Actual fabric area, m²; independent of projected drag area."
+    )
+    thickness: Positive = Field(description="Fabric thickness, m.")
+    line_mass: NonNegative = 0.0
+    packed_radius: Positive
+    packed_length: Positive
+    deployment: ParachuteDeployment
+
+
+ComponentDesign = Annotated[
+    BodyTubeDesign | SurfaceDesign | MassComponentDesign | ParachuteDesign,
+    Field(discriminator="component_type"),
+]
+
+
+class MassOverrides(EngineConfig):
+    mass: Positive | None = None
+    center_of_mass: Number | None = None
+    inertia: Inertia | None = None
+
+    @field_validator("inertia")
+    @classmethod
+    def physical_tensor(cls, value):
+        return _inertia(value) if value is not None else None
+
+
+class RocketDesign(EngineConfig):
+    """SI units; axis-centered components, body stations increase tail to nose."""
+
+    schema_version: Literal[1] = 1
+    name: Annotated[str, Field(min_length=1, max_length=128)]
+    materials: Annotated[dict[str, MaterialConfig], Field(max_length=64)] = Field(
+        default_factory=dict
+    )
+    components: Annotated[list[ComponentDesign], Field(min_length=1, max_length=64)]
+    environment: EnvironmentConfig
+    flight: FlightConfig
+    motor: MotorConfig | None
+    motor_position: Number = 0.0
+    tanks: list[MassBasedTankConfig] = Field(default_factory=list)
+    power_off_drag: NonNegativeCurve
+    power_on_drag: NonNegativeCurve
+    rail_buttons: RailButtonsConfig | None = None
+    overrides: MassOverrides = Field(default_factory=MassOverrides)
+
+    @model_validator(mode="after")
+    def consistent_design(self):
+        ids = [component.id for component in self.components]
+        if len(set(ids)) != len(ids):
+            raise ValueError("Component IDs must be unique.")
+        for component in self.components:
+            if (
+                isinstance(component, MaterialComponent)
+                and component.material not in self.materials
+            ):
+                raise ValueError(
+                    f"Unknown material for component {component.id}: {component.material}"
+                )
+        if not any(
+            isinstance(c, (BodyTubeDesign, SurfaceDesign)) for c in self.components
+        ):
+            raise ValueError("A design needs a body tube or aerodynamic surface.")
+        needs_tanks = isinstance(self.motor, (LiquidMotorConfig, HybridMotorConfig))
+        if needs_tanks != bool(self.tanks):
+            raise ValueError("Only liquid/hybrid motors require and accept tanks.")
+        return self

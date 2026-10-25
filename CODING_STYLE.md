@@ -10,8 +10,9 @@ All new contributions and refactorings must adhere to these standards.
 
 1. **Separation of Concerns**
    * **Data Validation & DTOs**: Handled exclusively by `schemas.py` (Pydantic V2).
+   * **Component Design & Mass Properties**: Handled by `design.py`; preserve editable designs separately from derived solver inputs. See [docs/DESIGN.md](./docs/DESIGN.md).
    * **Hardware Assembly & Numerical Solvers**: Handled exclusively by `engine.py` (RocketPy wrapper).
-   * **Desktop Boundary & Lifecycle**: Handled by `bridge.py` and `main.py` (pywebview); simulations belong in separate worker processes.
+   * **Desktop Boundary & Lifecycle**: Handled by `bridge.py` and `main.py` (pywebview); `simulation/jobs.py` owns bounded scheduling and `simulation/worker.py` runs simulations in separate processes.
    * **Persistence**: Handled by `storage.py`.
 
 2. **Explicit Over Implicit**
@@ -145,10 +146,27 @@ flight = Flight(
 Validate raw numerical integration solutions before returning to callers:
 
 ```python
-solution = np.asarray(flight.solution, dtype=float)
+solution = np.asarray(flight.solution_array, dtype=float)
 if solution.ndim != 2 or solution.shape[1] != 14 or not np.isfinite(solution).all():
     raise RuntimeError("RocketPy returned an invalid flight solution.")
 ```
+
+Reuse RocketPy's cached `solution_array` for validation, summaries, and storage.
+Reject empty and time-reversed solutions as well as invalid shapes/non-finite data.
+
+### 3.5 Worker and Persistence Boundaries
+
+* Send serializable `SimulationConfig` data through the application boundary;
+  build RocketPy tanks, surfaces, rockets, and environments inside a worker.
+  Bounded design previews may build temporary aerodynamic surfaces through the
+  engine to reuse their profiles; flight integration remains in worker processes.
+* Each run uses a disposable `spawn` process. Bound active and pending work,
+  monitor wall-clock time and supported memory limits, and reap stopped workers.
+* Keep `Flight` and full state arrays inside workers. Save raw telemetry to `.npy`;
+  bridge responses contain metadata, summaries, or bounded chart rows.
+* The host owns SQLite writes and locks the data directory. Snapshot authorized
+  local input files before queuing, and publish completion only after result files.
+* Preserve numerical extrema and event samples when reducing chart data.
 
 ---
 

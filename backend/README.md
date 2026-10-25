@@ -27,6 +27,17 @@ uv run uarc --dev-url http://localhost:5173
 uv run uarc --frontend ../frontend/dist/index.html
 ```
 
+Run the backend immediately without frontend assets using the synthetic example:
+
+```bash
+uv run python -m app.simulation ../examples/simulation.json --data-dir ../data
+```
+
+The example models synthetic hardware, not a real flight vehicle. The command
+prints stage changes to stderr and a run ID plus summary JSON to stdout.
+Ctrl+C cancels the worker and exits with status 130. Failed or timed-out runs
+exit with status 1. The same scheduler and storage serve the GUI bridge.
+
 Without options, the launcher looks for `frontend/dist/index.html` in this
 checkout. A missing build produces an explicit error rather than an empty
 window. Use `--frontend` to supply assets when running an installed wheel.
@@ -35,9 +46,10 @@ separate verification on each target OS.
 
 ## Desktop bridge
 
-`app/bridge.py` exposes only `validate_config(kind, payload_json)` for now;
-`kind` is `environment`, `motor`, `rocket`, or `flight`. Job execution, status,
-and persistence are not implemented. The frontend helper in
+`app/bridge.py` exposes validation, simulation jobs, and stored results;
+`kind` is `environment`, `motor`, `rocket`, `flight`, or `simulation`.
+Parametric component inputs additionally use `kind="design"`.
+The existing frontend helper in
 `frontend/src/lib/bridge.ts` waits for `pywebviewready`, sends JSON text, and
 propagates validation errors as rejected promises:
 
@@ -51,8 +63,131 @@ The bridge uses Pydantic's JSON validation mode so JavaScript arrays populate
 tuple fields, including inertia and curves, without weakening strict Python
 validation. `engine.py` and `schemas.py` are unchanged by the desktop migration:
 neither module depends on FastAPI or pywebview. Native RocketPy objects remain
-inside Python. Numerical work will run in a separate process when job management
-is implemented; the GUI loop stays on the main thread.
+inside the worker process. The GUI loop stays on the main thread.
+
+| Bridge method | Result |
+| --- | --- |
+| `get_config_schema(kind)` | JSON Schema for an input model |
+| `validate_config(kind, payload_json)` | Validated JSON-compatible config |
+| `submit_simulation(payload_json)` | Queued run record, including `run_id` |
+| `preview_design(payload_json)` | Derived solver input and component/assembly mass report |
+| `submit_design(payload_json)` | Compile, snapshot, and queue a component design |
+| `get_design(run_id)` | Editable saved component design |
+| `get_design_report(run_id)` | Saved automatic/effective mass properties and component outlines |
+| `rerun(run_id)` | Queue a new run from a finished run's frozen solver inputs |
+| `get_run(run_id)` | State, stage, timestamps, worker PID, error, and sampled peak RSS |
+| `list_runs(limit=50, offset=0)` | Newest-first persistent history; up to 1000 records per request |
+| `cancel_run(run_id)` | Updated record; running jobs pass through `cancelling` |
+| `get_summary(run_id)` | Small summary for a succeeded run |
+| `get_telemetry(run_id, query_json="{}")` | Bounded rows for selected columns and time range |
+
+`SimulationConfig` combines `environment`, `motor` (or `null` for an unpowered
+flight), `rocket`, and `flight`, with optional `surfaces` and `tanks`.
+Serializable surfaces cover nose cones, trapezoidal/elliptical fins, and tails.
+Liquid/hybrid motors require cylindrical mass-based tanks; solid/generic motors
+reject tanks. Other native components remain available through the Python engine
+API and need explicit DTO support before they can cross the desktop boundary.
+
+For example, once the desktop page has a validated simulation config:
+
+```javascript
+const api = window.pywebview.api;
+const run = await api.submit_simulation(JSON.stringify(config));
+const status = await api.get_run(run.run_id);
+// Poll until succeeded, failed, cancelled, timed_out, or interrupted.
+// On success:
+const summary = await api.get_summary(run.run_id);
+const telemetry = await api.get_telemetry(run.run_id, JSON.stringify({
+  columns: ["time_s", "z_asl_m", "vz_m_s"],
+  start_time: 0,
+  end_time: 30,
+  max_points: 2000,
+}));
+```
+
+The React job UI is not implemented yet. `bridge.ts` wraps input validation,
+design preview/submission, saved design/report loading, and replay requests.
+
+## Numeric component design
+
+`RocketDesign` stores editable dimensions, materials, component positions, motor
+and fuel parameters, and measured overrides. `app/design.py` calculates airframe
+mass, axial CG, and inertia before producing the existing `SimulationConfig`.
+See [the design format and model assumptions](../docs/DESIGN.md).
+
+From `backend/`, preview the synthetic numeric design without creating a run:
+
+```bash
+uv run python -m app.simulation ../examples/design.json --design --preview
+```
+
+Edit numbers in `examples/design.json`, then run the supervised simulation:
+
+```bash
+uv run python -m app.simulation ../examples/design.json --design --data-dir ../data
+```
+
+Design runs save both `design.json` and `design_report.json`, alongside the frozen
+solver input and copied files. `get_design()` returns a model that can be edited
+and submitted again even after its original local files are removed. A replay
+uses a new run ID and never overwrites prior results. Flight summaries include
+initial/final mass and CG for the complete rocket, including motor and propellant.
+
+## Scheduling, storage, and resource limits
+
+`simulation/jobs.py` starts a fresh `spawn` process for each run, with default
+limits of one worker, eight additional pending slots, and 300 wall-clock seconds
+per worker. Startup, weather loading, solving, and saving count toward that
+deadline; queued time does not. A full queue rejects new submissions before
+creating a run. Public bridge calls are synchronized independently of numerical
+execution. Native BLAS/OpenMP thread limits are set to one for spawned workers.
+
+GUI options are `--workers`, `--queue-size`, `--job-timeout`, `--data-dir`, and
+`--memory-limit-mb`. The headless command accepts the last three options. On
+Linux, each worker defaults to a 1024 MiB RSS limit, monitored through `/proc`
+approximately every 100 ms; `--memory-limit-mb 0` disables it. Sampling can
+overshoot the limit and is not an OS-enforced memory sandbox. Other platforms
+currently have no RSS monitor. Account for worker count, GUI memory, and OS
+headroom when selecting limits.
+
+States are `queued`, `running`, `cancelling`, `succeeded`, `failed`, `cancelled`,
+`timed_out`, and `interrupted`. Stages report startup/building/simulating/saving,
+not a fabricated completion percentage. Cancellation and timeout terminate the
+individual process, escalating to kill after one second. GUI shutdown cancels
+pending/running work and reaps children. A child watches for host death and
+exits if the host disappears. Restart marks unfinished records `interrupted`;
+completed runs remain available. One host owns a data directory at a time.
+
+By default, data is stored under `$XDG_DATA_HOME/uarc` (or
+`~/.local/share/uarc`) on Linux, `~/Library/Application Support/uarc` on macOS,
+and `%LOCALAPPDATA%/uarc` on Windows. `--data-dir` overrides this location.
+SQLite contains metadata only. Each `runs/<run-id>/` directory contains
+`input.json`, `runtime.json`, `telemetry.npy`, `summary.json`, and `complete.json`;
+stage/error diagnostics and copied input files may also be present. A completion
+marker is published only after results are saved, and the scheduler additionally
+requires a successful worker exit. Failed or cancelled runs do not expose results.
+Existing published runs are never overwritten. Partial files are retained for
+inspection; automatic retention/deletion is not implemented.
+
+JSON requests are limited to 2 MiB. Local file references must resolve to regular
+files inside `<data-dir>/inputs/` or copied input assets of known runs; relative
+paths are resolved under `inputs/`. Run metadata files cannot be used as assets. Accepted
+files are copied into the run directory at submission, with a combined 64 MiB
+limit and a check for source changes during copying. Provider identifiers such
+as `GFS` remain provider identifiers; live weather responses are not frozen by
+these local-file snapshots.
+
+Telemetry queries accept known unique column names, inclusive `start_time` and
+`end_time` bounds, and `max_points` between 32 and 10000 (default 2000).
+Results contain `columns`, row-major `data`, `total_rows`, `matched_rows`,
+`returned_rows`, and `decimated`. Full arrays stay in `.npy` files and are read
+with memory mapping. Larger requests use bucket min/max sampling, preserving
+endpoints and samples nearest apogee/parachute event times. At most two telemetry
+reads run concurrently; an additional request is rejected for retry. Output and
+scan buffers are bounded, but a wide time range still scans its source rows;
+very large interactive histories may need precomputed multiresolution data.
+RocketPy still keeps full integration histories in a worker's RAM, so memory
+mapping does not eliminate the solver's memory cost.
 
 ## Simulation engine
 
@@ -70,6 +205,8 @@ path. All quantities use SI units; launch angles use degrees.
 
 The complete `Flight` remains available for RocketPy's plots, telemetry, and
 exporters. `run_simulation` returns this object, not the summary dictionary.
+The scheduler keeps it inside the worker and saves its state array before the
+process exits.
 The engine performs synchronous computation; scheduling and file storage belong
 to the calling application.
 
@@ -81,7 +218,8 @@ its caller. Schemas contain only serializable data and expose JSON Schema;
 RocketPy instances and Python callbacks stay outside these models. Surface and
 tank objects are separate engine arguments. Inertia checks remain at the input
 boundary because RocketPy does not enforce physical principal moments. Solver
-output checks prevent non-finite results from being returned as successful runs.
+output checks reject non-finite, empty, or time-reversed results. Validation,
+summarization, and saving reuse RocketPy's cached `solution_array`.
 
 ## Example
 
