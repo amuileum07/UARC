@@ -15,6 +15,9 @@ build/
 node_modules/
 frontend/node_modules/
 frontend/dist/
+.pnpm-store/
+pnpm-debug.log*
+.pnpm-debug.log*
 *.local
 
 # Environment variables & secrets

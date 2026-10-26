@@ -43,6 +43,18 @@ bundle modules. See [the recorded verification](./VALIDATION.md).
 
 ## Desktop bundle after the frontend is built
 
+Build the frontend from the repository root first:
+
+```bash
+cd frontend
+corepack pnpm install --frozen-lockfile
+corepack pnpm build
+cd ../backend
+```
+
+Then run the existing Python packaging command. pnpm builds the web assets;
+uv continues to manage Python dependencies and the packaging tool.
+
 ```bash
 uv run --with 'pyinstaller==6.14.2' python scripts/build_desktop.py --frontend ../frontend/dist
 ```

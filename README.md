@@ -20,6 +20,15 @@ overrides. Edit [examples/design.json](./examples/design.json); see
 
 The first React/Dockview workspace is implemented: numeric editing, selectable SVG/Three.js previews, a Cesium site map, elevation checks, saved designs, jobs and result charts. See [frontend/README.md](./frontend/README.md) for launch commands and terrain-model limitations. Terrain contact uses a version-bound RocketPy 1.13.0 adapter; high-resolution DEM import and target-platform GUI verification remain pending.
 
+Frontend packages use **pnpm 10.33.4** on Node.js 22.20+, pinned by
+`frontend/package.json` and `frontend/pnpm-lock.yaml`. From the **UARC repository
+root**, run `corepack pnpm --dir frontend install --frozen-lockfile`, then
+`corepack pnpm dev` or `corepack pnpm build`. The root `package.json` routes these
+two commands to `frontend/` and prevents Corepack from inheriting an unrelated
+parent directory's package-manager setting. Python packages continue to use **uv** and
+`backend/uv.lock`; from `backend/`, run `uv sync --locked`, then `uv run uarc`.
+See [frontend setup](./frontend/README.md) for package changes and checks.
+
 ## Directory Structure
 
 The following is the **target structure**, combining implemented engine files with planned desktop features. Keep the frontend and Python application in one repository, and create files and directories only as their features are implemented.
@@ -44,7 +53,9 @@ UARC/
 │   │   └── styles.css             # Tailwind and global styles [planned]
 │   ├── dist/                      # Generated frontend assets bundled with the desktop app
 │   ├── index.html                 # [planned]
-│   ├── package.json               # [planned]
+│   ├── package.json               # Frontend dependencies, scripts, and pnpm version
+│   ├── pnpm-lock.yaml             # Reproducible JavaScript dependency graph
+│   ├── pnpm-workspace.yaml        # Single-package dependency build-script settings
 │   ├── tsconfig.json              # [planned]
 │   └── vite.config.ts             # [planned]
 ├── backend/                       # pywebview desktop host + Python simulation processes
@@ -90,6 +101,7 @@ UARC/
 │           ├── progress.json      # Worker stage; error.json accompanies failures
 │           └── complete.json      # Published only after result files are saved
 ├── Licenses/                      # Third-party licenses
+├── package.json                   # pnpm boundary and frontend dev/build shortcuts
 ├── .gitignore
 ├── LICENSE
 └── README.md
@@ -115,6 +127,7 @@ Python requirements are the published `Requires-Python` constraints for the list
 |:--|:--|:--|:--|
 | React | | N/A | Core UI component library |
 | TypeScript | | N/A | Static type checking and safety |
+| pnpm | 10.33.4 | N/A | Frontend package manager; Node.js 22.20+ for this project |
 | Vite | | N/A | Frontend build tool and development server |
 | Dockview (`dockview-react`) | | N/A | React workspace with tabs, dockable panels, and resizable layouts |
 | SVG (browser native) | | N/A | 2D rocket profiles, dimensions, component selection, and CG markers |

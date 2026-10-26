@@ -231,6 +231,15 @@ The frontend should be as explicit and economical as the Python backend. Follow
 the GUI requirements in [docs/GUI.md](./docs/GUI.md); planned stack entries are
 options, not a requirement to install every library.
 
+* Manage frontend packages with the pnpm version pinned in the root and frontend
+  `package.json` files; keep both pins synchronized. Commit
+  `frontend/pnpm-lock.yaml`. From the repository root, use
+  `corepack pnpm --dir frontend install --frozen-lockfile` for reproducible
+  installs and `corepack pnpm --dir frontend add` for deliberate dependency
+  changes. Keep dependency build-script permissions in
+  `frontend/pnpm-workspace.yaml`. Ignore installed packages, local stores, logs,
+  and generated build output, while keeping dependency manifests and lockfiles
+  in Git. Python dependencies remain managed by uv and `backend/uv.lock`.
 * Use React with strict TypeScript, ES modules, named exports, and small functions.
   Use `camelCase` for values/functions, `PascalCase` for components/types, and
   `SCREAMING_SNAKE_CASE` for constants. Avoid `any`, unchecked assertions, nested

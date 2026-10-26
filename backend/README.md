@@ -19,6 +19,11 @@ renderer automatically; Windows and macOS use pywebview's platform dependencies.
 Windows also needs its WebView2 runtime; platform details are in the
 [pywebview installation guide](https://pywebview.flowrl.com/guide/installation.html).
 
+Frontend packages are managed independently with pnpm; switching the frontend
+package manager does not change `pyproject.toml`, `.python-version`, or `uv.lock`.
+Use `uv sync --locked` to install the existing Python dependency graph and see
+[frontend setup](../frontend/README.md) for its install/build commands.
+
 The React/Vite application has not been implemented yet. Once a local Vite
 server or built frontend is available, launch it inside the desktop window:
 
@@ -492,7 +497,7 @@ cd backend
 .venv/bin/python -m unittest discover -s tests -v
 ```
 
-From the repository root, Node.js 22.20+ can run the bridge tests without npm
+From the repository root, Node.js 22.20+ can run the bridge tests without frontend
 dependencies (TypeScript syntax is stripped for this runtime check):
 
 ```bash

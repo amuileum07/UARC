@@ -90,3 +90,17 @@ rocket canvas and Cesium map canvas before closing normally. This was a source
 desktop launch, not a rebuilt executable or a live online-terrain check.
 The 10 desktop launcher/runtime tests and Ruff checks passed. No software-only
 graphics flags or sandbox-disabling flags were used.
+
+## pnpm migration (2026-10-26)
+
+Imported the npm lockfile with pnpm 10.33.4, preserving all 125 unique package
+versions. A clean install selected 75 packages for Linux; the project then
+installed successfully from the same lockfile and store in offline mode.
+TypeScript checking, all 11 frontend tests, formatter checking, the production
+build, and Cesium static-asset copying passed with pnpm's dependency layout.
+`uv lock --check --offline` also passed; Python configuration and `uv.lock`
+were unchanged. The Vite bundle-size warning remains as before the migration.
+
+From `frontend/`, reproduce with `corepack pnpm install --frozen-lockfile`,
+`corepack pnpm check`, `corepack pnpm test`, `corepack pnpm format:check`, and
+`corepack pnpm build`.
