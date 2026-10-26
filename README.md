@@ -5,12 +5,20 @@ The project focuses on ease of use and high-fidelity simulation as development g
 
 The target application combines a React interface with a [pywebview desktop window and JavaScript–Python bridge](https://pywebview.flowrl.com/guide/interdomain). The UI calls Python through `window.pywebview.api`, so the local simulation workflow does not require a FastAPI/Uvicorn API service. An HTTP API can be added later if browser access or remote computation becomes a requirement.
 
-**Development status:** The RocketPy engine, typed input/result schemas, desktop launcher, bounded process scheduler, cancellation, run history, result storage, and telemetry queries are implemented. Editable designs can be saved independently of simulations; input-file import, CSV export, and bounded single-stage OpenRocket import are available through the backend. Run without a GUI using `uv run python -m app.simulation ../examples/simulation.json` or manage files with `uv run uarc-data --help` from `backend/`. The React UI remains planned. Executable build scripts and their platform verification scope are documented in [docs/PACKAGING.md](./docs/PACKAGING.md). See [backend/README.md](./backend/README.md) for setup, resource limits, bridge methods, and examples.
+The planned GUI uses [Dockview](https://dockview.dev/docs/overview/quickstart/?framework=react) (`dockview-react`) for an IDE-style dockable workspace. Rocket design, launch environment, simulation status/history, and result plots will be React panels with tabs, drag-and-drop docking, and resizing.
+
+The GUI requirements include live, selectable **2D/3D rocket previews** driven by numeric component inputs, and a **launch-site map with terrain, flight paths, and predicted landing positions** driven by the environment coordinates. Terrain elevation will support launch-elevation checks and terrain-aware impact detection. The initial implementation supports embedded elevation grids and terrain events; see frontend/README.md for resolution and version limits. See [docs/GUI.md](./docs/GUI.md) for the workspace, rendering/data flow, height references, accuracy limits, and acceptance criteria. Keep the interface visually minimal and the TypeScript, semantic HTML, and CSS explicit and small; frontend conventions are in [CODING_STYLE.md](./CODING_STYLE.md#6-frontend-conventions).
+
+**Development status:** The RocketPy engine, typed input/result schemas, desktop launcher, bounded process scheduler, cancellation, run history, result storage, and telemetry queries are implemented. Editable designs can be saved independently of simulations; input-file import, CSV export, and bounded single-stage OpenRocket import are available through the backend. Run without a GUI using `uv run python -m app.simulation ../examples/simulation.json` or manage files with `uv run uarc-data --help` from `backend/`. The first React desktop workspace is implemented; see frontend/README.md for its verification limits. Executable build scripts and their platform verification scope are documented in [docs/PACKAGING.md](./docs/PACKAGING.md). See [backend/README.md](./backend/README.md) for setup, resource limits, bridge methods, and examples.
 
 Numeric component designs now support material density, wall/plate thickness,
 positions, continuous Haack nose profiles, automatic mass/CG/inertia, and measured
 overrides. Edit [examples/design.json](./examples/design.json); see
 [docs/DESIGN.md](./docs/DESIGN.md) for the coordinate and mass-model conventions.
+
+## Desktop workspace
+
+The first React/Dockview workspace is implemented: numeric editing, selectable SVG/Three.js previews, a Cesium site map, elevation checks, saved designs, jobs and result charts. See [frontend/README.md](./frontend/README.md) for launch commands and terrain-model limitations. Terrain contact uses a version-bound RocketPy 1.13.0 adapter; high-resolution DEM import and target-platform GUI verification remain pending.
 
 ## Directory Structure
 
@@ -20,13 +28,13 @@ During development, the pywebview window will load the Vite development server. 
 
 ```text
 UARC/
-├── frontend/                      # React + TypeScript + Vite [planned; bridge exists]
+├── frontend/                      # React + TypeScript + Vite workspace
 │   ├── src/
-│   │   ├── main.tsx               # React entry point [planned]
-│   │   ├── App.tsx                # Application layout and feature composition [planned]
+│   │   ├── main.tsx               # React entry point
+│   │   ├── App.tsx                # Dockview workspace and feature composition
 │   │   ├── features/              # Feature screens [planned]
-│   │   │   ├── rocket/            # Rocket and motor inputs, .ork import UI
-│   │   │   ├── environment/       # Launch site, atmosphere, and wind settings
+│   │   │   ├── rocket/            # Numeric inputs, shared 2D/3D geometry, .ork import UI
+│   │   │   ├── environment/       # Launch site, terrain map/checks, atmosphere, wind
 │   │   │   ├── simulation/        # Run requests, status, and history
 │   │   │   └── results/           # Trajectory and telemetry charts, result views
 │   │   ├── components/            # Reusable interface components [planned]
@@ -48,6 +56,7 @@ UARC/
 │   │   ├── bridge.py              # JSON validation, submission, status, cancellation, and results
 │   │   ├── schemas.py             # Serializable Pydantic input, result, and configuration models
 │   │   ├── design.py              # Component mass properties and design-to-solver conversion
+│   │   ├── terrain.py             # Bounded elevation grids, height references, site checks
 │   │   ├── simulation/
 │   │   │   ├── jobs.py            # Bounded scheduling, deadlines, and worker lifecycle
 │   │   │   ├── worker.py          # Build, solve, and save one run in a spawn process
@@ -64,7 +73,7 @@ UARC/
 │   │   └── benchmark_backend.py   # Worker throughput, RSS, and host query latency
 │   └── pyproject.toml             # Python dependencies and tool configuration
 ├── examples/                      # Small rocket and environment examples tracked in Git
-├── docs/                          # Input units, bridge contracts, and simulation model documentation
+├── docs/                          # GUI plan, units, bridge contracts, and model documentation
 ├── data/                          # Example runtime root; opt in with --data-dir
 │   ├── uarc.sqlite3               # Run/design metadata and history
 │   ├── inputs/                    # Explicitly imported local files
@@ -107,6 +116,8 @@ Python requirements are the published `Requires-Python` constraints for the list
 | React | | N/A | Core UI component library |
 | TypeScript | | N/A | Static type checking and safety |
 | Vite | | N/A | Frontend build tool and development server |
+| Dockview (`dockview-react`) | | N/A | React workspace with tabs, dockable panels, and resizable layouts |
+| SVG (browser native) | | N/A | 2D rocket profiles, dimensions, component selection, and CG markers |
 | shadcn/ui | | N/A | Accessible and customizable UI components |
 | Tailwind CSS | | N/A | Utility-first CSS styling framework |
 | React Hook Form | | N/A | Form state management and input handling |
@@ -142,9 +153,9 @@ For the current Linux setup, the project minimum (`>=3.13`) and locked PySide6 r
 
 | Library / Technology | Version | Python requirement | Purpose |
 |:--|:--|:--|:--|
-| Three.js | | N/A | 3D rocket model and trajectory visualization |
+| Three.js | | N/A | Numeric-design-driven 3D rocket geometry; shares profiles with the 2D preview |
+| CesiumJS (candidate) | | N/A | 2D/3D geospatial views, terrain, flight paths, and predicted landing markers; data provider and DEM ingestion remain to be selected |
 | TanStack Query | | N/A | Asynchronous bridge result caching and polling, if needed |
-| Dockview | | N/A | IDE-style dockable panel layout for engineering UI |
 | PyInstaller (build tool) | 6.14.2 | `>=3.8, <3.14` | Folder-bundle recipe implemented; build and verify on each target OS |
 
 Desktop distribution also depends on the target platform's [webview runtime](https://pywebview.flowrl.com/guide/web_engine) and [packaging setup](https://pywebview.flowrl.com/guide/freezing). Renderer compatibility and packaged builds must be tested on each supported OS.

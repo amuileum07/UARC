@@ -72,10 +72,52 @@ class EngineConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
 
+class TerrainGrid(EngineConfig):
+    """WGS84 geographic grid; rows run south to north, columns west to east."""
+
+    south: Annotated[Number, Field(ge=-85, le=85)]
+    north: Annotated[Number, Field(ge=-85, le=85)]
+    west: Annotated[Number, Field(ge=-180, le=180)]
+    east: Annotated[Number, Field(ge=-180, le=180)]
+    heights: Annotated[
+        list[Annotated[list[Number | None], Field(min_length=2, max_length=129)]],
+        Field(min_length=2, max_length=129),
+    ]
+    reference: Literal["EGM96", "ellipsoid", "unknown"]
+    source: Annotated[str, Field(min_length=1, max_length=512)]
+    retrieved_at: Annotated[str, Field(max_length=64)] = ""
+    source_resolution_m: Positive
+    sampling_distance_m: Positive
+
+    @model_validator(mode="after")
+    def valid_grid(self):
+        if not self.south < self.north or not self.west < self.east:
+            raise ValueError(
+                "Terrain bounds must be ordered without dateline wrapping."
+            )
+        if len({len(row) for row in self.heights}) != 1:
+            raise ValueError("Terrain rows must have equal lengths.")
+        if self.north - self.south > 0.2 or self.east - self.west > 0.4:
+            raise ValueError("Terrain grids are limited to local launch areas.")
+        return self
+
+
+class TerrainRequest(EngineConfig):
+    latitude: Annotated[Number, Field(ge=-59.9, le=59.9)]
+    longitude: Annotated[Number, Field(ge=-179.8, le=179.8)]
+    radius_m: Annotated[Number, Field(ge=100, le=5000)] = 1000.0
+
+
 class EnvironmentConfig(EngineConfig):
     latitude: Annotated[Number, Field(ge=-90, le=90)]
     longitude: Annotated[Number, Field(ge=-180, le=180)]
     elevation: Number
+    elevation_reference: Literal["EGM96", "ellipsoid", "unknown"] = "unknown"
+    geoid_undulation_m: Number | None = None
+    pad_height_m: NonNegative = 0.0
+    elevation_tolerance_m: NonNegative = 15.0
+    terrain: TerrainGrid | None = None
+    terrain_mode: Literal["flat", "terrain"] = "flat"
     date: datetime | tuple[int, int, int, int] | None = None
     timezone: str = "UTC"
     gravity: Positive | None = None
@@ -116,6 +158,20 @@ class EnvironmentConfig(EngineConfig):
 
     @model_validator(mode="after")
     def compatible_weather(self):
+        if self.terrain_mode == "terrain":
+            if self.terrain is None or self.datum != "WGS84":
+                raise ValueError(
+                    "Terrain flights require a grid and WGS84 coordinates."
+                )
+            if "unknown" in (self.elevation_reference, self.terrain.reference):
+                raise ValueError("Terrain flights require known vertical references.")
+            if (
+                self.elevation_reference != self.terrain.reference
+                and self.geoid_undulation_m is None
+            ):
+                raise ValueError(
+                    "Different height references require geoid undulation."
+                )
         if self.max_expected_height <= self.elevation:
             raise ValueError("max_expected_height must be above the launch elevation.")
         custom = (
@@ -697,6 +753,10 @@ class FlightSummary(EngineConfig):
     impact_x_m: Number | None
     impact_y_m: Number | None
     impact_speed_m_s: NonNegative | None
+    ground_model: Literal["flat", "terrain"] = "flat"
+    impact_latitude: Number | None = None
+    impact_longitude: Number | None = None
+    impact_elevation_m: Number | None = None
     parachute_events: list[ParachuteEvent]
 
 
@@ -731,6 +791,9 @@ class ComponentMassProperties(MassProperties):
     mass_source: Literal["computed", "measured", "provided"]
     outline_z_radius_m: list[Annotated[list[Number], Field(min_length=2, max_length=2)]]
     effective_length_m: Positive | None
+    fin_outline_m: (
+        list[Annotated[list[Number], Field(min_length=2, max_length=2)]] | None
+    ) = None
 
 
 class MassPropertySources(EngineConfig):

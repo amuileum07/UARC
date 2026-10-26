@@ -5,9 +5,8 @@ import sys
 from multiprocessing import freeze_support
 from pathlib import Path
 
-from app.bridge import DesktopBridge
 from app.config import default_data_directory, frontend_entrypoint
-from app.simulation.jobs import JobManager
+from app.desktop_runtime import prepare_desktop_runtime
 
 
 def main() -> None:
@@ -47,7 +46,15 @@ def main() -> None:
         parser.error(str(error))
 
     # Delay GUI imports so --help and input checks also work without a display.
+    try:
+        prepare_desktop_runtime()
+    except RuntimeError as error:
+        parser.error(str(error))
+
     import webview
+
+    from app.bridge import DesktopBridge
+    from app.simulation.jobs import JobManager
 
     try:
         jobs = JobManager(

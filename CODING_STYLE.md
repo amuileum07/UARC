@@ -1,6 +1,6 @@
 # UARC Coding Style & Architecture Guide
 
-This document defines the architectural principles, coding conventions, and implementation guidelines for the UARC backend (`backend/app/simulation/engine.py`, `backend/app/schemas.py`, `backend/tests/`).
+This document defines the architectural principles, coding conventions, and implementation guidelines for the UARC backend (`backend/app/`, `backend/tests/`) and planned frontend (`frontend/src/`).
 
 All new contributions and refactorings must adhere to these standards.
 
@@ -224,3 +224,47 @@ Reject empty and time-reversed solutions as well as invalid shapes/non-finite da
   3. Local application imports (`app.schemas`, `app.simulation.engine`, etc.)
 * **Docstrings**:
   * Concise and contract-focused. Specify input units, coordinate frames, and assumptions. Avoid repeating obvious variable names.
+
+## 6. Frontend Conventions
+
+The frontend should be as explicit and economical as the Python backend. Follow
+the GUI requirements in [docs/GUI.md](./docs/GUI.md); planned stack entries are
+options, not a requirement to install every library.
+
+* Use React with strict TypeScript, ES modules, named exports, and small functions.
+  Use `camelCase` for values/functions, `PascalCase` for components/types, and
+  `SCREAMING_SNAKE_CASE` for constants. Avoid `any`, unchecked assertions, nested
+  ternaries, speculative abstractions, and generic wrappers with one caller.
+* Organize code by feature. Keep `App.tsx` responsible for workspace composition;
+  keep geometry conversion, rendering, bridge calls, and form editing separate.
+  Introduce shared components/hooks only when there is actual reuse or a clear
+  lifecycle to own. Do not build a custom rendering or state-management framework.
+* Keep one editable design and derive views from it. Camera/selection/layout state
+  is separate from physical input. Parse finite numbers at the form boundary;
+  allow intermediate text such as an empty field without committing invalid
+  values. Pydantic remains authoritative for physical validation and mass models.
+* Use concrete bridge input/result types matching Python schemas. Validate external
+  responses at the boundary; do not scatter casts or replicate solver equations
+  in UI components. Errors must remain visible and actionable.
+* Effects synchronize external systems only. Clean up viewers, geometry/materials,
+  observers, listeners, timers, and requests. Associate asynchronous work with its
+  input revision and ignore obsolete responses. Never trigger flight integration
+  from a render or numeric-input change.
+* Prefer semantic HTML and native controls: labelled inputs, buttons, fieldsets,
+  and tables. Make panel controls keyboard-accessible with visible focus. Provide
+  a text/table equivalent for canvas-only data; do not rely on color or pointer
+  interactions alone. Render imported text as text, never untrusted HTML.
+* Start with a small global stylesheet for tokens, typography, focus, and workspace
+  sizing, plus feature-scoped CSS where needed. Use CSS custom properties, Grid,
+  and Flexbox; avoid inline style duplication, `!important`, deep selectors, and
+  competing styling systems. Dynamic dimensions and canvas sizes may use inline
+  styles. If adopting a listed CSS/UI library, use it consistently rather than
+  adding a parallel system.
+* Keep the visual language restrained: neutral surfaces, thin borders, compact
+  spacing, one accent, tabular numbers, and explicit unit labels. Use motion only
+  for navigation/playback; honor reduced-motion settings. Keep technical data
+  attribution and validation details available without crowding the workspace.
+* Use the project formatter/linter and TypeScript checks once the frontend toolchain
+  exists. Add minimal runnable tests for geometry/coordinate conversion, stale
+  response handling, and editing-to-preview behavior; use deterministic fixtures
+  rather than live map services. Do not add dependencies for native capabilities.

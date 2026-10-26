@@ -25,9 +25,11 @@ from app.schemas import (
     SimulationConfig,
     TelemetryQuery,
     TelemetryResult,
+    TerrainRequest,
 )
 from app.simulation.jobs import JobManager
 from app.storage import MAX_PAYLOAD_BYTES
+from app.terrain import check_elevation, fetch_terrain
 
 ConfigKind = Literal[
     "environment",
@@ -109,6 +111,29 @@ class DesktopBridge:
             return _RESULT_MODELS[kind].model_json_schema()
         except KeyError as error:
             raise ValueError(f"Unknown result kind: {kind}") from error
+
+    def get_example_design(self) -> dict:
+        """Bundled offline starting design, validated through the same DTO."""
+        import sys
+
+        root = (
+            Path(sys._MEIPASS)
+            if getattr(sys, "frozen", False)
+            else Path(__file__).resolve().parents[2]
+        )
+        return RocketDesign.model_validate_json(
+            (root / "examples/design.json").read_text()
+        ).model_dump(mode="json")
+
+    def get_terrain(self, payload_json: str) -> dict:
+        self._check_payload(payload_json)
+        return fetch_terrain(
+            TerrainRequest.model_validate_json(payload_json)
+        ).model_dump(mode="json")
+
+    def check_elevation(self, payload_json: str) -> dict:
+        self._check_payload(payload_json)
+        return check_elevation(EnvironmentConfig.model_validate_json(payload_json))
 
     def submit_simulation(self, payload_json: str) -> dict:
         self._check_payload(payload_json)

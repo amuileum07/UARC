@@ -124,7 +124,7 @@ def _fin_properties(surface, thickness, density):
         [float(surface.position + z * c), float(surface.rocket_radius + r)]
         for r, z in outline
     ]
-    return mass, center, inertia, profile
+    return mass, center, inertia, profile, [[float(r), float(z)] for r, z in outline]
 
 
 def _component_properties(component, design):
@@ -133,6 +133,7 @@ def _component_properties(component, design):
 
     radius = 0.0
     profile = []
+    fin_outline = None
     effective_length = None
     if isinstance(component, MassComponentDesign):
         mass, center = component.mass, component.position
@@ -174,7 +175,7 @@ def _component_properties(component, design):
             surface = component.surface
             if isinstance(surface, (TrapezoidalFinsConfig, EllipticalFinsConfig)):
                 radius = surface.rocket_radius
-                mass, center, inertia, profile = _fin_properties(
+                mass, center, inertia, profile, fin_outline = _fin_properties(
                     surface, component.thickness, density
                 )
             elif isinstance(surface, NoseConeConfig):
@@ -246,6 +247,7 @@ def _component_properties(component, design):
         "inertia_kg_m2": inertia.tolist(),
         "outline_z_radius_m": profile,
         "effective_length_m": effective_length,
+        "fin_outline_m": fin_outline,
     }, radius
 
 

@@ -1,0 +1,29 @@
+{
+  "name": "uarc-workspace",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build && node scripts/copy-cesium.mjs",
+    "check": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test src/lib/*.test.mjs",
+    "format": "prettier --write src scripts index.html *.json",
+    "format:check": "prettier --check src scripts index.html *.json"
+  },
+  "dependencies": {
+    "cesium": "1.134.1",
+    "dockview-react": "8.6.1",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "three": "0.180.0"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
+    "@types/three": "0.180.0",
+    "prettier": "3.6.2",
+    "typescript": "5.9.3",
+    "vite": "7.1.12"
+  }
+}

@@ -37,6 +37,7 @@ from app.schemas import (
     SimulationConfig,
     SurfaceConfig,
 )
+from app.terrain import GroundSurface, coordinates
 
 MOTOR_TYPES = {
     "solid": SolidMotor,
@@ -118,6 +119,9 @@ def build_environment(config: EnvironmentConfig) -> Environment:
         )
     if config.atmosphere_type == "ensemble":
         env.select_ensemble_member(config.ensemble_member)
+    env.uarc_ground = (
+        GroundSurface(config) if config.terrain_mode == "terrain" else None
+    )
     return env
 
 
@@ -178,13 +182,21 @@ def run_simulation(
     environment during/after a run. max_time is simulated time, not a timeout.
     """
     options = config.model_dump(exclude={"max_time_step"})
-    flight = Flight(
+    ground = getattr(environment, "uarc_ground", None)
+    flight_type = Flight
+    extra = {}
+    if ground is not None:
+        from app.simulation.terrain_flight import TerrainFlight
+
+        flight_type = TerrainFlight
+        extra["ground"] = ground
+    step = config.max_time_step if config.max_time_step is not None else float("inf")
+    flight = flight_type(
         rocket=deepcopy(rocket),
         environment=environment,
-        max_time_step=config.max_time_step
-        if config.max_time_step is not None
-        else float("inf"),
+        max_time_step=min(step, 0.05) if ground is not None else step,
         **options,
+        **extra,
     )
     solution = np.asarray(flight.solution_array, dtype=float)
     if (
@@ -253,11 +265,25 @@ def summarize_flight(flight: Flight) -> dict[str, Any]:
         "impact_speed_m_s": _result_number(np.linalg.norm(flight.impact_state[3:6]))
         if landed
         else None,
+        "ground_model": "terrain"
+        if getattr(flight.env, "uarc_ground", None)
+        else "flat",
+        "impact_elevation_m": _result_number(flight.impact_state[2])
+        if landed
+        else None,
         "parachute_events": [
             {"name": parachute.name, "trigger_time_s": _result_number(time)}
             for time, parachute in flight.parachute_events
         ],
     }
+    if landed and np.hypot(flight.x_impact, flight.y_impact) <= 10_000:
+        latitude, longitude = coordinates(
+            flight.env.latitude,
+            flight.env.longitude,
+            flight.x_impact,
+            flight.y_impact,
+        )
+        summary.update(impact_latitude=latitude, impact_longitude=longitude)
     return FlightSummary.model_validate(summary).model_dump(mode="json")
 
 

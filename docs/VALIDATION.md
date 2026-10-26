@@ -75,3 +75,18 @@ macOS executable behavior, real-flight agreement, and complete OpenRocket
 numerical equivalence were not established by these checks. Supported import
 features and explicit conversion errors are listed in [OPENROCKET.md](./OPENROCKET.md).
 Current physical-model assumptions remain in [DESIGN.md](./DESIGN.md).
+
+## Linux Conda graphics regression (2026-10-25)
+
+The local Conda-based Python 3.13.5 environment reproduced a Mesa driver load
+failure: Conda's `libstdc++.so.6` lacked `GLIBCXX_3.4.30` required by system
+`libLLVM-15.so.1`. With the desktop runtime initialization, both `radeonsi_dri.so`
+and `swrast_dri.so` loaded successfully using the system C++ runtime.
+
+An X11 probe created an OpenGL 4.6 context on AMD RENOIR. A separate hidden
+pywebview/Qt window loaded the built UARC workspace, completed the Python design
+preview, created a WebGL2 context on ANGLE/AMD RENOIR, and opened both the Three.js
+rocket canvas and Cesium map canvas before closing normally. This was a source
+desktop launch, not a rebuilt executable or a live online-terrain check.
+The 10 desktop launcher/runtime tests and Ruff checks passed. No software-only
+graphics flags or sandbox-disabling flags were used.

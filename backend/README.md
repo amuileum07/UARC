@@ -45,6 +45,24 @@ Build scripts support Python distributions and PyInstaller folder bundles.
 See [packaging and platform verification](../docs/PACKAGING.md). Actual GUI
 rendering still requires frontend assets and a graphical session on each target OS.
 
+### Linux / Conda graphics runtime
+
+If the project's `.venv` was created from Conda Python, its ELF library search
+path can select an older Conda `libstdc++.so.6` instead of the system runtime.
+Mesa may then report `radeonsi`/`swrast` load failures and
+`GLIBCXX_3.4.30 not found` even when the graphics drivers are installed.
+
+The desktop launcher now loads the newer system C++ runtime before importing Qt
+or numerical libraries and passes it to QtWebEngine child processes through an
+application-local `LD_PRELOAD`. This applies only to Linux Conda interpreters;
+explicit user-selected `libstdc++` preloads, frozen bundles, and other platforms
+are left alone. It does not disable GPU rendering or alter Conda/system files.
+
+If rebuilding the environment, prefer uv-managed Python to avoid the conflict:
+`uv venv --managed-python --python 3.13` followed by `uv sync --locked`.
+Back up an existing `.venv` before replacing it. Merely deactivating Conda does
+not change the interpreter behind an already-created virtual environment.
+
 ## Desktop bridge
 
 `app/bridge.py` exposes validation, simulation jobs, and stored results;

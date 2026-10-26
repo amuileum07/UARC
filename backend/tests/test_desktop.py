@@ -102,12 +102,14 @@ class DesktopLauncherTests(unittest.TestCase):
                     ],
                 ),
                 patch("app.main.freeze_support") as freeze,
+                patch("app.main.prepare_desktop_runtime") as prepare,
                 patch("webview.create_window") as create,
                 patch("webview.start") as start,
                 patch("app.main.sys.platform", "linux"),
             ):
                 main()
                 freeze.assert_called_once_with()
+                prepare.assert_called_once_with()
                 self.assertEqual(create.call_args.kwargs["url"], str(entry.resolve()))
                 self.assertIsInstance(create.call_args.kwargs["js_api"], DesktopBridge)
                 start.assert_called_once_with(gui="qt")
