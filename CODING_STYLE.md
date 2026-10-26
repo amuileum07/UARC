@@ -273,7 +273,12 @@ options, not a requirement to install every library.
   spacing, one accent, tabular numbers, and explicit unit labels. Use motion only
   for navigation/playback; honor reduced-motion settings. Keep technical data
   attribution and validation details available without crowding the workspace.
-* Use the project formatter/linter and TypeScript checks once the frontend toolchain
-  exists. Add minimal runnable tests for geometry/coordinate conversion, stale
+* Run Biome lint and TypeScript checks with `corepack pnpm check` from the
+  repository root. `corepack pnpm lint:fix` applies safe lint fixes; Prettier
+  remains the formatter. Keep Biome formatting/assist disabled to avoid overlapping
+  tools. Configure lint scope in `frontend/biome.json`; generated DTOs are excluded
+  from lint but remain covered by TypeScript. Suppress rules only at a specific
+  line with a concrete reason, such as SVG controls or models without stable IDs.
+  Add minimal runnable tests for geometry/coordinate conversion, stale
   response handling, and editing-to-preview behavior; use deterministic fixtures
   rather than live map services. Do not add dependencies for native capabilities.

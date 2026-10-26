@@ -27,6 +27,7 @@ export function DesignJson() {
       />
       <div className="button-row">
         <button
+          type="button"
           onClick={() =>
             void w.act(async () => {
               const design = await (
@@ -40,6 +41,7 @@ export function DesignJson() {
           검증 후 적용
         </button>
         <button
+          type="button"
           onClick={() => {
             if (!edited || window.confirm("JSON 편집 내용을 버릴까요?")) {
               setEdited(false);

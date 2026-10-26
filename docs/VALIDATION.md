@@ -104,3 +104,22 @@ were unchanged. The Vite bundle-size warning remains as before the migration.
 From `frontend/`, reproduce with `corepack pnpm install --frozen-lockfile`,
 `corepack pnpm check`, `corepack pnpm test`, `corepack pnpm format:check`, and
 `corepack pnpm build`.
+
+## Biome lint integration (2026-10-26)
+
+Added Biome 2.6.2 as a pinned frontend development dependency without changing
+existing dependency versions. Biome lint and TypeScript checks passed for the
+configured scope (25 linted files, no errors or warnings). Safe-fix execution,
+Prettier checking, all 11 frontend tests, and the production build passed.
+Deliberately invalid JS, TS, TSX, CSS, and HTML fixtures each produced the expected
+lint diagnostic. Generated DTOs remain excluded from lint and included in `tsc`.
+
+Lint-driven fixes specify action-button types, stabilize effect callbacks and
+dependencies, and make SVG part selection keyboard-accessible. A source desktop
+check changed body length from 0.6 m to 0.7 m and observed preview mass change
+from 1.208 kg to 1.226 kg, selected the nose using Enter on its SVG control,
+and opened both the 3D rocket and map canvases successfully. Prettier remains
+the sole formatter; Biome formatting and assist actions are disabled.
+
+From the repository root, run `corepack pnpm lint`, `corepack pnpm lint:fix`,
+and `corepack pnpm check` (lint plus types).

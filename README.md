@@ -28,6 +28,9 @@ two commands to `frontend/` and prevents Corepack from inheriting an unrelated
 parent directory's package-manager setting. Python packages continue to use **uv** and
 `backend/uv.lock`; from `backend/`, run `uv sync --locked`, then `uv run uarc`.
 See [frontend setup](./frontend/README.md) for package changes and checks.
+Frontend code quality uses Biome 2.6.2 for linting, Prettier for formatting, and
+TypeScript for type checking. Run `corepack pnpm check` from the repository root
+for lint and type checks, or `corepack pnpm lint:fix` for safe lint fixes.
 
 ## Directory Structure
 
@@ -54,6 +57,7 @@ UARC/
 │   ├── dist/                      # Generated frontend assets bundled with the desktop app
 │   ├── index.html                 # [planned]
 │   ├── package.json               # Frontend dependencies, scripts, and pnpm version
+│   ├── biome.json                 # Lint rules and scope; Prettier owns formatting
 │   ├── pnpm-lock.yaml             # Reproducible JavaScript dependency graph
 │   ├── pnpm-workspace.yaml        # Single-package dependency build-script settings
 │   ├── tsconfig.json              # [planned]
@@ -128,6 +132,7 @@ Python requirements are the published `Requires-Python` constraints for the list
 | React | | N/A | Core UI component library |
 | TypeScript | | N/A | Static type checking and safety |
 | pnpm | 10.33.4 | N/A | Frontend package manager; Node.js 22.20+ for this project |
+| Biome | 2.6.2 | N/A | Frontend linting and safe fixes; configured separately from Prettier formatting |
 | Vite | | N/A | Frontend build tool and development server |
 | Dockview (`dockview-react`) | | N/A | React workspace with tabs, dockable panels, and resizable layouts |
 | SVG (browser native) | | N/A | 2D rocket profiles, dimensions, component selection, and CG markers |

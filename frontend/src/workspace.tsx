@@ -1,5 +1,6 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -84,24 +85,30 @@ export function WorkspaceProvider({
   const [terrainBusy, setTerrainBusy] = useState(false);
   const [time, setTime] = useState(0);
   const pendingRun = useRef(false);
-  const fieldIssue = (key: string, message: string) =>
-    setProblems((old) => {
-      const next = { ...old };
-      if (message) next[key] = message;
-      else delete next[key];
-      return next;
-    });
-  const act = async (operation: () => Promise<void>) => {
-    try {
-      await operation();
-      fieldIssue("action", "");
-    } catch (error) {
-      fieldIssue(
-        "action",
-        error instanceof Error ? error.message : String(error),
-      );
-    }
-  };
+  const fieldIssue = useCallback(
+    (key: string, message: string) =>
+      setProblems((old) => {
+        const next = { ...old };
+        if (message) next[key] = message;
+        else delete next[key];
+        return next;
+      }),
+    [],
+  );
+  const act = useCallback(
+    async (operation: () => Promise<void>) => {
+      try {
+        await operation();
+        fieldIssue("action", "");
+      } catch (error) {
+        fieldIssue(
+          "action",
+          error instanceof Error ? error.message : String(error),
+        );
+      }
+    },
+    [fieldIssue],
+  );
   const queue = useMemo(
     () =>
       previewQueue(
@@ -209,7 +216,7 @@ export function WorkspaceProvider({
     return () => {
       active = false;
     };
-  }, [selectedRun, selectedState]);
+  }, [selectedRun, selectedState, act]);
   const edit = (path: string[], value: unknown) => {
     setDesign((old) => editDesign(old, path, value));
     setDirty(true);

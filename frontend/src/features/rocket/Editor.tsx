@@ -8,9 +8,10 @@ export function Explorer() {
     <div className="panel scroll">
       <p className="eyebrow">ROCKET DESIGN</p>
       <h2>{w.design.name}</h2>
-      <div className="tree" role="group" aria-label="로켓 부품">
+      <fieldset className="tree" aria-label="로켓 부품">
         {w.design.components.map((component) => (
           <button
+            type="button"
             key={component.id}
             className={w.selection === component.id ? "selected" : ""}
             onClick={() => w.setSelection(component.id)}
@@ -19,28 +20,32 @@ export function Explorer() {
           </button>
         ))}
         <button
+          type="button"
           className={w.selection === "motor" ? "selected" : ""}
           onClick={() => w.setSelection("motor")}
         >
           ◈ 모터 · 추진제
         </button>
         <button
+          type="button"
           className={w.selection === "flight" ? "selected" : ""}
           onClick={() => w.setSelection("flight")}
         >
           ↗ 비행 설정
         </button>
         <button
+          type="button"
           className={w.selection === "materials" ? "selected" : ""}
           onClick={() => w.setSelection("materials")}
         >
           ▦ 재질
         </button>
-      </div>
+      </fieldset>
       <h3>부품 추가</h3>
       <div className="button-row">
         {["body_tube", "surface", "mass", "parachute"].map((kind) => (
           <button
+            type="button"
             key={kind}
             onClick={() => {
               const template = w.design.components.find(
@@ -73,6 +78,7 @@ export function Explorer() {
       )}
       {w.saved.map((item) => (
         <button
+          type="button"
           className="document"
           key={item.design_id}
           onClick={() =>
@@ -125,6 +131,7 @@ export function Properties() {
         )}
         <h3>탱크</h3>
         {w.design.tanks?.map((tank, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: Tanks have no persistent ID; add IDs if interactive reordering is introduced.
           <NumericFields key={i} object={tank} path={["tanks", String(i)]} />
         ))}
       </div>
@@ -186,6 +193,7 @@ export function Properties() {
         위치 기준: 동체 뒤끝 / 노즈 끝 / 핀 루트 앞전 / 수납 부품 CG. 단위 m.
       </p>
       <button
+        type="button"
         className="danger"
         disabled={w.design.components.length < 2}
         onClick={() => {

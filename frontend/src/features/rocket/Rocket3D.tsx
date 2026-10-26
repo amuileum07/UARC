@@ -11,7 +11,9 @@ function disposeGroup(group: THREE.Group) {
       const materials = Array.isArray(object.material)
         ? object.material
         : [object.material];
-      materials.forEach((material) => material.dispose());
+      materials.forEach((material) => {
+        material.dispose();
+      });
     }
   });
   group.clear();

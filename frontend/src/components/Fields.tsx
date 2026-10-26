@@ -28,7 +28,7 @@ export function NumberField({
   useEffect(() => {
     fieldIssue(`field:${id}`, valid ? "" : `${label}: 유효한 수를 입력하세요.`);
     return () => fieldIssue(`field:${id}`, "");
-  }, [valid, id, label]);
+  }, [valid, id, label, fieldIssue]);
   return (
     <label className="field" htmlFor={id}>
       <span>{label}</span>

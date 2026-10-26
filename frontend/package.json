@@ -10,7 +10,9 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build && node scripts/copy-cesium.mjs",
-    "check": "tsc --noEmit",
+    "check": "biome lint --error-on-warnings . && tsc --noEmit",
+    "lint": "biome lint --error-on-warnings .",
+    "lint:fix": "biome lint --write --error-on-warnings .",
     "test": "node --experimental-strip-types --test src/lib/*.test.mjs",
     "format": "prettier --write src scripts index.html *.json",
     "format:check": "prettier --check src scripts index.html *.json"
@@ -23,6 +25,7 @@
     "three": "0.180.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.6.2",
     "@types/react": "19.2.2",
     "@types/react-dom": "19.2.2",
     "@types/three": "0.180.0",

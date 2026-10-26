@@ -4,6 +4,9 @@
   "packageManager": "pnpm@10.33.4",
   "scripts": {
     "dev": "corepack pnpm --dir frontend dev",
-    "build": "corepack pnpm --dir frontend build"
+    "build": "corepack pnpm --dir frontend build",
+    "check": "corepack pnpm --dir frontend check",
+    "lint": "corepack pnpm --dir frontend lint",
+    "lint:fix": "corepack pnpm --dir frontend lint:fix"
   }
 }

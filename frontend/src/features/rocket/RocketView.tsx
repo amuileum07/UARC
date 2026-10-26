@@ -26,9 +26,10 @@ export function RocketView() {
   return (
     <section className="view-panel">
       <div className="panel-toolbar">
-        <div className="segmented" aria-label="로켓 보기">
+        <fieldset className="segmented" aria-label="로켓 보기">
           {(["2D", "3D"] as const).map((view) => (
             <button
+              type="button"
               key={view}
               aria-pressed={mode === view}
               onClick={() => setMode(view)}
@@ -36,7 +37,7 @@ export function RocketView() {
               {view}
             </button>
           ))}
-        </div>
+        </fieldset>
         <label>
           <input
             type="checkbox"
@@ -77,7 +78,6 @@ export function RocketView() {
               <svg
                 className="rocket-svg"
                 viewBox={`${low - length * 0.08} ${-radius * 1.7} ${length * 1.16} ${radius * 3.4}`}
-                role="img"
                 aria-label="로켓 2D 측면도"
               >
                 <line
@@ -92,28 +92,40 @@ export function RocketView() {
                 {parts
                   .filter((p) => interior || p.type !== "internal")
                   .flatMap((part) => {
-                    let outlines: number[][][];
+                    let outlines: { id: string; points: number[][] }[];
                     if (part.type === "fin") {
                       const raw =
                         preview.result.mass_properties.components.find(
                           (p) => p.id === part.id,
                         )?.fin_outline_m || [];
-                      outlines = Array.from({ length: part.count }, (_, i) =>
-                        finVertices(part, raw, i).map(([x, y]) => [y, x]),
-                      );
+                      outlines = Array.from({ length: part.count }, (_, i) => ({
+                        id: `${part.id}-fin-${i}`,
+                        points: finVertices(part, raw, i).map(([x, y]) => [
+                          y,
+                          x,
+                        ]),
+                      }));
                     } else
                       outlines = [
-                        [
-                          ...part.profile,
-                          ...part.profile
-                            .slice()
-                            .reverse()
-                            .map(([z, r]) => [z, -r]),
-                        ],
+                        {
+                          id: part.id,
+                          points: [
+                            ...part.profile,
+                            ...part.profile
+                              .slice()
+                              .reverse()
+                              .map(([z, r]) => [z, -r]),
+                          ],
+                        },
                       ];
-                    return outlines.map((points, i) => (
+                    return outlines.map(({ id, points }) => (
+                      // biome-ignore lint/a11y/useSemanticElements: SVG polygons cannot be HTML buttons; keyboard activation and the component tree both support selection.
                       <polygon
-                        key={`${part.id}-${i}`}
+                        key={id}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={part.name}
+                        aria-pressed={part.id === w.selection}
                         points={points.map(([z, r]) => `${z},${r}`).join(" ")}
                         fill={
                           part.id === w.selection
@@ -126,6 +138,12 @@ export function RocketView() {
                         stroke={part.id === w.selection ? "#111111" : "#555555"}
                         strokeWidth={length / 700}
                         onClick={() => w.setSelection(part.id)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            w.setSelection(part.id);
+                          }
+                        }}
                       >
                         <title>{part.name}</title>
                       </polygon>

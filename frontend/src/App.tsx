@@ -141,10 +141,11 @@ function Workspace() {
           {w.design.name}
           {w.dirty ? " · 수정됨" : ""}
         </div>
-        <button onClick={() => void w.save()} title="Ctrl+S">
+        <button type="button" onClick={() => void w.save()} title="Ctrl+S">
           저장
         </button>
         <button
+          type="button"
           className="primary"
           disabled={
             w.previewState !== "ready" ||
@@ -157,8 +158,11 @@ function Workspace() {
         </button>
       </header>
       <nav className="app-nav" aria-label="작업 공간">
-        <button onClick={() => open("rocket")}>설계</button>
+        <button type="button" onClick={() => open("rocket")}>
+          설계
+        </button>
         <button
+          type="button"
           onClick={() => {
             open("environment");
             open("map");
@@ -166,18 +170,21 @@ function Workspace() {
         >
           발사장
         </button>
-        <button onClick={() => open("results")}>분석</button>
+        <button type="button" onClick={() => open("results")}>
+          분석
+        </button>
         <details className="view-menu">
           <summary>보기</summary>
           <div>
             {(Object.keys(panels) as Array<keyof typeof panels>).map((id) => (
-              <button key={id} onClick={() => open(id)}>
+              <button type="button" key={id} onClick={() => open(id)}>
                 {titles[id]}
               </button>
             ))}
           </div>
         </details>
         <button
+          type="button"
           onClick={() => {
             if (api.current) defaultLayout(api.current);
           }}

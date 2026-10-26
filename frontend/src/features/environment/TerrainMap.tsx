@@ -56,14 +56,14 @@ export function TerrainMap() {
   }, []);
   useEffect(() => {
     const current = viewer.current;
-    if (!current) return;
+    if (!ready || !current) return;
     if (mode === "2D") current.scene.morphTo2D(0);
     else current.scene.morphTo3D(0);
     current.scene.requestRender();
   }, [mode, ready]);
   useEffect(() => {
     const current = viewer.current;
-    if (!current) return;
+    if (!ready || !current) return;
     current.imageryLayers.removeAll();
     if (imagery) {
       const provider = new Cesium.OpenStreetMapImageryProvider({
@@ -81,7 +81,7 @@ export function TerrainMap() {
   }, [imagery, ready]);
   useEffect(() => {
     const current = viewer.current;
-    if (!current) return;
+    if (!ready || !current) return;
     current.camera.setView({
       destination: Cesium.Cartesian3.fromDegrees(
         env.longitude,
@@ -91,10 +91,10 @@ export function TerrainMap() {
       orientation: { heading: 0, pitch: -Math.PI / 2, roll: 0 },
     });
     current.scene.requestRender();
-  }, [env.latitude, env.longitude, ready]);
+  }, [env.latitude, env.longitude, env.elevation, ready]);
   useEffect(() => {
     const current = viewer.current;
-    if (!current) return;
+    if (!ready || !current) return;
     current.entities.removeAll();
     setError("");
     try {
@@ -229,9 +229,10 @@ export function TerrainMap() {
   return (
     <section className="view-panel">
       <div className="panel-toolbar">
-        <div className="segmented" aria-label="지도 보기">
+        <fieldset className="segmented" aria-label="지도 보기">
           {(["2D", "3D"] as const).map((view) => (
             <button
+              type="button"
               key={view}
               aria-pressed={mode === view}
               onClick={() => setMode(view)}
@@ -239,7 +240,7 @@ export function TerrainMap() {
               {view}
             </button>
           ))}
-        </div>
+        </fieldset>
         <label>
           <input
             type="checkbox"

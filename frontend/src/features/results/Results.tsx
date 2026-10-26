@@ -35,6 +35,7 @@ export function Jobs() {
             >
               <td>
                 <button
+                  type="button"
                   className="text-button"
                   onClick={() => w.selectRun(run.run_id)}
                 >
@@ -47,6 +48,7 @@ export function Jobs() {
               <td>
                 {["queued", "running", "cancelling"].includes(run.state) ? (
                   <button
+                    type="button"
                     disabled={run.state === "cancelling"}
                     onClick={() =>
                       void w.act(async () => {
@@ -111,7 +113,7 @@ export function Results() {
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [playing, w.result]);
+  }, [playing, w.result, w.setTime]);
   if (!w.result)
     return (
       <div className="empty">
@@ -147,6 +149,7 @@ export function Results() {
       <div className="panel-toolbar">
         <h2>비행 결과 · {w.selectedRun.slice(0, 8)}</h2>
         <button
+          type="button"
           onClick={() =>
             void w.act(async () => {
               await (await desktopApi()).export_csv(w.selectedRun);
@@ -156,6 +159,7 @@ export function Results() {
           CSV 내보내기
         </button>
         <button
+          type="button"
           onClick={() =>
             void w.act(async () =>
               w.replace(await (await desktopApi()).get_design(w.selectedRun)),
@@ -226,6 +230,7 @@ export function Results() {
       </svg>
       <div className="panel-toolbar">
         <button
+          type="button"
           aria-pressed={playing}
           onClick={() => {
             if (w.time >= summary.end_time_s) w.setTime(summary.start_time_s);

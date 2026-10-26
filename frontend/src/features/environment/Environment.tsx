@@ -4,6 +4,7 @@ import { useWorkspace } from "../../workspace";
 export function EnvironmentEditor() {
   const w = useWorkspace();
   const env = w.design.environment;
+  const groundElevation = w.elevation?.ground_elevation_m;
   return (
     <div className="panel scroll">
       <p className="eyebrow">LAUNCH ENVIRONMENT</p>
@@ -90,7 +91,11 @@ export function EnvironmentEditor() {
         h = H + N. 다른 수직 기준을 비교할 때 해당 장소의 N이 필요합니다.
       </p>
       <h3>지형 자료</h3>
-      <button disabled={w.terrainBusy} onClick={() => void w.loadTerrain()}>
+      <button
+        type="button"
+        disabled={w.terrainBusy}
+        onClick={() => void w.loadTerrain()}
+      >
         {w.terrainBusy ? "고도 자료 요청 중…" : "주변 2 km 고도 자료 가져오기"}
       </button>
       <p className="muted">
@@ -118,12 +123,13 @@ export function EnvironmentEditor() {
               {w.elevation.difference_m?.toFixed(2)} m
             </p>
           )}
-          {w.elevation.ground_elevation_m != null && (
+          {groundElevation != null && (
             <button
+              type="button"
               onClick={() =>
                 w.edit(
                   ["environment", "elevation"],
-                  w.elevation!.ground_elevation_m! + (env.pad_height_m || 0),
+                  groundElevation + (env.pad_height_m || 0),
                 )
               }
             >
