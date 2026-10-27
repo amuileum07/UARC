@@ -100,10 +100,19 @@ The **발사장** navigation button opens the environment editor beside the map.
 The editor has **위치 · 지형** and **시각 · 기상** tabs. Search Korean/English place
 names or road addresses with Photon/OpenStreetMap, select a result, or enable
 **지도에서 발사점 선택** and click the globe. Escape cancels picking; coordinate
-inputs provide a keyboard alternative. Selections use WGS84, preserve the entered
-launch elevation, and invalidate the previous terrain/geoid data. Under **지형 자료**,
-use **발사 고도·기준을 지형 + 발사대로 맞추기** below the loaded terrain information
-after the terrain loads. The map's **표시 자료** selector distinguishes the edited launch site
+inputs provide a keyboard alternative. Selections use WGS84 and invalidate the
+previous terrain/geoid data. New editor projects default to **발사 고도 설정 →
+지형 + 발사대 · 자동**: loading terrain sets the launch height to the sampled
+surface plus the pad height and adopts its vertical reference. Changing the pad
+height, location, or terrain recalculates it before online weather is requested.
+The computed height/reference are read-only; the pad height remains editable and
+can include a platform or structure not already represented in the elevation data.
+Missing/NoData/out-of-bounds terrain or unknown references block running rather
+than falling back to the previous launch height. **수동 입력 · 측량 고도** preserves
+an explicitly entered height; its one-time alignment button remains under
+**지형 자료**. The selected mode is saved in `.uarc` files. Legacy designs without
+`environment.elevation_mode` remain manual so their saved heights are not changed.
+The map's **표시 자료** selector distinguishes the edited launch site
 from the selected run's immutable site and trajectory.
 
 Place search defaults to **대한민국**; choose **전 세계** for overseas locations.
@@ -218,8 +227,9 @@ at 257×257 nodes and reports its actual spacing; interpolation cannot improve t
 original DEM accuracy. Missing coverage or NoData rejects the import and preserves
 existing terrain. Sources/runs retain heights, source, sampling/pixel spacing,
 vertical reference, acquisition time, and a grid hash. Local replay needs no
-provider request. Successful imports enable terrain contact; use **지형 자료 →
-발사 고도·기준을 지형 + 발사대로 맞추기** if those inputs need to adopt the DEM's declared datum.
+provider request. Successful imports enable terrain contact. Automatic launch
+height mode also aligns the height/reference; manual mode offers **지형 자료 →
+발사 고도·기준을 지형 + 발사대로 맞추기** for one-time alignment.
 Different orthometric datums cannot be converted using a single geoid offset.
 
 The map's **배경 지도** selector offers none, OpenStreetMap roads, or **VWorld

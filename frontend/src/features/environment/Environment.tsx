@@ -59,16 +59,30 @@ export function EnvironmentEditor() {
         <p className="muted">
           좌표 기준 선택은 변환이 아닙니다. 입력 좌표에 맞게 지정하세요.
         </p>
+        <label className="field">
+          발사 고도 설정
+          <select
+            value={env.elevation_mode || "manual"}
+            onChange={(e) =>
+              w.edit(["environment", "elevation_mode"], e.target.value)
+            }
+          >
+            <option value="terrain">지형 + 발사대 · 자동</option>
+            <option value="manual">수동 입력 · 측량 고도</option>
+          </select>
+        </label>
         <NumberField
           label="발사 고도"
           unit="m"
           value={env.elevation}
+          readOnly={env.elevation_mode === "terrain"}
           onChange={(v) => w.edit(["environment", "elevation"], v)}
         />
         <label className="field">
           수직 고도 기준
           <select
             value={env.elevation_reference || "unknown"}
+            disabled={env.elevation_mode === "terrain"}
             onChange={(e) =>
               w.edit(["environment", "elevation_reference"], e.target.value)
             }
@@ -86,6 +100,16 @@ export function EnvironmentEditor() {
           value={env.pad_height_m || 0}
           onChange={(v) => w.edit(["environment", "pad_height_m"], v)}
         />
+        <p className="muted">
+          구조물·기단 위에서 발사하면 그 높이도 발사대 높이에 더하세요. 지도
+          고도에 이미 포함된 높이는 중복해서 더하지 마세요.
+        </p>
+        {env.elevation_mode === "terrain" && (
+          <p role="status">
+            {w.elevationIssue ||
+              "발사 고도와 기준을 지형 + 발사대 높이에 자동으로 맞춥니다."}
+          </p>
+        )}
         {w.weatherBusy && (
           <p role="status">
             변경된 발사 위치·고도·시각의 기상을 자동으로 갱신하고 있습니다…

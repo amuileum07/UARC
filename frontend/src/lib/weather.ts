@@ -5,6 +5,7 @@ import type {
   WeatherProfile,
   WeatherRequest,
 } from "./types";
+import { launchElevationIssue } from "./terrain.ts";
 
 export const weatherModels = {
   gfs_seamless: "NOAA GFS",
@@ -75,6 +76,8 @@ export function weatherRequest(
   model: WeatherRequest["model"],
   sounding?: Pick<WeatherRequest, "station_id" | "observation_time">,
 ): WeatherRequest {
+  const issue = launchElevationIssue(env);
+  if (issue) throw new Error(issue);
   if (env.datum !== "WGS84")
     throw new Error("기상 조회에는 WGS84 좌표가 필요합니다.");
   if (!env.date) throw new Error("발사 날짜와 시각을 먼저 지정하세요.");

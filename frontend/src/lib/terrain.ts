@@ -8,6 +8,55 @@ export const terrainReferences = {
   ellipsoid: "타원체고 h",
 } as const;
 
+export function alignLaunchElevation(
+  env: EnvironmentConfig,
+): EnvironmentConfig | null {
+  const grid = env.terrain;
+  const pad = env.pad_height_m ?? 0;
+  if (
+    env.datum !== "WGS84" ||
+    !grid ||
+    grid.reference === "unknown" ||
+    !Number.isFinite(env.latitude) ||
+    !Number.isFinite(env.longitude) ||
+    !Number.isFinite(pad) ||
+    pad < 0
+  )
+    return null;
+  const ground = terrainHeight(grid, env.latitude, env.longitude);
+  if (ground === null || !Number.isFinite(ground + pad)) return null;
+  if (
+    env.elevation === ground + pad &&
+    env.elevation_reference === grid.reference
+  )
+    return env;
+  return {
+    ...env,
+    elevation: ground + pad,
+    elevation_reference: grid.reference,
+    geoid_undulation_m:
+      env.elevation_reference === grid.reference
+        ? env.geoid_undulation_m
+        : null,
+  };
+}
+
+export function launchElevationIssue(env: EnvironmentConfig): string {
+  if (env.elevation_mode !== "terrain") return "";
+  if (env.datum !== "WGS84")
+    return "발사 위치의 좌표 기준을 WGS84로 지정하세요.";
+  if (!env.terrain)
+    return "발사 고도를 자동 설정하려면 계산용 지형을 가져와야 합니다.";
+  if (env.terrain.reference === "unknown")
+    return "지형의 수직 고도 기준을 확인한 뒤 다시 가져오세요.";
+  const aligned = alignLaunchElevation(env);
+  if (!aligned)
+    return "발사점의 지형 고도와 발사대 높이를 확인하세요. 범위 밖·결측 고도는 사용할 수 없습니다.";
+  return aligned === env
+    ? ""
+    : "지형과 발사대 높이에 맞춰 발사 고도를 갱신하고 있습니다.";
+}
+
 export function defaultTerrainRequest(
   env: Pick<EnvironmentConfig, "latitude" | "longitude" | "datum" | "terrain">,
   radius = 1000,

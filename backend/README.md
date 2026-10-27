@@ -347,6 +347,16 @@ boundary because RocketPy does not enforce physical principal moments. Solver
 output checks reject non-finite, empty, or time-reversed results. Validation,
 summarization, and saving reuse RocketPy's cached `solution_array`.
 
+`EnvironmentConfig.elevation_mode` records whether the editor follows terrain or
+uses a manually entered launch elevation. New GUI projects use `terrain`; the
+schema default is `manual` so older saved designs and existing Python/CLI inputs
+keep their explicit elevations. In terrain-following mode, the worker requires
+a valid WGS84 grid, the grid's vertical reference, and a launch elevation equal
+to sampled terrain plus `pad_height_m` (within 1e-5 m numerical tolerance). It
+rejects missing or mismatched data before constructing RocketPy's environment.
+The editor resolves the height before refreshing weather; the worker performs no
+network requests or silent altitude corrections for this mode.
+
 Schema modules are grouped by responsibility:
 
 | Module in `app/schemas/` | Responsibility |

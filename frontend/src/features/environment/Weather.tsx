@@ -199,6 +199,7 @@ export function WeatherEditor() {
         disabled={
           busy ||
           w.weatherBusy ||
+          !!w.elevationIssue ||
           !env.date ||
           (model === "wyoming_sounding" &&
             (!/^[0-9]{5}$/.test(station) || !observationTime))

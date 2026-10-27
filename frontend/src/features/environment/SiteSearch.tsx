@@ -114,7 +114,7 @@ export function SiteSearch() {
             w.placeSite(place.latitude, place.longitude);
             setResults([]);
             setMessage(
-              `${place.name} 위치를 적용했습니다. 발사 고도와 시간대를 확인하세요.`,
+              `${place.name} 위치를 적용했습니다. 고도 설정과 시간대를 확인하세요.`,
             );
           }}
         >
@@ -140,8 +140,8 @@ export function SiteSearch() {
         {w.pickingSite ? "지도 선택 취소" : "지도에서 발사점 선택"}
       </button>
       <p className="muted">
-        위치 선택은 WGS84로 적용합니다. 고도는 유지하며 이전 지형·지오이드 값은
-        해제됩니다.
+        위치 선택은 WGS84로 적용합니다. 자동 모드는 새 지형을 가져온 뒤 발사
+        고도를 맞추고, 수동 모드는 입력 고도를 유지합니다.
       </p>
     </section>
   );

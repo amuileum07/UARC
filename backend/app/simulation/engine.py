@@ -2,7 +2,7 @@
 
 from collections.abc import Sequence
 from copy import deepcopy
-from math import isfinite
+from math import isclose, isfinite
 from typing import Any
 
 import numpy as np
@@ -92,6 +92,20 @@ def build_surface(config: SurfaceConfig) -> AeroSurface:
 
 def build_environment(config: EnvironmentConfig) -> Environment:
     """Create the selected atmosphere; weather/file errors propagate to the caller."""
+    if config.elevation_mode == "terrain":
+        if config.terrain is None or config.terrain.reference == "unknown":
+            raise ValueError(
+                "Automatic launch elevation requires terrain with a known height reference."
+            )
+        if config.elevation_reference != config.terrain.reference:
+            raise ValueError(
+                "Automatic launch elevation must use the terrain height reference."
+            )
+        expected = GroundSurface(config).at(0, 0) + config.pad_height_m
+        if not isclose(config.elevation, expected, rel_tol=0, abs_tol=1e-5):
+            raise ValueError(
+                "Automatic launch elevation must match terrain plus pad height before running."
+            )
     env = Environment(
         **config.model_dump(
             include={

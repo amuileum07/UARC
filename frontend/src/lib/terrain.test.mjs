@@ -6,8 +6,11 @@ import {
   terrainTile,
   defaultTerrainRequest,
   terrainMatchesSite,
+  alignLaunchElevation,
+  launchElevationIssue,
 } from "./terrain.ts";
 import { editDesign } from "./edit.ts";
+import { automaticWeatherRequest, weatherRequest } from "./weather.ts";
 import {
   terrainProvider,
   frameMap,
@@ -27,6 +30,114 @@ const grid = {
     [30, 40],
   ],
 };
+
+test("terrain-following updates height/reference atomically and preserves manual elevations", () => {
+  const env = {
+    latitude: 10.01,
+    longitude: 20.01,
+    datum: "WGS84",
+    elevation: 999,
+    elevation_mode: "terrain",
+    elevation_reference: "unknown",
+    geoid_undulation_m: 30,
+    pad_height_m: 2,
+    terrain: { ...grid, reference: "EGM96" },
+    wind_u: 7,
+    pressure: [
+      [0, 101000],
+      [1000, 90000],
+    ],
+  };
+  const aligned = editDesign({ environment: env }, ["environment"], env);
+  assert.ok(Math.abs(aligned.environment.elevation - 27) < 1e-9);
+  assert.equal(aligned.environment.elevation_reference, "EGM96");
+  assert.equal(aligned.environment.geoid_undulation_m, null);
+  assert.equal(aligned.environment.pressure, env.pressure);
+  assert.equal(aligned.environment.wind_u, 7);
+  assert.equal(env.elevation, 999);
+  assert.equal(launchElevationIssue(aligned.environment), "");
+  assert.equal(alignLaunchElevation(aligned.environment), aligned.environment);
+  const taller = editDesign(aligned, ["environment", "pad_height_m"], 12);
+  assert.ok(Math.abs(taller.environment.elevation - 37) < 1e-9);
+  const manual = editDesign(
+    taller,
+    ["environment", "elevation_mode"],
+    "manual",
+  );
+  const measured = editDesign(manual, ["environment", "elevation"], 432.1);
+  const changed = editDesign(measured, ["environment", "pad_height_m"], 0);
+  assert.equal(changed.environment.elevation, 432.1);
+  assert.equal(
+    launchElevationIssue({ ...changed.environment, terrain: null }),
+    "",
+  );
+  const legacy = { ...env };
+  delete legacy.elevation_mode;
+  assert.equal(
+    editDesign({ environment: legacy }, ["environment", "pad_height_m"], 3)
+      .environment.elevation,
+    999,
+  );
+});
+
+test("automatic heights wait for usable terrain before requesting weather", () => {
+  const env = {
+    latitude: 10.01,
+    longitude: 20.01,
+    datum: "WGS84",
+    elevation: 27,
+    elevation_mode: "terrain",
+    elevation_reference: "EGM96",
+    pad_height_m: 2,
+    terrain: { ...grid, reference: "EGM96" },
+    date: "2026-10-27T12:00",
+    timezone: "UTC",
+  };
+  for (const changes of [
+    { terrain: null },
+    { datum: "NAD83" },
+    { latitude: NaN },
+    { longitude: 25 },
+    { pad_height_m: -1 },
+    { pad_height_m: Infinity },
+    { terrain: { ...grid, reference: "unknown" } },
+    {
+      terrain: {
+        ...grid,
+        reference: "EGM96",
+        heights: [
+          [10, null],
+          [30, 40],
+        ],
+      },
+    },
+  ]) {
+    const invalid = { ...env, ...changes };
+    assert.equal(alignLaunchElevation(invalid), null);
+    assert.ok(launchElevationIssue(invalid));
+    assert.throws(() => weatherRequest(invalid, "gfs_seamless"));
+    assert.equal(
+      automaticWeatherRequest({
+        ...invalid,
+        weather_profile: { request: { model: "gfs_seamless" } },
+      }),
+      null,
+    );
+  }
+  const negative = alignLaunchElevation({
+    ...env,
+    terrain: {
+      ...grid,
+      reference: "EGM96",
+      heights: [
+        [-40, -30],
+        [-20, -10],
+      ],
+    },
+  });
+  assert.ok(Math.abs(negative.elevation + 23) < 1e-9);
+  assert.equal(negative.elevation_reference, "EGM96");
+});
 
 test("display interpolation matches saved south-to-north grids and preserves data gaps", () => {
   assert.ok(Math.abs(terrainHeight(grid, 10.01, 20.01) - 25) < 1e-9);

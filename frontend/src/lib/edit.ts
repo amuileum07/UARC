@@ -1,5 +1,6 @@
 import type { RocketDesign } from "./types";
 import { preserveFileWeather } from "./weather.ts";
+import { alignLaunchElevation } from "./terrain.ts";
 
 export function componentRemovalIssue(
   design: RocketDesign,
@@ -80,11 +81,15 @@ export function editDesign(
     updated.environment.terrain_mode = "flat";
     updated.environment.geoid_undulation_m = null;
   }
-  if (path[0] === "environment")
+  if (path[0] === "environment") {
+    if (updated.environment.elevation_mode === "terrain")
+      updated.environment =
+        alignLaunchElevation(updated.environment) || updated.environment;
     updated.environment = preserveFileWeather(
       design.environment,
       updated.environment,
     );
+  }
   return updated;
 }
 

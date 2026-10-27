@@ -7,12 +7,14 @@ export function NumberField({
   onChange,
   unit = "",
   integer = false,
+  readOnly = false,
 }: {
   label: string;
   value: number;
   onChange: (value: number) => void;
   unit?: string;
   integer?: boolean;
+  readOnly?: boolean;
 }) {
   const id = useId();
   const { fieldIssue } = useWorkspace();
@@ -23,8 +25,8 @@ export function NumberField({
     Number.isFinite(Number(text)) &&
     (!integer || Number.isInteger(Number(text)));
   useEffect(() => {
-    if (!focused) setText(String(value));
-  }, [value, focused]);
+    if (!focused || readOnly) setText(String(value));
+  }, [value, focused, readOnly]);
   useEffect(() => {
     fieldIssue(`field:${id}`, valid ? "" : `${label}: 유효한 수를 입력하세요.`);
     return () => fieldIssue(`field:${id}`, "");
@@ -38,6 +40,7 @@ export function NumberField({
           type="text"
           inputMode={integer ? "numeric" : "decimal"}
           value={text}
+          readOnly={readOnly}
           aria-invalid={!valid}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}

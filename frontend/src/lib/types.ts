@@ -53,6 +53,7 @@ export type EnvironmentConfig = {
   latitude: number;
   longitude: number;
   elevation: number;
+  elevation_mode?: "manual" | "terrain";
   elevation_reference?:
     | "EGM96"
     | "EGM2008"

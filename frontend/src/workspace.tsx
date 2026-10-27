@@ -23,7 +23,11 @@ import {
   removeDesignComponent,
 } from "./lib/edit";
 import type { InputSchema } from "./lib/forms";
-import { defaultTerrainRequest, terrainMatchesSite } from "./lib/terrain";
+import {
+  defaultTerrainRequest,
+  terrainMatchesSite,
+  launchElevationIssue,
+} from "./lib/terrain";
 import { telemetryColumns } from "./lib/telemetry";
 import { automaticWeatherRequest, applyAutomaticWeather } from "./lib/weather";
 import type {
@@ -67,6 +71,7 @@ interface Workspace {
     telemetry: TelemetryResult;
   } | null;
   elevation: ElevationCheck | null;
+  elevationIssue: string;
   weatherBusy: boolean;
   terrainBusy: boolean;
   terrainSource: NonNullable<TerrainRequest["provider"]>;
@@ -103,9 +108,12 @@ export function WorkspaceProvider({
   schema: InputSchema;
   children: ReactNode;
 }) {
-  const [design, setDesign] = useState(initial);
+  const [design, setDesign] = useState(() =>
+    editDesign(initial, ["environment"], initial.environment),
+  );
   const latest = useRef(design);
   latest.current = design;
+  const elevationIssue = launchElevationIssue(design.environment);
   const [preview, setPreview] = useState<Workspace["preview"]>(null);
   const [previewState, setPreviewState] =
     useState<Workspace["previewState"]>("pending");
@@ -306,8 +314,9 @@ export function WorkspaceProvider({
         ? "local"
         : value.environment.terrain?.provider || "aws",
     );
-    setDesign(value);
-    setDirty(!saved);
+    const normalized = editDesign(value, ["environment"], value.environment);
+    setDesign(normalized);
+    setDirty(!saved || normalized.environment !== value.environment);
     setSelection(value.components[0].id);
     setMapMode("design");
     setPickingSite(false);
@@ -323,6 +332,7 @@ export function WorkspaceProvider({
   const run = () =>
     act(async () => {
       if (pendingRun.current) return;
+      if (elevationIssue) throw new Error(terrainAutoError || elevationIssue);
       if (automaticWeatherRequest(design.environment))
         throw new Error(
           problems.weather ||
@@ -383,14 +393,13 @@ export function WorkspaceProvider({
           throw new Error(
             "조회 중 발사 환경이 변경되어 지형을 적용하지 않았습니다. 다시 가져오세요.",
           );
-        setDesign((old) => ({
-          ...old,
-          environment: {
+        setDesign((old) =>
+          editDesign(old, ["environment"], {
             ...old.environment,
             terrain: grid,
             terrain_mode: "terrain",
-          },
-        }));
+          }),
+        );
         setMapMode("design");
         setDirty(true);
       } finally {
@@ -427,14 +436,11 @@ export function WorkspaceProvider({
             old.environment.terrain ||
             !terrainMatchesSite(old.environment, response.area)
               ? old
-              : {
-                  ...old,
-                  environment: {
-                    ...old.environment,
-                    terrain: response.grid,
-                    terrain_mode: "terrain",
-                  },
-                },
+              : editDesign(old, ["environment"], {
+                  ...old.environment,
+                  terrain: response.grid,
+                  terrain_mode: "terrain",
+                }),
           );
           setDirty(true);
         },
@@ -551,6 +557,7 @@ export function WorkspaceProvider({
             ? result
             : null,
         elevation,
+        elevationIssue,
         weatherBusy: weatherQuery !== "null" && !problems.weather,
         terrainBusy: terrainBusy || terrainAutoBusy,
         terrainSource,

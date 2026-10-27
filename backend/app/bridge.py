@@ -125,7 +125,7 @@ class DesktopBridge:
             raise ValueError(f"Unknown result kind: {kind}") from error
 
     def get_example_design(self) -> dict:
-        """Bundled offline starting design, validated through the same DTO."""
+        """Bundled starting design with terrain-following enabled for the editor."""
         import sys
 
         root = (
@@ -133,9 +133,11 @@ class DesktopBridge:
             if getattr(sys, "frozen", False)
             else Path(__file__).resolve().parents[2]
         )
-        return RocketDesign.model_validate_json(
+        design = RocketDesign.model_validate_json(
             (root / "examples/design.json").read_text()
-        ).model_dump(mode="json")
+        )
+        design.environment.elevation_mode = "terrain"
+        return design.model_dump(mode="json")
 
     def get_terrain(self, payload_json: str) -> dict:
         self._check_payload(payload_json)

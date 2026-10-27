@@ -103,6 +103,29 @@ def ballistic(env, *, north_speed=10, altitude=170, vertical_speed=20, max_time=
 
 
 class TerrainTests(unittest.TestCase):
+    def test_automatic_launch_height_requires_matching_terrain_and_keeps_legacy_manual(
+        self,
+    ):
+        config = environment(grid(118), pad_height_m=2)
+        self.assertEqual(config.elevation_mode, "manual")
+        self.assertEqual(build_environment(config).elevation, 120)
+        config.elevation_mode = "terrain"
+        self.assertEqual(build_environment(config).elevation, 120)
+        restored = EnvironmentConfig.model_validate_json(config.model_dump_json())
+        self.assertEqual(restored.elevation_mode, "terrain")
+        for changes in (
+            {"terrain": None, "terrain_mode": "flat"},
+            {"elevation": 121},
+            {"elevation_reference": "unknown"},
+            {"datum": "NAD83"},
+            {"terrain": grid(119)},
+        ):
+            with self.subTest(changes=changes), self.assertRaises(ValueError):
+                build_environment(config.model_copy(update=changes))
+        config.elevation_mode = "manual"
+        config.elevation = 150
+        self.assertEqual(build_environment(config).elevation, 150)
+
     def test_grid_interpolation_bounds_nodata_and_round_trip(self):
         terrain = grid()
         terrain.heights = [[0.0, 10.0], [20.0, 30.0]]

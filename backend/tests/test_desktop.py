@@ -21,6 +21,24 @@ from app.schemas import (
 
 
 class DesktopBridgeTests(unittest.TestCase):
+    def test_new_editor_design_follows_terrain_without_changing_legacy_examples(self):
+        self.assertEqual(
+            DesktopBridge().get_example_design()["environment"]["elevation_mode"],
+            "terrain",
+        )
+        legacy = DesktopBridge().validate_config(
+            "environment",
+            json.dumps(
+                {
+                    "latitude": 35,
+                    "longitude": 129,
+                    "elevation": 123.4,
+                }
+            ),
+        )
+        self.assertEqual(legacy["elevation_mode"], "manual")
+        self.assertEqual(legacy["elevation"], 123.4)
+
     def test_javascript_arrays_validate_without_relaxing_dto_types(self):
         configs = {
             "environment": EnvironmentConfig(

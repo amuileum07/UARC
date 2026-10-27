@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { NumberField } from "../../components/Fields";
 import { desktopApi } from "../../lib/bridge";
-import { terrainHeight, terrainReferences } from "../../lib/terrain";
+import { alignLaunchElevation, terrainReferences } from "../../lib/terrain";
 import type { TerrainGrid, TerrainRequest } from "../../lib/types";
 import { useWorkspace } from "../../workspace";
 
@@ -17,7 +17,7 @@ export function TerrainSources() {
   const [heightScale, setHeightScale] = useState<1 | 0.3048>(1);
   const env = w.design.environment;
   const grid = env.terrain;
-  const ground = grid ? terrainHeight(grid, env.latitude, env.longitude) : null;
+  const aligned = alignLaunchElevation(env);
   const openPortal = (source: "aws" | "local" | "opentopography") =>
     void w.act(async () => {
       await (await desktopApi()).open_terrain_portal(source);
@@ -214,30 +214,21 @@ export function TerrainSources() {
           {terrainReferences[grid.reference]}
         </p>
       )}
-      <button
-        type="button"
-        disabled={
-          w.terrainBusy ||
-          !grid ||
-          grid.reference === "unknown" ||
-          ground === null
-        }
-        onClick={() => {
-          if (!grid || grid.reference === "unknown" || ground === null) return;
-          w.edit(["environment"], {
-            ...env,
-            elevation: ground + (env.pad_height_m || 0),
-            elevation_reference: grid.reference,
-            geoid_undulation_m:
-              env.elevation_reference === grid.reference
-                ? env.geoid_undulation_m
-                : null,
-            terrain_mode: "terrain",
-          });
-        }}
-      >
-        발사 고도·기준을 지형 + 발사대로 맞추기
-      </button>
+      {env.elevation_mode !== "terrain" && (
+        <button
+          type="button"
+          disabled={w.terrainBusy || !aligned}
+          onClick={() => {
+            if (!aligned) return;
+            w.edit(["environment"], {
+              ...aligned,
+              terrain_mode: "terrain",
+            });
+          }}
+        >
+          발사 고도·기준을 지형 + 발사대로 맞추기
+        </button>
+      )}
       {!grid && (
         <p className="muted">
           지형을 가져오면 발사 고도를 지면에 맞출 수 있습니다.

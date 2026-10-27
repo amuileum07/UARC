@@ -47,6 +47,8 @@ class EnvironmentConfig(EngineConfig):
     latitude: Annotated[Number, Field(ge=-90, le=90)]
     longitude: Annotated[Number, Field(ge=-180, le=180)]
     elevation: Number
+    # Missing fields in existing designs keep their explicitly entered altitude.
+    elevation_mode: Literal["manual", "terrain"] = "manual"
     elevation_reference: HeightReference = "unknown"
     geoid_undulation_m: Number | None = None
     pad_height_m: NonNegative = 0.0
