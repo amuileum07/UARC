@@ -144,10 +144,13 @@ Coordinate changes invalidate previous checks; discard stale network responses.
 
 ## Trajectory and predicted ground contact
 
-The current RocketPy integration terminates on `z < env.elevation`. Its impact
-coordinates therefore describe the launch-elevation plane, not arbitrary terrain.
-Adding `Environment` topography or drawing a marker on a hill does not change that
-termination condition.
+Flat-ground mode uses RocketPy's launch-elevation plane. Terrain mode attaches
+the frozen DEM to `GroundSurface` and uses the isolated `TerrainFlight` event
+adapter verified against RocketPy 1.13.0. It detects the first trajectory/terrain
+crossing, supports valleys below launch elevation, and stops with an error on
+missing coverage or an incompatible height reference. Surrounding AWS display
+tiles do not extend the solver's frozen coverage. Terrain changes ground contact;
+it does not add terrain-induced winds or aerodynamic forces.
 
 Terrain-aware impact needs an engine-level event for the first valid airborne
 crossing of `z(t) - ground_height(x(t), y(t)) = 0`, using a common height reference.
@@ -174,6 +177,16 @@ latitude/longitude/elevation, and distance/bearing from launch. Keep the selecte
 run snapshot separate from the edited environment. Synchronize map and plots
 through selected simulation time. Replay uses saved results and is not a new
 live solve. A max-time/apogee stop without contact has **no landing estimate**.
+
+Submitting or selecting an execution opens the result plot and map together in
+separate dock groups, reopening closed panels. Existing separate placements are
+retained. Re-selecting the same execution also focuses both views and restores
+3D. The map frames the complete saved flight at its actual scale; short flights
+must remain visible rather than inheriting the site's wide minimum camera range.
+The flight line retains absolute heights above the terrain with an outlined
+monochrome stroke. Pending/failed selections show their state without presenting
+an earlier flight. The full map trajectory remains independent of plot query
+filters, with selected time shared by both views.
 
 If terrain becomes unavailable along the path, mark terrain impact as unresolved.
 Do not extrapolate silently or relabel a flat-plane result as terrain-aware.

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as Cesium from "cesium";
 import { desktopApi } from "../../lib/bridge";
-import { flightCoordinates } from "../../lib/geography";
+import { flightPath } from "../../lib/geography";
+import { runStateLabels } from "../../lib/telemetry";
 import { useWorkspace } from "../../workspace";
 import { awsTerrainProvider } from "./awsTerrain";
 import { frameMap, terrainMaterial, terrainProvider } from "./mapTerrain";
@@ -23,6 +24,7 @@ export function TerrainMap() {
   const [ready, setReady] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const result = w.mapMode === "result" ? w.result : null;
+  const waiting = w.mapMode === "result" && !result;
   const env = result?.design.environment || w.design.environment;
   const grid = env.terrain;
   const streamAWS =
@@ -76,20 +78,17 @@ export function TerrainMap() {
   }, [grid, terrainOffset]);
   const trajectory = useMemo(() => {
     try {
-      const points = (result?.telemetry.data || []).map((row) => {
-        const [lat, lon] = flightCoordinates(
-          env.latitude,
-          env.longitude,
-          row[1],
-          row[2],
-        );
-        return Cesium.Cartesian3.fromDegrees(lon, lat, row[3] + flightOffset);
-      });
-      return { points, error: "" };
+      const path = result
+        ? flightPath(result.telemetry, result.design.environment)
+        : [];
+      const points = path.map(({ latitude, longitude, height }) =>
+        Cesium.Cartesian3.fromDegrees(longitude, latitude, height),
+      );
+      return { points, times: path.map((point) => point.time), error: "" };
     } catch (reason) {
-      return { points: [], error: String(reason) };
+      return { points: [], times: [], error: String(reason) };
     }
-  }, [result, env.latitude, env.longitude, flightOffset]);
+  }, [result]);
   const sitePoints = useMemo(
     () => [launch, ...meshLines.flat()],
     [launch, meshLines],
@@ -102,19 +101,22 @@ export function TerrainMap() {
     [launch, sitePoints, trajectory],
   );
   const pendingFrame = useRef(true);
-  const framing = useRef({ mode, points: allPoints });
-  framing.current = { mode, points: allPoints };
+  const minimumRadius = trajectory.points.length > 1 ? 30 : 750;
+  const framing = useRef({ mode, points: allPoints, minimumRadius });
+  framing.current = { mode, points: allPoints, minimumRadius };
   const selectedPosition = useMemo(() => {
-    if (!result) return undefined;
-    const data = result.telemetry.data;
+    const times = trajectory.times;
     let index = 0;
-    for (let i = 1; i < data.length; i++)
-      if (Math.abs(data[i][0] - w.time) < Math.abs(data[index][0] - w.time))
+    for (let i = 1; i < times.length; i++)
+      if (Math.abs(times[i] - w.time) < Math.abs(times[index] - w.time))
         index = i;
     return trajectory.points[index];
-  }, [result, w.time, trajectory]);
+  }, [w.time, trajectory]);
   const latestPosition = useRef(selectedPosition);
   latestPosition.current = selectedPosition;
+  useEffect(() => {
+    if (w.mapMode === "result" && w.resultView > 0) setMode("3D");
+  }, [w.mapMode, w.resultView]);
   // biome-ignore lint/correctness/useExhaustiveDependencies: attempt explicitly recreates the Cesium viewer after a render failure.
   useEffect(() => {
     if (!container.current) return;
@@ -165,7 +167,12 @@ export function TerrainMap() {
       if (visible) {
         current.resize();
         if (pendingFrame.current) {
-          frameMap(current, framing.current.mode, framing.current.points);
+          frameMap(
+            current,
+            framing.current.mode,
+            framing.current.points,
+            framing.current.minimumRadius,
+          );
           pendingFrame.current = false;
         } else current.scene.requestRender();
       }
@@ -263,9 +270,9 @@ export function TerrainMap() {
       pendingFrame.current = true;
       return;
     }
-    frameMap(current, mode, allPoints);
+    frameMap(current, mode, allPoints, minimumRadius);
     pendingFrame.current = false;
-  }, [mode, ready, allPoints]);
+  }, [mode, ready, allPoints, minimumRadius]);
   useEffect(() => {
     const current = viewer.current;
     if (!ready || !current) return;
@@ -320,6 +327,7 @@ export function TerrainMap() {
     marker.current = null;
     setDataError(trajectory.error);
     current.entities.add({
+      id: "launch-site",
       position: launch,
       point: {
         pixelSize: 9,
@@ -369,18 +377,27 @@ export function TerrainMap() {
       });
     if (trajectory.points.length > 1) {
       current.entities.add({
+        id: "flight-trajectory",
         polyline: {
           positions: trajectory.points,
-          width: 3,
-          material: Cesium.Color.fromCssColorString("#333333"),
+          width: 4,
+          material: new Cesium.PolylineOutlineMaterialProperty({
+            color: Cesium.Color.WHITE,
+            outlineColor: Cesium.Color.BLACK,
+            outlineWidth: 1,
+          }),
+          clampToGround: false,
           arcType: Cesium.ArcType.NONE,
         },
       });
       marker.current = current.entities.add({
+        id: "flight-position",
         position: latestPosition.current || trajectory.points[0],
         point: {
           pixelSize: 8,
-          color: Cesium.Color.fromCssColorString("#888888"),
+          color: Cesium.Color.WHITE,
+          outlineColor: Cesium.Color.BLACK,
+          outlineWidth: 2,
           disableDepthTestDistance: Infinity,
         },
       });
@@ -392,6 +409,7 @@ export function TerrainMap() {
       summary.impact_longitude != null
     )
       current.entities.add({
+        id: "impact-site",
         position: Cesium.Cartesian3.fromDegrees(
           summary.impact_longitude,
           summary.impact_latitude,
@@ -485,7 +503,8 @@ export function TerrainMap() {
             type="button"
             disabled={!ready}
             onClick={() => {
-              if (viewer.current) frameMap(viewer.current, mode, allPoints);
+              if (viewer.current)
+                frameMap(viewer.current, mode, allPoints, minimumRadius);
             }}
           >
             전체 궤적
@@ -592,68 +611,87 @@ export function TerrainMap() {
           지도 다시 시작
         </button>
       )}
+      {waiting && (
+        <p className="empty" role="status">
+          {w.selectedRun
+            ? `실행 ${w.selectedRun.slice(0, 8)} · ${runStateLabels[w.selectedRunState ?? ""] || "상태 확인 중"}${w.selectedRunState === "succeeded" ? " · 궤적 불러오는 중…" : ""}`
+            : "실행 이력에서 결과를 선택하세요."}
+        </p>
+      )}
       <div
         ref={container}
         className="map-host"
+        hidden={waiting}
         data-picking={w.pickingSite}
         role="img"
         aria-label="발사장 지형과 비행 궤적"
       />
-      <p className="caption">
-        {env.latitude.toFixed(5)}°, {env.longitude.toFixed(5)}° ·{" "}
-        {terrainError
-          ? "3D 지형 사용 불가 · 타원체 표면 표시"
-          : grid
-            ? `${mode === "3D" ? "3D 지형 · 높이 배율 1× · " : ""}${grid.source.split(";")[0]} · 고도 ${terrainRange} · 표본 간격 ${grid.sampling_distance_m.toFixed(0)} m · ${streamAWS ? "경계 밖 AWS 참고 지형" : "격자 밖 기준 타원체"}`
-            : streamAWS
-              ? "AWS 주변 지형 · 계산용 고도 영역 없음"
-              : "고도 자료 없음 · 타원체 표면 표시"}
-        {heightApproximate
-          ? " · 고도 기준/N 미확인: 3D 절대 높이는 근사 표시"
-          : ""}
-      </p>
-      {streamAWS && (
-        <p className="caption">
-          AWS 실제 고도 · 높이 배율 1×. 경계 안은 저장된 계산용 고도, 경계 밖은
-          주변 지형 표시입니다. 사진처럼 보이는 표면은 VWorld 위성영상을
-          추가하세요.
-        </p>
-      )}
-      {w.terrainBusy && (
-        <p className="caption" role="status">
-          AWS/선택한 소스의 계산용 고도를 가져오는 중…
-        </p>
-      )}
-      {w.terrainAutoError && (
-        <p className="notice warning" role="status">
-          {w.terrainAutoError}
-        </p>
-      )}
-      {imagery === "none" && (
-        <p className="caption">
-          배경 지도 꺼짐 · 도로·지명은 OpenStreetMap, 위성영상은 VWorld를
-          선택하세요.
-        </p>
-      )}
-      {!grid && !streamAWS && (
-        <p className={mode === "3D" ? "notice" : "caption"} role="status">
-          고도 자료가 없어 산·계곡이 표시되지 않습니다. 발사 환경 →
-          위치·지형에서 고도 자료를 가져오세요. 온라인 배경 지도에는 지형 높이가
-          포함되지 않습니다.
-        </p>
-      )}
-      <p className="caption">
-        이동: 드래그 · 확대/축소: 휠 · 3D 회전/기울기: Ctrl+드래그 또는 가운데
-        버튼. 시점은 발사장 맞춤으로 복원합니다.
-      </p>
-      {result?.summary.landed && (
-        <p className="caption">
-          예측 착륙 {result.summary.impact_latitude?.toFixed(6)}°,{" "}
-          {result.summary.impact_longitude?.toFixed(6)}° ·{" "}
-          {result.summary.ground_model === "terrain"
-            ? "지형 지면"
-            : "발사 고도 평면"}
-        </p>
+      {!waiting && (
+        <>
+          {result && (
+            <p className="caption" role="status">
+              실행 {result.runId.slice(0, 8)} · {mode} 궤적 · 선택 시간{" "}
+              {w.time.toFixed(2)} s · 당시 발사 환경·고도 자료 사용
+              {result.telemetry.decimated ? " · 간추린 궤적" : ""}
+            </p>
+          )}
+          <p className="caption">
+            {env.latitude.toFixed(5)}°, {env.longitude.toFixed(5)}° ·{" "}
+            {terrainError
+              ? "3D 지형 사용 불가 · 타원체 표면 표시"
+              : grid
+                ? `${mode === "3D" ? "3D 지형 · 높이 배율 1× · " : ""}${grid.source.split(";")[0]} · 고도 ${terrainRange} · 표본 간격 ${grid.sampling_distance_m.toFixed(0)} m · ${streamAWS ? "경계 밖 AWS 참고 지형" : "격자 밖 기준 타원체"}`
+                : streamAWS
+                  ? "AWS 주변 지형 · 계산용 고도 영역 없음"
+                  : "고도 자료 없음 · 타원체 표면 표시"}
+            {heightApproximate
+              ? " · 고도 기준/N 미확인: 3D 절대 높이는 근사 표시"
+              : ""}
+          </p>
+          {streamAWS && (
+            <p className="caption">
+              AWS 실제 고도 · 높이 배율 1×. 경계 안은 저장된 계산용 고도, 경계
+              밖은 주변 지형 표시입니다. 사진처럼 보이는 표면은 VWorld
+              위성영상을 추가하세요.
+            </p>
+          )}
+          {w.terrainBusy && (
+            <p className="caption" role="status">
+              AWS/선택한 소스의 계산용 고도를 가져오는 중…
+            </p>
+          )}
+          {w.terrainAutoError && (
+            <p className="notice warning" role="status">
+              {w.terrainAutoError}
+            </p>
+          )}
+          {imagery === "none" && (
+            <p className="caption">
+              배경 지도 꺼짐 · 도로·지명은 OpenStreetMap, 위성영상은 VWorld를
+              선택하세요.
+            </p>
+          )}
+          {!grid && !streamAWS && (
+            <p className={mode === "3D" ? "notice" : "caption"} role="status">
+              고도 자료가 없어 산·계곡이 표시되지 않습니다. 발사 환경 →
+              위치·지형에서 고도 자료를 가져오세요. 온라인 배경 지도에는 지형
+              높이가 포함되지 않습니다.
+            </p>
+          )}
+          <p className="caption">
+            이동: 드래그 · 확대/축소: 휠 · 3D 회전/기울기: Ctrl+드래그 또는
+            가운데 버튼. 시점은 발사장 맞춤으로 복원합니다.
+          </p>
+          {result?.summary.landed && (
+            <p className="caption">
+              예측 착륙 {result.summary.impact_latitude?.toFixed(6)}°,{" "}
+              {result.summary.impact_longitude?.toFixed(6)}° ·{" "}
+              {result.summary.ground_model === "terrain"
+                ? "지형 지면"
+                : "발사 고도 평면"}
+            </p>
+          )}
+        </>
       )}
     </section>
   );

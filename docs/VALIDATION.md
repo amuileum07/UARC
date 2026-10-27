@@ -362,3 +362,31 @@ Frontend tests passed 30, including request eligibility, Terrarium decoding,
 negative/submeter heights, zoom-cap sampling, frozen-height precedence and offline
 covered tiles. Biome/TypeScript, Prettier, production build and the 23 weather tests
 which consume the changed numeric example passed. Flight equations were unchanged.
+
+### Shared result plots and 3D trajectory (2026-10-27)
+
+Submitting or selecting a run now reveals plots and the map in separate dock
+groups. Existing separated placements are retained; closed panels reopen and a
+maximized group exits maximization. Selection, including reselecting the same
+run, restores 3D. Flight framing uses a 30 m minimum radius rather than the site's
+750 m minimum, keeping short flights visible. Saved absolute flight heights are
+not clamped onto the terrain. Both views share the run snapshot and selected time;
+pending selections hide an earlier trajectory and late responses are discarded.
+
+A visible production Qt probe ran two real spawned RocketPy flights with different
+headings over a previously acquired, frozen SRTM grid at 35.55° N, 129.3° E.
+The terrain-mode impact matched the grid at the simulated contact coordinates
+within 0.00001 m (numerical consistency, not DEM accuracy). The first flight's
+338 saved samples ranged from 4.01 to 62.44 m and occupied about 259 vertical screen
+pixels after automatic framing. A screenshot confirmed an elevated monochrome
+trajectory beside the plot. Checks covered slider movement, history switching,
+same-run reselect, closed-panel restoration, maximized-panel recovery, preserving
+the old site/DEM after moving the editor, and a deliberately delayed stale result.
+No render errors occurred. The delay was fixture-controlled; the flights, result
+storage and map rendering were real.
+
+All 32 frontend tests and nine terrain integration tests passed, together with
+Biome/TypeScript checks, Prettier and the production build. Added deterministic
+checks cover named/reordered trajectory columns, absolute heights and geoid
+offsets, malformed/reversed/out-of-range positions and short-flight camera range.
+No flight equations or terrain-contact behavior changed in this update.

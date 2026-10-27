@@ -1,3 +1,5 @@
+import type { EnvironmentConfig, TelemetryResult } from "./types";
+
 /** Matches app.terrain.coordinates: local flat-earth flight, spherical map placement. */
 export function flightCoordinates(
   latitude: number,
@@ -25,4 +27,39 @@ export function flightCoordinates(
     (endLat * 180) / Math.PI,
     (((endLon * 180) / Math.PI + 540) % 360) - 180,
   ];
+}
+/** Use the run's frozen site and absolute heights; never drape a flight on terrain. */
+export function flightPath(
+  telemetry: TelemetryResult,
+  environment: Pick<
+    EnvironmentConfig,
+    "latitude" | "longitude" | "elevation_reference" | "geoid_undulation_m"
+  >,
+) {
+  const columns = ["time_s", "x_m", "y_m", "z_asl_m"].map((name) => {
+    const index = telemetry.columns.indexOf(name);
+    if (index < 0) throw new Error(`궤적 자료에 ${name} 열이 없습니다.`);
+    return index;
+  });
+  const offset =
+    environment.elevation_reference === "ellipsoid"
+      ? 0
+      : (environment.geoid_undulation_m ?? 0);
+  let previous = -Infinity;
+  return telemetry.data.map((row) => {
+    const [time, east, north, altitude] = columns.map((index) => row[index]);
+    if (
+      ![time, east, north, altitude].every(Number.isFinite) ||
+      time < previous
+    )
+      throw new Error("궤적의 시간·위치·고도 자료가 올바르지 않습니다.");
+    previous = time;
+    const [latitude, longitude] = flightCoordinates(
+      environment.latitude,
+      environment.longitude,
+      east,
+      north,
+    );
+    return { time, latitude, longitude, height: altitude + offset };
+  });
 }

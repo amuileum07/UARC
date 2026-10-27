@@ -15,3 +15,14 @@ export const telemetryLabels: Record<string, string> = {
   w3_rad_s: "각속도 ω3 (rad/s)",
 };
 export const telemetryColumns = Object.keys(telemetryLabels);
+
+export const runStateLabels: Record<string, string> = {
+  queued: "대기",
+  running: "실행 중",
+  cancelling: "취소 중",
+  succeeded: "완료",
+  failed: "실패",
+  cancelled: "취소",
+  timed_out: "시간 초과",
+  interrupted: "중단",
+};

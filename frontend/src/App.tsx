@@ -128,6 +128,33 @@ function Workspace() {
   useEffect(() => {
     if (w.pickingSite) open("map");
   }, [w.pickingSite, open]);
+  useEffect(() => {
+    if (!w.resultView) return;
+    const current = api.current;
+    if (!current) return;
+    current.exitMaximizedGroup();
+    const reference = current.getPanel("rocket") || current.getPanel("map");
+    const results =
+      current.getPanel("results") ||
+      current.addPanel({
+        id: "results",
+        component: "results",
+        title: titles.results,
+        position: reference ? { referencePanel: reference.id } : undefined,
+      });
+    const map =
+      current.getPanel("map") ||
+      current.addPanel({
+        id: "map",
+        component: "map",
+        title: titles.map,
+        position: { referencePanel: "results", direction: "right" },
+      });
+    if (map.group === results.group)
+      map.api.moveTo({ group: results.group, position: "right" });
+    map.api.setActive();
+    results.api.setActive();
+  }, [w.resultView]);
   const actions = useRef({ save: w.save, run: w.run });
   actions.current = { save: w.save, run: w.run };
   useEffect(() => {

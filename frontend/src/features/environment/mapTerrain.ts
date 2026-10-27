@@ -71,9 +71,10 @@ export function frameMap(
   viewer: Cesium.Viewer,
   mode: "2D" | "3D",
   points: Cesium.Cartesian3[],
+  minimumRadius = 750,
 ) {
   const sphere = Cesium.BoundingSphere.fromPoints(points);
-  sphere.radius = Math.max(sphere.radius, 750);
+  sphere.radius = Math.max(sphere.radius, minimumRadius);
   const canvas = viewer.scene.canvas;
   const range =
     sphere.radius *

@@ -2,19 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { desktopApi } from "../../lib/bridge";
 import { useWorkspace } from "../../workspace";
 import type { TelemetryResult } from "../../lib/types";
-import { telemetryLabels } from "../../lib/telemetry";
+import { runStateLabels, telemetryLabels } from "../../lib/telemetry";
 import { TelemetryQuery } from "./Query";
 
-const stateLabels: Record<string, string> = {
-  queued: "대기",
-  running: "실행 중",
-  cancelling: "취소 중",
-  succeeded: "완료",
-  failed: "실패",
-  cancelled: "취소",
-  timed_out: "시간 초과",
-  interrupted: "중단",
-};
 export function Jobs() {
   const w = useWorkspace();
   return (
@@ -45,7 +35,7 @@ export function Jobs() {
                   {run.run_id.slice(0, 8)}
                 </button>
               </td>
-              <td>{stateLabels[run.state]}</td>
+              <td>{runStateLabels[run.state]}</td>
               <td>{run.stage}</td>
               <td>{(run.peak_rss_bytes / 1048576).toFixed(0)} MiB</td>
               <td>
@@ -126,7 +116,11 @@ export function Results() {
     return (
       <div className="empty">
         <h2>비행 결과</h2>
-        <p>하단 실행 이력에서 완료된 실행을 선택하세요.</p>
+        <p role="status">
+          {w.selectedRun
+            ? `실행 ${w.selectedRun.slice(0, 8)} · ${runStateLabels[w.selectedRunState ?? ""] || "상태 확인 중"}${w.selectedRunState === "succeeded" ? " · 결과 불러오는 중…" : ""}`
+            : "하단 실행 이력에서 완료된 실행을 선택하세요."}
+        </p>
         <p className="muted">결과는 당시 입력 스냅샷을 사용합니다.</p>
       </div>
     );

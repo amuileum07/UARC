@@ -49,8 +49,11 @@ interface Workspace {
   saved: SavedDesignRecord[];
   runs: RunRecord[];
   selectedRun: string;
+  selectedRunState: RunRecord["state"] | undefined;
+  resultView: number;
   selectRun: (id: string) => void;
   result: {
+    runId: string;
     design: RocketDesign;
     summary: FlightSummary;
     telemetry: TelemetryResult;
@@ -103,6 +106,7 @@ export function WorkspaceProvider({
   const [saved, setSaved] = useState<SavedDesignRecord[]>([]);
   const [runs, setRuns] = useState<RunRecord[]>([]);
   const [selectedRun, setSelectedRun] = useState("");
+  const [resultView, setResultView] = useState(0);
   const [result, setResult] = useState<Workspace["result"]>(null);
   const [elevation, setElevation] = useState<ElevationCheck | null>(null);
   const [terrainBusy, setTerrainBusy] = useState(false);
@@ -241,7 +245,7 @@ export function WorkspaceProvider({
         ),
       ]);
       if (active) {
-        setResult({ design: snapshot, summary, telemetry });
+        setResult({ runId: selectedRun, design: snapshot, summary, telemetry });
         setTime(summary.start_time_s);
       }
     });
@@ -249,6 +253,12 @@ export function WorkspaceProvider({
       active = false;
     };
   }, [selectedRun, selectedState, act]);
+  const selectRun = useCallback((id: string) => {
+    setSelectedRun(id);
+    setMapMode("result");
+    setPickingSite(false);
+    setResultView((value) => value + 1);
+  }, []);
   const edit = (path: string[], value: unknown) => {
     setDesign((old) => editDesign(old, path, value));
     setDirty(true);
@@ -308,8 +318,7 @@ export function WorkspaceProvider({
       try {
         const record = await submitDesign(design);
         setRuns((old) => [record, ...old]);
-        setSelectedRun(record.run_id);
-        setMapMode("result");
+        selectRun(record.run_id);
       } finally {
         pendingRun.current = false;
       }
@@ -454,11 +463,13 @@ export function WorkspaceProvider({
         saved,
         runs,
         selectedRun,
-        selectRun: (id) => {
-          setSelectedRun(id);
-          setMapMode("result");
-        },
-        result,
+        selectedRunState: selectedState,
+        resultView,
+        selectRun,
+        result:
+          result?.runId === selectedRun && selectedState === "succeeded"
+            ? result
+            : null,
         elevation,
         terrainBusy: terrainBusy || terrainAutoBusy,
         terrainSource,

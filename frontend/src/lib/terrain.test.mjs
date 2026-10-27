@@ -124,6 +124,12 @@ test("map framing faces north with a steep 3D view, correct range, and unlocked 
   assert.equal(calls[3].offset.pitch, -Math.PI / 2);
   assert.equal(calls[3].offset.heading, 0);
   assert.equal(calls[3].offset.range, 750 * 2.8);
+  frameMap(viewer, "3D", points, 30);
+  assert.equal(calls[6].sphere.radius, 30);
+  assert.equal(calls[6].offset.range, 30 * 2.8);
+  viewer.scene.canvas.clientWidth = 250;
+  frameMap(viewer, "3D", points, 30);
+  assert.equal(calls[9].offset.range, 30 * 2.8 * 2);
 });
 
 test("editing geometry or weather preserves unchanged terrain identity without mutating previous designs", () => {

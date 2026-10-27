@@ -196,6 +196,16 @@ The saved grid supplies Cesium heightmap terrain, so imagery follows the surface
 3D opens north-up at a 65° downward angle with grayscale relief shading and heights
 at 1×. **발사장 맞춤** resets the view, and **전체 궤적** frames a selected result.
 2D remains top-down. Ctrl+drag or the middle mouse button tilts/orbits the camera.
+Submitting a simulation or selecting a run opens **비행 결과** and **지형 · 궤적**
+together in separate dock groups, restoring closed panels and leaving already
+separated groups in place. Result selection returns the map to 3D and frames the
+whole flight, including short flights, at its actual size. **발사장 맞춤** still
+frames the wider site. The outlined monochrome flight line uses absolute saved
+altitudes, not heights clamped onto terrain. The plot time slider/playback moves
+the map marker. Both views use the selected run's frozen site/DEM, even after the
+editable design moves elsewhere. Pending/failed runs show their state without
+displaying a previous run's trajectory; late responses cannot replace a newer
+selection. Plot query filters do not crop the full map trajectory.
 Hidden map panels pause rendering and resize on return. Dense grid lines are off
 by default; **고도 격자** toggles them. The outline marks calculation coverage.
 For AWS, surrounding Terrarium elevation tiles stream into a 65×65 Web Mercator
