@@ -132,18 +132,16 @@ class OpenRocketTests(unittest.TestCase):
             design = import_openrocket(path, import_options()).design
             self.assertEqual(design.components[1].outer_radius, 0.025)
 
-    def test_ejection_requires_an_explicit_trigger_and_auto_cd_uses_openrocket_value(
+    def test_ejection_requires_explicit_trigger_and_automatic_defaults_are_rejected(
         self,
     ):
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "recovery.ork"
             path.write_text(
-                FIXTURE.read_text()
-                .replace(
+                FIXTURE.read_text().replace(
                     "<deployevent>apogee</deployevent>",
                     "<deployevent>ejection</deployevent>",
                 )
-                .replace("<cd>1.4</cd>", "<cd>auto</cd>")
             )
             with self.assertRaisesRegex(ValueError, "parachute_trigger"):
                 import_openrocket(path, import_options())
@@ -151,7 +149,20 @@ class OpenRocketTests(unittest.TestCase):
             options.parachute_trigger = 150.0
             recovery = import_openrocket(path, options).design.components[-1]
             self.assertEqual(recovery.deployment.trigger, 150)
-            self.assertEqual(recovery.deployment.drag_coefficient, 0.8)
+            self.assertEqual(recovery.deployment.drag_coefficient, 1.4)
+            for automatic in (
+                FIXTURE.read_text().replace("<cd>1.4</cd>", "<cd>auto</cd>"),
+                FIXTURE.read_text().replace("<cd>1.4</cd>", ""),
+                FIXTURE.read_text().replace(
+                    "<linelength>1</linelength>", "<linelength>auto</linelength>"
+                ),
+            ):
+                with (
+                    self.subTest(automatic=automatic),
+                    self.assertRaisesRegex(ValueError, "must be explicit"),
+                ):
+                    path.write_text(automatic)
+                    import_openrocket(path, options)
 
     def test_unsafe_and_oversized_xml_archives_are_bounded(self):
         xml = FIXTURE.read_bytes()

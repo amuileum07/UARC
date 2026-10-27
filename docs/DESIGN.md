@@ -19,13 +19,76 @@ position, drag curves, rail buttons, and optional assembly measurements.
 | `surface` with trapezoidal/elliptical fins | Count, root/tip chord, span, sweep, cant, position, plate thickness, material | Equally spaced, uniform extruded plates |
 | `surface` with `surface_type="tail"` | End radii, length, position, radial thickness, material | Axisymmetric conical-frustum wall |
 | `mass` | Measured mass, position, optional cylinder dimensions or intrinsic inertia | Axis-centered hardware/payload; zero dimensions represent a point mass |
-| `parachute` | Packed position/size, fabric area/thickness/material, line mass, attachment station, deployment settings | Packed canopy and lines approximated as a uniform cylinder |
+| `line` | Line material, total length, packed CG/radius/length, optional measured mass | Line density × length; packed cylinder inertia |
+| `parachute` | Packed position/size, fabric area/thickness/material, manual line mass or line material/length, attachment station, deployment settings | Packed canopy and lines approximated as a uniform cylinder |
 
 Changing a material's density updates every component referencing that material.
 Changing a part's position updates its contribution to assembly CG and transverse
 inertia. Fin/nose dimensions and positions also change the aerodynamic surfaces
 passed to RocketPy. Body drag remains an explicit input curve, not an automatic
 CFD result of changing geometry or material.
+
+## Material library and surface data
+
+[`backend/app/materials.json`](../backend/app/materials.json) is the shared,
+offline source of material values, surface finishes, per-family guidance,
+calculation usage, source URLs, document sections, and evidence limitations.
+The desktop material editor reads this file through `get_material_catalog()`;
+it is included in both Python packages and desktop bundles. No material lookup
+requires a network request. Source buttons open the registered document in the
+system browser only when selected.
+
+The catalogue contains six product-grade density facts independently checked
+against manufacturer technical data sheets. Simulator material/finish tables
+are not bundled. There is no claim to cover every material supported by other
+programs; use explicit measured inputs when no verified product preset exists.
+
+The six grade-specific presets cite manufacturer TDS values: Kaiser
+6061 (2700 kg/m³ at 20 °C), NatureWorks Ingeo 4043D (1240), Prusament PETG
+(1270), Ensinger TECAFORM AH natural POM-C (1410), TECAMID 66 natural PA66
+(1150), and cured HexPly 8552 AS4 UD laminate (1580). These do not overwrite
+existing designs. The file links USDA's Wood
+Handbook, DuPont's Kevlar guide, and the product sheets for moisture, grade,
+processing, fibre/laminate distinctions and other relevant limitations.
+Only individual property facts, unit conversions and independently written
+notes are included; publisher documents, figures and complete tables are not
+redistributed. Source documents retain their own terms.
+
+| `MaterialConfig.density_type` | Unit | Allowed use |
+| --- | --- | --- |
+| `bulk` (legacy default) | kg/m³ | Body/nose/fins/tail; canopy mass = density × fabric area × thickness |
+| `surface` | kg/m² | Canopy mass = density × actual fabric area; thickness is unused |
+| `line` | kg/m | Cord/webbing mass = density × total length; also parachute suspension lines |
+
+For parachutes, selecting `line_material` uses its density × `line_length`
+(all lines combined) **instead of** `line_mass`. Clearing it restores the saved
+manual `line_mass`. Material dimension mismatches and missing line references
+are rejected. Measured component mass still takes precedence. Designs embed
+their editable numerical values and origin `catalog_id`; reopening never
+replaces these with current catalogue defaults. The existing 64-material limit
+applies to selected design materials, not the library.
+
+External body/surface parts save an optional `surface_finish` with nonnegative
+`roughness_m`, `roughness_type`, name and optional origin ID. Equivalent
+sand-grain roughness `ks`, measured arithmetic roughness `Ra`, and legacy model
+heights remain distinct. No roughness presets or automatic conversions are
+provided. Enter a finished-part measurement or independently documented value.
+A missing finish is unknown, not a zero-roughness assumption. Existing design
+snapshots, including legacy model-height tags, remain readable without a lookup
+table or replacing their stored values.
+
+SDS/MSDS physical-property sections can supply density but do not establish
+finished-part aerodynamic roughness. Use TDS for the actual grade/lay-up and
+measured surface/process data for skin friction; Ra alone cannot establish ks
+(Flack & Schultz, 2010, DOI 10.1115/1.4001492). No universal material-specific Cd,
+porosity, elastic modulus or strength is invented. Source notes are explicitly
+scoped to their products, not every member of a material family.
+
+**Current solver use:** density affects mass, CG and inertia. Surface finish is
+preserved as input metadata for a future validated aerodynamic model; the
+explicit `power_on_drag`/`power_off_drag` curves remain authoritative. RocketPy
+surface lift/CP use shape and flow; material selection does not assign a new
+lift coefficient. No CFD or aeroelastic/flutter solver is introduced.
 
 The TypeScript bridge exports `previewDesign`, `submitDesign`, `getDesign`,
 `getDesignReport`, and `rerunSimulation`. Inputs and outputs are JSON-compatible;
@@ -58,7 +121,8 @@ initial/final rocket mass and CG appear in flight summaries.
 
 ## Calculation and measured overrides
 
-Component mass follows density times modelled volume. Airframe CG is
+Component mass follows density times modelled volume, area or length according
+to the material's density type. Airframe CG is
 `sum(component_mass * component_cg) / total_mass`; central inertias are combined
 with the parallel-axis theorem. Fins are equally spaced with `n >= 3`, so their
 transverse offsets cancel. Cant rotates the fin plate about its radial leading-
@@ -100,8 +164,10 @@ fixed `lvhaack` family retains its own CP coefficient (0.563L), so its CP conven
 differs even where the outer outline matches. Existing direct simulation inputs
 keep their native family behaviour. Drag curves remain caller-supplied.
 
-Parachute fabric mass uses actual `canopy_area`, density, thickness, and added
-`line_mass`. The deployed projected area uses `pi * deployment.radius²`;
+Parachute fabric mass uses actual `canopy_area` and areal density, or bulk
+density × thickness for legacy/bulk materials. Lines use manual `line_mass` or
+the selected line material × total length. The deployed projected area uses
+`pi * deployment.radius²`;
 `Cd*A` is derived from this area and `drag_coefficient`, unless an explicit
 `deployment.cd_s` measurement overrides it. Fabric area and deployed projected
 area describe different quantities and are independent inputs.

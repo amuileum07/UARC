@@ -154,6 +154,7 @@ export const fieldLabels: Record<string, string> = {
   canopy_area: "원단 면적",
   attachment_position: "부착 위치",
   line_mass: "줄 질량",
+  line_length: "줄 전체 길이",
   lag: "전개 지연",
   drag_coefficient: "항력 계수",
   deployment: "낙하산 전개",

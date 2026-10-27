@@ -205,14 +205,14 @@ def import_openrocket(source: Path, options: OpenRocketOptions) -> OpenRocketImp
         "Motor/thrust, atmosphere, launch settings, and body drag use the explicit import options; OpenRocket simulations are not imported.",
     ]
 
-    def material(node, kind="bulk", density=None):
-        entry = node.find("material")
+    def material(node, kind="bulk", tag="material"):
+        entry = node.find(tag)
         if entry is None or entry.get("type", "bulk") != kind:
             raise ValueError(f"<{node.tag}> requires a {kind} material with a density.")
-        value = float(entry.get("density", "nan")) if density is None else density
+        value = float(entry.get("density", "nan"))
         name = (entry.text or "Imported material").strip()
         key = f"material_{len(materials)}"
-        materials[key] = {"name": name, "density": value}
+        materials[key] = {"name": name, "density": value, "density_type": kind}
         return key
 
     def radius(node, name, fallback=None):
@@ -273,6 +273,12 @@ def import_openrocket(source: Path, options: OpenRocketOptions) -> OpenRocketImp
         mass_override = node.findtext("overridemass")
         if mass_override is not None:
             base["mass_override"] = float(mass_override)
+        finish = node.findtext("finish")
+        if finish is not None and kind in OUTER | FINS:
+            warnings.append(
+                f"{base['name']}: surface finish {finish.strip()!r} was not converted; "
+                "enter measured surface roughness in UARC. No simulator roughness table is bundled."
+            )
         if kind in TUBES:
             r = (
                 outer_radii[1]
@@ -420,11 +426,8 @@ def import_openrocket(source: Path, options: OpenRocketOptions) -> OpenRocketImp
                 surface_material = node.find("material")
                 if surface_material is None:
                     raise ValueError("Parachute requires a surface material.")
-                areal_density = float(surface_material.get("density", "nan"))
-                # OpenRocket records kg/m², not fabric thickness. Preserve areal
-                # mass using a documented 1 mm equivalent layer, editable later.
                 thickness = 0.001
-                key = material(node, "surface", areal_density / thickness)
+                key = material(node, "surface")
                 line = node.find("linematerial")
                 line_count = int(_text(node, "linecount", "0"))
                 if not 0 <= line_count <= 10_000:
@@ -434,11 +437,11 @@ def import_openrocket(source: Path, options: OpenRocketOptions) -> OpenRocketImp
                 if line_count and (line is None or line.get("type") != "line"):
                     raise ValueError("Parachute lines require a line material.")
                 line_length = _text(node, "linelength", "0")
-                line_length = (
-                    1.5 * _number(node, "diameter")
-                    if line_length.startswith("auto")
-                    else float(line_length)
-                )
+                if line_count and line_length.startswith("auto"):
+                    raise ValueError(
+                        "Parachute line length must be explicit; automatic simulator defaults are not imported."
+                    )
+                line_length = float(line_length) if line_count else 0.0
                 line_density = (
                     float(line.get("density", "nan")) if line is not None else 0.0
                 )
@@ -455,6 +458,10 @@ def import_openrocket(source: Path, options: OpenRocketOptions) -> OpenRocketImp
                     )
                 line_mass = line_count * line_length * line_density
                 cd = _text(node, "cd", "auto")
+                if cd == "auto":
+                    raise ValueError(
+                        "Parachute Cd must be explicit; automatic simulator defaults are not imported."
+                    )
                 base.update(
                     component_type="parachute",
                     material=key,
@@ -463,18 +470,22 @@ def import_openrocket(source: Path, options: OpenRocketOptions) -> OpenRocketImp
                     canopy_area=area,
                     thickness=thickness,
                     line_mass=line_mass,
+                    line_material=(
+                        material(node, "line", "linematerial") if line_count else None
+                    ),
+                    line_length=line_count * line_length,
                     packed_radius=packed_radius,
                     packed_length=length,
                     deployment={
                         "name": base["name"],
                         "radius": _number(node, "diameter") / 2,
-                        "drag_coefficient": 0.8 if cd == "auto" else float(cd),
+                        "drag_coefficient": float(cd),
                         "trigger": trigger,
                         "lag": _number(node, "deploydelay", "0"),
                     },
                 )
                 warnings.append(
-                    "Parachute surface density uses an equivalent 1 mm fabric layer; attachment position is the packed CG, not an imported anchor."
+                    "Parachute uses native areal/linear densities; thickness is unused for areal mass. Attachment position is the packed CG, not an imported anchor."
                 )
             else:
                 if kind == "shockcord":
@@ -489,16 +500,23 @@ def import_openrocket(source: Path, options: OpenRocketOptions) -> OpenRocketImp
                         or line_density <= 0
                     ):
                         raise ValueError("Shock cord length/density must be positive.")
-                    mass = cord_length * line_density
+                    base.update(
+                        component_type="line",
+                        material=material(node, "line"),
+                        position=position,
+                        line_length=cord_length,
+                        packed_radius=packed_radius,
+                        packed_length=length,
+                    )
                 else:
                     mass = _number(node, "mass")
-                base.update(
-                    component_type="mass",
-                    position=position,
-                    mass=float(base.pop("mass_override", mass)),
-                    radius=packed_radius,
-                    length=length,
-                )
+                    base.update(
+                        component_type="mass",
+                        position=position,
+                        mass=float(base.pop("mass_override", mass)),
+                        radius=packed_radius,
+                        length=length,
+                    )
             components.append(base)
             r, inner = None, None
         else:

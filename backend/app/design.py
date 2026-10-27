@@ -9,6 +9,7 @@ from app.schemas import (
     BodyTubeDesign,
     DesignReport,
     EllipticalFinsConfig,
+    LineDesign,
     MassComponentDesign,
     NoseConeConfig,
     ParachuteConfig,
@@ -143,7 +144,8 @@ def _component_properties(component, design):
             else np.array((*component.inertia, 0, 0, 0)[:6])
         )
     else:
-        density = design.materials[component.material].density
+        material = design.materials[component.material]
+        density = material.density
         if isinstance(component, BodyTubeDesign):
             radius = component.outer_radius
             mass, center, inertia = _shell(
@@ -159,13 +161,29 @@ def _component_properties(component, design):
                 [component.position + component.length, radius],
             ]
         elif isinstance(component, ParachuteDesign):
+            line_mass = component.line_mass
+            if component.line_material is not None:
+                line_mass = (
+                    design.materials[component.line_material].density
+                    * component.line_length
+                )
             mass = (
-                density * component.canopy_area * component.thickness
-                + component.line_mass
+                density
+                * component.canopy_area
+                * (component.thickness if material.density_type == "bulk" else 1)
+                + line_mass
             )
             center = component.position
             # Packed canopy/lines are a uniform cylinder; supply measured mass
             # or a measured assembly inertia when packing geometry matters.
+            inertia = _cylinder(mass, component.packed_radius, component.packed_length)
+            profile = [
+                [center - component.packed_length / 2, component.packed_radius],
+                [center + component.packed_length / 2, component.packed_radius],
+            ]
+        elif isinstance(component, LineDesign):
+            mass = density * component.line_length
+            center = component.position
             inertia = _cylinder(mass, component.packed_radius, component.packed_length)
             profile = [
                 [center - component.packed_length / 2, component.packed_radius],

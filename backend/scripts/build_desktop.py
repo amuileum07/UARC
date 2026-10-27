@@ -30,6 +30,8 @@ def build_arguments(root: Path, frontend: Path | None, output: Path) -> list[str
         str(root),
         "--collect-data",
         "rocketpy",
+        "--add-data",
+        f"{root / 'app' / 'materials.json'}:app",
         # SciPy's vendored NumPy namespace imports fft/linalg dynamically.
         "--collect-submodules",
         "scipy._external.array_api_compat.numpy",

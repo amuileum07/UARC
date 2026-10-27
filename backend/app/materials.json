@@ -1,0 +1,235 @@
+{
+  "schema_version": 1,
+  "checked_on": "2026-10-27",
+  "coverage": {
+    "scope": "Six product-grade density facts independently verified against manufacturer technical data sheets. Not an exhaustive material database.",
+    "materials": 6,
+    "surface_finishes": 0,
+    "custom_inputs": "Bulk, surface and line densities remain editable. Surface roughness requires measured or independently documented input."
+  },
+  "units": {
+    "bulk": "kg/m³",
+    "surface": "kg/m²",
+    "line": "kg/m",
+    "roughness_m": "m"
+  },
+  "calculation_usage": {
+    "density": "Used for component mass, mass-weighted CG and geometric inertia. Surface uses mass/area; line uses mass/length.",
+    "roughness_m": "Saved per external component for future validated skin-friction models; currently does not replace explicit drag inputs. Never assign from material identity alone.",
+    "roughness_type": "Equivalent sand-grain ks, measured Ra and legacy model heights are distinct conventions; no automatic conversion or bundled model-height lookup table.",
+    "lift_cp": "Current RocketPy lift/normal-force and CP models use geometry and flow, not a material-specific lift coefficient.",
+    "missing_properties": "A missing/unspecified surface roughness, porosity, coating or mechanical property is unknown, not zero. SDS physical properties do not establish finished-part aerodynamic roughness.",
+    "mechanical_properties": "Manufacturer elastic moduli depend on grade, direction and processing; no aeroelastic/flutter solver is implemented, so no invented universal modulus is used."
+  },
+  "sources": {
+    "wood_handbook": {
+      "title": "USDA Forest Products Laboratory, Wood Handbook, Chapter 4 (2021)",
+      "url": "https://research.fs.usda.gov/treesearch/62243",
+      "locator": "Moisture relations and physical properties of wood, FPL-GTR-282",
+      "kind": "government_handbook",
+      "note": "Species, moisture and specimen density must be specified; no universal density or roughness is certified by a wood name."
+    },
+    "kaiser_6061": {
+      "title": "Kaiser Aluminum Rod & Bar Alloy 6061 Technical Data",
+      "url": "https://online.kaiseraluminum.com/depot/PublicProductInformation/Document/1025/Kaiser_Aluminum_6061_Rod_and_Bar.pdf",
+      "locator": "p. 2, physical properties: nominal density at 20 °C; p. 1 mechanical properties",
+      "kind": "manufacturer_tds",
+      "note": "Typical product properties, not structural design allowables."
+    },
+    "natureworks_4043d": {
+      "title": "NatureWorks Ingeo Biopolymer 4043D Technical Data Sheet",
+      "url": "https://natureworksllc.com/getContentAsset/64260fd8-bfe0-49a4-af38-3dfdc4ef7f5c/53ffd608-340f-457b-b656-6b8cc0000bd4/TechnicalDataSheet_4043D_films.pdf?language=en",
+      "locator": "p. 1, density 1.24 g/cc, ASTM D1505",
+      "kind": "manufacturer_tds",
+      "note": "Specific resin/film grade; printed infill, voids and additives require measured mass or density."
+    },
+    "prusa_petg": {
+      "title": "Prusa Polymers Prusament PETG Technical Data Sheet v1.1 (2022-02-16)",
+      "url": "https://www.prusa3d.com/file/3464616/prusament-petg-technical-data-sheet.pdf",
+      "locator": "p. 2, density 1.27 g/cm³ ISO 1183; pp. 2–3 printed specimen conditions",
+      "kind": "manufacturer_tds",
+      "note": "Filament density differs from the apparent density of a partially filled printed part. Printed modulus depends on direction and process."
+    },
+    "ensinger_shapes": {
+      "title": "Ensinger Stock Shapes: Plastics Used in Aerospace Technology",
+      "url": "https://www.ensingerplastics.com/-/media/ensinger/files/document-teaser-files/brochures/shapes/aerospace-shapes-en.pdf?rev=fd35958705674dd0bca0a8906d37baa9",
+      "locator": "Material standard values, density DIN EN ISO 1183",
+      "kind": "manufacturer_tds",
+      "note": "Grade-specific stock-shape values; POM-C, POM-H and reinforced nylon must not be interchanged."
+    },
+    "hexcel_8552": {
+      "title": "Hexcel HexPly 8552 Product Data Sheet (2023)",
+      "url": "https://www.hexcel.com/wp-content/uploads/2025/12/HexPly_8552_eu_DataSheet1.pdf",
+      "locator": "p. 2, UD carbon prepregs: nominal cured laminate density; dry tensile modulus at 25 °C",
+      "kind": "manufacturer_tds",
+      "note": "AS4 UD cured laminate density is 1.58 g/cm³; fibre density is 1.79 g/cm³. Lay-up and resin content matter; neither is a universal carbon-composite density."
+    },
+    "dupont_kevlar": {
+      "title": "DuPont Kevlar Aramid Fiber Technical Guide",
+      "url": "https://www.dupont.com/content/dam/dupont/amer/us/en/safety/public/documents/en/Kevlar_Technical_Guide_0319.pdf",
+      "locator": "Typical properties of industrial yarns; linear density and fibre density",
+      "kind": "manufacturer_tds",
+      "note": "Fibre volumetric density cannot replace measured cord kg/m; yarn count, braid, coating and moisture affect finished cord."
+    },
+    "roughness_review": {
+      "title": "Flack & Schultz (2010), Review of Hydraulic Roughness Scales in the Fully Rough Regime",
+      "url": "https://doi.org/10.1115/1.4001492",
+      "locator": "ASME Journal of Fluids Engineering 132(4), 041203",
+      "kind": "journal",
+      "note": "Equivalent sand-grain roughness depends on surface topology. Do not equate Ra with ks or use a universal Ra-to-ks multiplier."
+    }
+  },
+  "groups": {
+    "metals": {
+      "name": "금속",
+      "notes": "합금·열처리·제품 밀도를 확인하세요. 연마·절삭·도장·산화 상태는 부품 표면에서 별도로 지정합니다. 합금 이름만으로 거칠기나 Cd를 정할 수 없습니다.",
+      "source_ids": [
+        "kaiser_6061",
+        "roughness_review"
+      ]
+    },
+    "woods": {
+      "name": "목재·코르크",
+      "notes": "수종·함수율·결 방향·접착층에 따라 밀도와 강성이 달라집니다. 도프·실러·도장 후 외부 표면을 측정하세요.",
+      "source_ids": [
+        "wood_handbook",
+        "roughness_review"
+      ]
+    },
+    "plastics": {
+      "name": "플라스틱·필름",
+      "notes": "등급·첨가제·흡습과 제조 공정이 중요합니다. 3D 출력 부품은 실제 인필·벽·공극을 반영한 실측 질량을 우선하세요. Ra와 공력 모델 거칠기는 같은 값이 아닙니다.",
+      "source_ids": [
+        "ensinger_shapes",
+        "natureworks_4043d",
+        "prusa_petg",
+        "roughness_review"
+      ]
+    },
+    "composites": {
+      "name": "복합재",
+      "notes": "섬유 자체와 경화 적층재의 밀도를 구분하세요. 섬유 체적분율·수지·적층·공극·겔코트가 필요하며 공력 계산에는 완성된 외부 표면 상태를 사용합니다.",
+      "source_ids": [
+        "hexcel_8552",
+        "roughness_review"
+      ]
+    },
+    "paper": {
+      "name": "종이·판지",
+      "notes": "종이·판지는 제품과 수분·코팅·접착층에 따라 달라집니다. 원단은 kg/m², 성형 벽은 kg/m³를 구분하세요. 범용 이름에 대응하는 제조사 인증값은 미확인입니다.",
+      "source_ids": [
+        "roughness_review"
+      ]
+    },
+    "foams": {
+      "name": "발포재",
+      "notes": "셀 구조·발포 등급·밀폐 표피 여부와 겉보기 밀도를 확인하세요. 벌크 고분자 밀도를 EPS/XPS 발포재에 적용하지 않습니다. 범용 이름에 대응하는 제조사 인증값은 미확인입니다.",
+      "source_ids": [
+        "roughness_review"
+      ]
+    },
+    "fabrics": {
+      "name": "원단",
+      "notes": "면밀도·코팅·투기도·전개 형상이 필요합니다. 면밀도에서 낙하산 Cd를 계산하지 않으며 원단 투기도의 단일 보편값은 지정하지 않습니다.",
+      "source_ids": [
+        "dupont_kevlar"
+      ]
+    },
+    "fibers": {
+      "name": "섬유 재료",
+      "notes": "벌크 밀도와 완제품 원단·줄의 면/선밀도는 다릅니다. 제품·흡습·가공 상태를 확인하고 완성 부품의 표면 마감을 지정하세요.",
+      "source_ids": [
+        "ensinger_shapes",
+        "dupont_kevlar"
+      ]
+    },
+    "threads_lines": {
+      "name": "줄·웨빙",
+      "notes": "선밀도는 완제품 길이당 질량입니다. 가닥 수·굵기·편조·코팅·신장 상태별 제품 자료나 실측값을 사용하세요. 섬유의 kg/m³만으로 kg/m를 추정하지 않습니다.",
+      "source_ids": [
+        "dupont_kevlar"
+      ]
+    }
+  },
+  "materials": [
+    {
+      "id": "kaiser_6061",
+      "name": "Aluminum 6061 · Kaiser",
+      "density": 2700,
+      "density_type": "bulk",
+      "group": "metals",
+      "source_ids": [
+        "kaiser_6061"
+      ],
+      "evidence": "manufacturer_typical",
+      "notes": "20 °C 공칭 밀도 2.70 Mg/m³. 도장·표면 거칠기는 별도 입력."
+    },
+    {
+      "id": "natureworks_4043d",
+      "name": "PLA · Ingeo 4043D",
+      "density": 1240,
+      "density_type": "bulk",
+      "group": "plastics",
+      "source_ids": [
+        "natureworks_4043d"
+      ],
+      "evidence": "manufacturer_typical",
+      "notes": "수지/필름 등급의 전밀도 1.24 g/cm³, ASTM D1505. 부분 인필 출력물의 겉보기 밀도가 아닙니다."
+    },
+    {
+      "id": "prusa_petg",
+      "name": "PETG · Prusament",
+      "density": 1270,
+      "density_type": "bulk",
+      "group": "plastics",
+      "source_ids": [
+        "prusa_petg"
+      ],
+      "evidence": "manufacturer_typical",
+      "notes": "필라멘트 밀도 1.27 g/cm³, ISO 1183. 출력물은 인필·공극·공정에 따라 실측 질량을 사용하세요."
+    },
+    {
+      "id": "ensinger_pom_c",
+      "name": "POM-C · TECAFORM AH natural",
+      "density": 1410,
+      "density_type": "bulk",
+      "group": "plastics",
+      "source_ids": [
+        "ensinger_shapes"
+      ],
+      "evidence": "manufacturer_typical",
+      "notes": "DIN EN ISO 1183 체적밀도 1.41 g/cm³. POM-H/Delrin과 다른 등급입니다."
+    },
+    {
+      "id": "ensinger_pa66",
+      "name": "PA66 · TECAMID 66 natural",
+      "density": 1150,
+      "density_type": "bulk",
+      "group": "plastics",
+      "source_ids": [
+        "ensinger_shapes"
+      ],
+      "evidence": "manufacturer_typical",
+      "notes": "DIN EN ISO 1183 체적밀도 1.15 g/cm³. 유리섬유 강화 PA66과 구분하세요."
+    },
+    {
+      "id": "hexcel_8552_as4",
+      "name": "Carbon/epoxy · HexPly 8552 AS4 UD",
+      "density": 1580,
+      "density_type": "bulk",
+      "group": "composites",
+      "source_ids": [
+        "hexcel_8552"
+      ],
+      "evidence": "manufacturer_typical",
+      "notes": "경화 UD 적층재 공칭 밀도 1.58 g/cm³. 섬유 자체 밀도 1.79 g/cm³와 다릅니다. 적층·수지·공극 조건을 확인하세요."
+    }
+  ],
+  "surface_finishes": [],
+  "reference_policy": {
+    "density": "Individual product property facts with unit conversion and source location; no simulator default table, document text, figure or complete manufacturer table is reproduced.",
+    "surface": "No bundled roughness presets. Supply finished-part measurements or independent engineering references and keep Ra separate from ks.",
+    "documents": "Source documents remain with their publishers and retain their own terms; document URLs are references, not a relicensing of those documents.",
+    "existing_designs": "Embedded user material and surface snapshots are not overwritten by catalogue changes."
+  }
+}

@@ -15,6 +15,7 @@ import type {
   OpenRocketImport,
 } from "./types";
 import type { InputSchema } from "./forms";
+import type { MaterialCatalog } from "./materials";
 
 export type JsonValue =
   | null
@@ -42,6 +43,8 @@ interface DesktopApi {
   validate_config(kind: "design", input: string): Promise<RocketDesign>;
   validate_config(kind: ConfigKind, input: string): Promise<JsonObject>;
   get_example_design(): Promise<RocketDesign>;
+  get_material_catalog(): Promise<MaterialCatalog>;
+  open_material_reference(id: string): Promise<boolean>;
   import_design_file(): Promise<RocketDesign | null>;
   export_design_file(input: string): Promise<string | null>;
   get_config_schema(kind: ConfigKind): Promise<InputSchema>;

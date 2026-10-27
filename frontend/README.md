@@ -73,7 +73,7 @@ controls; Python remains responsible for physical validation.
 | Parachute → **낙하산 전개** | Apogee/descending AGL trigger, Cd·A override, sampling, lag, noise, canopy radius/height/porosity/Cd |
 | **모터 · 추진제** | No motor or generic/solid/liquid/hybrid; thrust, burn interval, reshape, dry mass/inertia, orientation, grains/chamber/nozzle/reference pressure |
 | Motor → **탱크** | Add/delete tanks; geometry, caps, position, fluids/densities, phase mass curves, flux interval, discretization |
-| **재질** | Add, rename, change density, delete unused materials |
+| **재질** | Search the offline manufacturer library, inspect references, add/customize bulk/areal/linear densities, delete unused materials |
 | **비행 설정** | Launch/termination plus solver, equations, DOF, time steps, scalar/13-component tolerances, 14-component initial state, log/event flags |
 | **발사장** | Terrain query radius, gravity override, atmosphere height limit, manual vertical curves, forecast/reanalysis/ensemble/Windy file/provider settings and variable mapping |
 | Project → **OpenRocket 가져오기** | Native .ork selection, explicit parachute trigger, warnings and conversion preview before replacing the design |
@@ -87,6 +87,12 @@ previous curve. Incompatible fin sweep definitions are cleared atomically.
 Motor variants retain their prior settings while that motor editor stays open.
 New components, materials, motors, and tanks contain **example values** that
 must be replaced with actual specifications. Used materials cannot be deleted.
+The material library contains six independently verified manufacturer-grade
+density presets. Simulator material and surface-finish tables are not included.
+Body/surface properties accept measured or independently documented roughness,
+with its convention preserved. These values are saved for a future drag model;
+current drag curves remain explicit inputs. Existing designs retain their values.
+See [material units, sources and limits](../docs/DESIGN.md#material-library-and-surface-data).
 
 The canonical component design keeps axial positions and tail-to-nose coordinates;
 body mass properties are calculated or explicitly overridden. Raw solver-only

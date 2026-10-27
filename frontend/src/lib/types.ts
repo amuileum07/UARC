@@ -5,6 +5,7 @@ export type BodyTubeDesign = {
   material: string;
   mass_override?: number | null;
   component_type?: "body_tube";
+  surface_finish?: SurfaceFinishConfig | null;
   position: number;
   length: number;
   outer_radius: number;
@@ -200,6 +201,18 @@ export type ImportedFile = {
   size_bytes: number;
 };
 
+export type LineDesign = {
+  id: string;
+  name?: string;
+  material: string;
+  mass_override?: number | null;
+  component_type?: "line";
+  position: number;
+  line_length: number;
+  packed_radius?: number;
+  packed_length?: number;
+};
+
 export type LiquidMotorConfig = {
   thrust_source: number | string | Array<[number, number]>;
   nozzle_radius: number;
@@ -282,6 +295,8 @@ export type MassPropertySources = {
 export type MaterialConfig = {
   name: string;
   density: number;
+  density_type?: "bulk" | "surface" | "line";
+  catalog_id?: string | null;
 };
 
 export type NoseConeConfig = {
@@ -364,6 +379,8 @@ export type ParachuteDesign = {
   canopy_area: number;
   thickness: number;
   line_mass?: number;
+  line_material?: string | null;
+  line_length?: number;
   packed_radius: number;
   packed_length: number;
   deployment: ParachuteDeployment;
@@ -401,7 +418,11 @@ export type RocketDesign = {
   name: string;
   materials?: Record<string, MaterialConfig>;
   components: Array<
-    BodyTubeDesign | SurfaceDesign | MassComponentDesign | ParachuteDesign
+    | BodyTubeDesign
+    | SurfaceDesign
+    | MassComponentDesign
+    | ParachuteDesign
+    | LineDesign
   >;
   environment: EnvironmentConfig;
   flight: FlightConfig;
@@ -499,12 +520,20 @@ export type SurfaceDesign = {
   material: string;
   mass_override?: number | null;
   component_type?: "surface";
+  surface_finish?: SurfaceFinishConfig | null;
   surface:
     | NoseConeConfig
     | TrapezoidalFinsConfig
     | EllipticalFinsConfig
     | TailConfig;
   thickness: number;
+};
+
+export type SurfaceFinishConfig = {
+  name: string;
+  roughness_m: number;
+  roughness_type: "openrocket" | "equivalent_sand_grain" | "ra";
+  catalog_id?: string | null;
 };
 
 export type TailConfig = {

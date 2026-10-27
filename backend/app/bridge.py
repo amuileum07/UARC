@@ -139,6 +139,23 @@ class DesktopBridge:
         design.environment.elevation_mode = "terrain"
         return design.model_dump(mode="json")
 
+    def get_material_catalog(self) -> dict:
+        from app.materials import material_catalog
+
+        return material_catalog()
+
+    def open_material_reference(self, reference_id: str) -> bool:
+        import webbrowser
+
+        from app.materials import material_catalog
+
+        sources = material_catalog()["sources"]
+        if reference_id not in sources:
+            raise ValueError("등록되지 않은 재질 자료입니다.")
+        if not webbrowser.open(sources[reference_id]["url"]):
+            raise RuntimeError("기본 브라우저에서 자료를 열 수 없습니다.")
+        return True
+
     def get_terrain(self, payload_json: str) -> dict:
         self._check_payload(payload_json)
         request = TerrainRequest.model_validate_json(payload_json)

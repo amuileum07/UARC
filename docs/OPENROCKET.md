@@ -44,7 +44,8 @@ it into `inputs/` before conversion.
 | Haack and power-series noses | Numeric `haack_c` / `power` |
 | Conical transitions with positive end radii | Tail surface and radial wall |
 | Square-section trapezoidal/elliptical fins | Fin dimensions, count, sweep, and cant in degrees |
-| Axis-centered mass components and shock cords | Packed cylinders and measured/line mass |
+| Axis-centered mass components | Packed cylinders with provided/measured mass |
+| Shock cords | Editable line material/length and packed cylinder geometry |
 | Parachutes | Packed mass, projected area, line mass, deployment condition/delay |
 | Component mass overrides | Measured part mass; geometric CG/inertia conventions remain UARC's |
 
@@ -54,10 +55,18 @@ Automatic outer radii are resolved from adjacent components; supported internal
 automatic radii use a cylindrical parent's inner radius. Ambiguous automatic
 radii must be made explicit in OpenRocket.
 
-OpenRocket surface materials specify kg/m². For parachutes, UARC preserves that
-areal mass with an editable equivalent 1 mm layer and matching volume density;
-this is not a measured fabric thickness. Automatic parachute Cd uses OpenRocket's
-0.8 value. No attachment anchor is present in these inputs: the initial attachment
+OpenRocket surface and line materials retain their native kg/m² and kg/m
+densities. Parachute canopy mass uses area without an artificial volume-density
+conversion; suspension lines retain their material and total length. Fabric
+thickness is retained as an unused placeholder for surface-density canopies,
+not a measured property. Body/nose/fin/tail finish labels produce an explicit
+warning rather than a numerical conversion: enter independently documented
+surface roughness in UARC. No simulator material or finish lookup table is used;
+densities come only from values embedded in the selected design file.
+See the [material library](./DESIGN.md#material-library-and-surface-data).
+Parachute Cd and suspension-line length must be explicit in the source design;
+automatic simulator defaults are rejected with an actionable error.
+No attachment anchor is present in these inputs: the initial attachment
 station is the packed CG and is identified as an assumption in the warnings.
 
 Unsupported physical features raise errors: multiple stages, pods/boosters,

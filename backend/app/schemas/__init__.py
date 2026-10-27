@@ -22,6 +22,7 @@ from .design import (
     DesignPreview,
     DesignReport,
     ImportedFile,
+    LineDesign,
     MassComponentDesign,
     MassOverrides,
     MassProperties,
@@ -35,6 +36,7 @@ from .design import (
     RocketDesign,
     SavedDesignRecord,
     SurfaceDesign,
+    SurfaceFinishConfig,
 )
 from .environment import (
     EnvironmentConfig,
@@ -109,6 +111,7 @@ __all__ = [
     "HeightReference",
     "HybridMotorConfig",
     "ImportedFile",
+    "LineDesign",
     "Inertia",
     "LiquidMotorConfig",
     "LocationResult",
@@ -146,6 +149,7 @@ __all__ = [
     "SurfaceBase",
     "SurfaceConfig",
     "SurfaceDesign",
+    "SurfaceFinishConfig",
     "TELEMETRY_COLUMNS",
     "TailConfig",
     "TelemetryQuery",

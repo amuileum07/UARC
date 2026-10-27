@@ -2,6 +2,7 @@ import { desktopApi } from "../../lib/bridge";
 import { componentRemovalIssue } from "../../lib/edit";
 import type { ReactNode } from "react";
 import { ConfigFields } from "../../components/ConfigFields";
+import { NumberField } from "../../components/Fields";
 import { ProjectName } from "../../components/ProjectName";
 import {
   createComponent,
@@ -9,14 +10,11 @@ import {
   surfaceLabels,
 } from "../../lib/templates";
 import type { ComponentKind } from "../../lib/templates";
+import { compatibleMaterial, densityUnits } from "../../lib/materials";
 import { useWorkspace } from "../../workspace";
-import {
-  AssemblyEditor,
-  FlightEditor,
-  MaterialsEditor,
-  MotorEditor,
-} from "./Settings";
+import { AssemblyEditor, FlightEditor, MotorEditor } from "./Settings";
 import { OpenRocketImporter } from "./OpenRocket";
+import { MaterialsEditor, SurfaceFinishEditor } from "./Materials";
 
 function DeleteComponent() {
   const w = useWorkspace();
@@ -41,11 +39,21 @@ export function Explorer() {
   const w = useWorkspace();
   const add = (kind: ComponentKind) => {
     const materials = w.design.materials || {};
+    const componentKind =
+      kind in surfaceLabels
+        ? "surface"
+        : (kind as "body_tube" | "mass" | "line" | "parachute");
     const material =
-      Object.keys(materials)[0] || crypto.randomUUID().replaceAll("-", "");
-    if (!Object.keys(materials).length)
+      Object.entries(materials).find(([, entry]) =>
+        compatibleMaterial(entry, componentKind),
+      )?.[0] || crypto.randomUUID().replaceAll("-", "");
+    if (kind !== "mass" && !Object.hasOwn(materials, material))
       w.edit(["materials"], {
-        [material]: { name: "사용자 재질", density: 1000 },
+        ...materials,
+        [material]:
+          kind === "line"
+            ? { name: "사용자 줄", density: 0.001, density_type: "line" }
+            : { name: "사용자 재질", density: 1000 },
       });
     const radius = w.preview?.result.simulation.rocket.radius || 0.025;
     const part = createComponent(
@@ -139,6 +147,7 @@ export function Explorer() {
           body_tube: "동체",
           ...surfaceLabels,
           mass: "질량",
+          line: "줄 · 웨빙",
           parachute: "낙하산",
         }).map(([kind, label]) => (
           <button
@@ -193,6 +202,7 @@ export function Properties() {
       body_tube: "BodyTubeDesign",
       surface: "SurfaceDesign",
       mass: "MassComponentDesign",
+      line: "LineDesign",
       parachute: "ParachuteDesign",
     }[component.component_type || "mass"];
     content = (
@@ -210,14 +220,21 @@ export function Properties() {
               }
             >
               {Object.entries(w.design.materials || {}).map(
-                ([id, material]) => (
-                  <option key={id} value={id}>
-                    {material.name}
-                  </option>
-                ),
+                ([id, material]) =>
+                  compatibleMaterial(material, component.component_type) && (
+                    <option key={id} value={id}>
+                      {material.name} ·{" "}
+                      {densityUnits[material.density_type || "bulk"]}
+                    </option>
+                  ),
               )}
             </select>
           </label>
+        )}
+        {"material" in component && (
+          <button type="button" onClick={() => w.setSelection("materials")}>
+            재질 라이브러리 열기
+          </button>
         )}
         {"surface" in component && (
           <label className="field">
@@ -247,8 +264,75 @@ export function Properties() {
           object={component}
           schemaName={schemaName}
           path={base}
-          omit={["material"]}
+          omit={[
+            "material",
+            "surface_finish",
+            "line_material",
+            ...(component.component_type === "parachute"
+              ? ["line_length", "line_mass"]
+              : []),
+            ...(component.component_type === "parachute" &&
+            w.design.materials?.[component.material]?.density_type === "surface"
+              ? ["thickness"]
+              : []),
+          ]}
         />
+        {(component.component_type === "body_tube" ||
+          component.component_type === "surface") && (
+          <SurfaceFinishEditor
+            key={component.id}
+            value={component.surface_finish}
+            path={[...base, "surface_finish"]}
+          />
+        )}
+        {component.component_type === "parachute" && (
+          <fieldset>
+            <legend>낙하산 원단 · 줄</legend>
+            <p className="muted">
+              원단의 면밀도(kg/m²)는 원단 면적과 곱하며 두께는 사용하지
+              않습니다. 줄은 수동 질량 또는 선밀도 × 전체 길이로 계산합니다.
+            </p>
+            <label className="field">
+              줄 재질
+              <select
+                value={component.line_material || ""}
+                onChange={(event) =>
+                  w.edit(base, {
+                    ...component,
+                    line_material: event.target.value || null,
+                    line_length: event.target.value
+                      ? component.line_length || 1
+                      : component.line_length,
+                  })
+                }
+              >
+                <option value="">수동 줄 질량</option>
+                {Object.entries(w.design.materials || {})
+                  .filter(([, entry]) => entry.density_type === "line")
+                  .map(([id, entry]) => (
+                    <option key={id} value={id}>
+                      {entry.name} · {entry.density} kg/m
+                    </option>
+                  ))}
+              </select>
+            </label>
+            {component.line_material ? (
+              <NumberField
+                label="줄 전체 길이 · 모든 줄의 합"
+                unit="m"
+                value={component.line_length || 0}
+                onChange={(number) => w.edit([...base, "line_length"], number)}
+              />
+            ) : (
+              <NumberField
+                label="줄 질량"
+                unit="kg"
+                value={component.line_mass || 0}
+                onChange={(number) => w.edit([...base, "line_mass"], number)}
+              />
+            )}
+          </fieldset>
+        )}
         <p className="muted">
           위치 기준: 동체 뒤끝 / 노즈 끝 / 핀 루트 앞전 / 수납 부품 CG. 단위 m.
           실측 관성은 부품 자체 CG 기준입니다.

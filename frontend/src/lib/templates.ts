@@ -127,6 +127,7 @@ export function createSurface(
 export type ComponentKind =
   | "body_tube"
   | "mass"
+  | "line"
   | "parachute"
   | keyof typeof surfaceLabels;
 export function createComponent(
@@ -155,6 +156,17 @@ export function createComponent(
       mass: 0.1,
       radius: 0.015,
       length: 0.1,
+    };
+  if (kind === "line")
+    return {
+      id,
+      name: "줄 · 웨빙",
+      component_type: kind,
+      material,
+      position: 0.4,
+      line_length: 1,
+      packed_radius: 0.01,
+      packed_length: 0.05,
     };
   if (kind === "parachute")
     return {

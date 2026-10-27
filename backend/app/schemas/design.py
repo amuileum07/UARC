@@ -32,7 +32,16 @@ from .simulation import FlightConfig, SimulationConfig
 
 class MaterialConfig(EngineConfig):
     name: Annotated[str, Field(min_length=1, max_length=128)]
-    density: Positive
+    density: Positive = Field(description="Bulk kg/m³, surface kg/m², or line kg/m.")
+    density_type: Literal["bulk", "surface", "line"] = "bulk"
+    catalog_id: Annotated[str, Field(max_length=128)] | None = None
+
+
+class SurfaceFinishConfig(EngineConfig):
+    name: Annotated[str, Field(min_length=1, max_length=128)]
+    roughness_m: NonNegative
+    roughness_type: Literal["openrocket", "equivalent_sand_grain", "ra"]
+    catalog_id: Annotated[str, Field(max_length=128)] | None = None
 
 
 class DesignComponent(EngineConfig):
@@ -47,6 +56,7 @@ class MaterialComponent(DesignComponent):
 
 class BodyTubeDesign(MaterialComponent):
     component_type: Literal["body_tube"] = "body_tube"
+    surface_finish: SurfaceFinishConfig | None = None
     position: Number = Field(
         description="Aft-end axial position; tube extends in +z, m."
     )
@@ -65,6 +75,7 @@ class BodyTubeDesign(MaterialComponent):
 
 class SurfaceDesign(MaterialComponent):
     component_type: Literal["surface"] = "surface"
+    surface_finish: SurfaceFinishConfig | None = None
     surface: SurfaceConfig
     thickness: Positive = Field(
         description="Fin plate thickness or radial nose/tail wall thickness, m."
@@ -103,6 +114,16 @@ class MassComponentDesign(DesignComponent):
         return _inertia(value, allow_zero=True) if value is not None else None
 
 
+class LineDesign(MaterialComponent):
+    """Cord/webbing mass at its packed CG; no deployed cord aerodynamic model."""
+
+    component_type: Literal["line"] = "line"
+    position: Number
+    line_length: Positive = Field(description="Total cord/webbing length, m.")
+    packed_radius: NonNegative = 0.0
+    packed_length: NonNegative = 0.0
+
+
 class ParachuteDeployment(ParachuteConfig):
     radius: Positive
     cd_s: Positive | None = Field(
@@ -122,13 +143,18 @@ class ParachuteDesign(MaterialComponent):
     )
     thickness: Positive = Field(description="Fabric thickness, m.")
     line_mass: NonNegative = 0.0
+    line_material: str | None = None
+    line_length: NonNegative = Field(
+        default=0.0,
+        description="Total suspension line length; replaces line_mass when a line material is selected.",
+    )
     packed_radius: Positive
     packed_length: Positive
     deployment: ParachuteDeployment
 
 
 ComponentDesign = Annotated[
-    BodyTubeDesign | SurfaceDesign | MassComponentDesign | ParachuteDesign,
+    BodyTubeDesign | SurfaceDesign | MassComponentDesign | ParachuteDesign | LineDesign,
     Field(discriminator="component_type"),
 ]
 
@@ -176,6 +202,32 @@ class RocketDesign(EngineConfig):
                 raise ValueError(
                     f"Unknown material for component {component.id}: {component.material}"
                 )
+            if isinstance(component, MaterialComponent):
+                kind = self.materials[component.material].density_type
+                allowed = (
+                    {"bulk", "surface"}
+                    if isinstance(component, ParachuteDesign)
+                    else {"line"}
+                    if isinstance(component, LineDesign)
+                    else {"bulk"}
+                )
+                if kind not in allowed:
+                    raise ValueError(
+                        f"Material density type {kind} cannot be used for {component.id}."
+                    )
+            if (
+                isinstance(component, ParachuteDesign)
+                and component.line_material is not None
+            ):
+                line = self.materials.get(component.line_material)
+                if (
+                    line is None
+                    or line.density_type != "line"
+                    or component.line_length <= 0
+                ):
+                    raise ValueError(
+                        "Parachute lines need a line material and positive total length."
+                    )
         if not any(
             isinstance(c, (BodyTubeDesign, SurfaceDesign)) for c in self.components
         ):
