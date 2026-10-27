@@ -4,8 +4,12 @@ import hashlib
 import json
 import re
 from datetime import UTC, datetime, timedelta
+from functools import lru_cache
 from html.parser import HTMLParser
 from math import asin, cos, isfinite, radians, sin, sqrt
+from threading import Lock
+from time import monotonic, sleep
+from unicodedata import normalize
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import HTTPRedirectHandler, Request, build_opener
@@ -23,6 +27,9 @@ from app.schemas import (
 
 FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
 SEARCH_URL = "https://geocoding-api.open-meteo.com/v1/search"
+PLACE_URL = "https://photon.komoot.io/api/"
+_SEARCH_LOCK = Lock()
+_LAST_SEARCH = 0.0
 WYOMING_URL = "https://weather.uwyo.edu/wsgi/sounding"
 # Common native pressure levels for GFS and IFS 0.25°. Add levels per model only
 # after checking coverage; do not infer a missing upper-air profile from surface wind.
@@ -72,14 +79,98 @@ def _read_json(endpoint, parameters):
 
 
 def search_locations(request: LocationSearch) -> list[LocationResult]:
+    query = normalize("NFC", " ".join(request.query.split()))
+    # Korean road suffix is '-gil'; tolerate the common doubled-l spelling.
+    query = re.sub(r"(?i)(?<=[a-z])[-\s]+gill\b", "-gil", query)
+    query = re.sub(r"(?i)\bunist[-\s]+gil\b", "유니스트길", query)
+    query = {"unist": "울산과학기술원", "유니스트": "울산과학기술원"}.get(
+        query.casefold(), query
+    )
+    with _SEARCH_LOCK:
+        try:
+            return [
+                place.model_copy() for place in _search_places(query, request.country)
+            ]
+        except (KeyError, TypeError, AttributeError):
+            raise ValueError(
+                "장소 검색 서버의 응답 형식이 올바르지 않습니다."
+            ) from None
+
+
+@lru_cache(maxsize=128)
+def _search_places(query: str, country: str) -> tuple[LocationResult, ...]:
+    """Explicit searches only; cache and serialize modest public Photon traffic."""
+    global _LAST_SEARCH
+    sleep(max(0, 1.1 - (monotonic() - _LAST_SEARCH)))
+    _LAST_SEARCH = monotonic()
+    parameters = {"q": query, "limit": 8}
+    if country == "KR":
+        parameters["countrycode"] = "KR"
+    unavailable = False
+    try:
+        data, _ = _read_json(PLACE_URL, parameters)
+    except ValueError:
+        unavailable = True
+    else:
+        features = data.get("features")
+        if (
+            data.get("type") != "FeatureCollection"
+            or not isinstance(features, list)
+            or len(features) > 8
+        ):
+            raise ValueError("Invalid place-search results.")
+        places = {}
+        for item in features:
+            properties, geometry = item["properties"], item["geometry"]
+            if geometry["type"] != "Point" or len(geometry["coordinates"]) != 2:
+                raise ValueError("Invalid place-search coordinates.")
+            if country == "KR" and properties.get("countrycode") != "KR":
+                continue
+            longitude, latitude = map(_number, geometry["coordinates"])
+            place = LocationResult(
+                id=f"osm:{properties['osm_type']}:{properties['osm_id']}",
+                name=properties.get("name") or properties.get("street"),
+                latitude=latitude,
+                longitude=longitude,
+                region=", ".join(
+                    dict.fromkeys(
+                        properties[key]
+                        for key in (
+                            "country",
+                            "state",
+                            "city",
+                            "district",
+                            "street",
+                            "housenumber",
+                        )
+                        if properties.get(key)
+                    )
+                ),
+                timezone="Asia/Seoul" if properties.get("countrycode") == "KR" else "",
+                source="OpenStreetMap",
+                category={
+                    "university": "대학교",
+                    "bus_stop": "버스 정류장",
+                    "station": "역",
+                }.get(
+                    properties.get("osm_value"),
+                    "도로" if properties.get("type") == "street" else "장소",
+                ),
+            )
+            places[place.id] = place
+        if places:
+            return tuple(places.values())
+    parameters = {"name": query, "count": 8, "language": "ko", "format": "json"}
+    if country == "KR":
+        parameters["countryCode"] = "KR"
     data, _ = _read_json(
         SEARCH_URL,
-        {"name": request.query, "count": 8, "language": "ko", "format": "json"},
+        parameters,
     )
     results = data.get("results", [])
     if not isinstance(results, list) or len(results) > 8:
         raise ValueError("Invalid place-search results.")
-    return [
+    places = tuple(
         LocationResult(
             id=item["id"],
             name=item["name"],
@@ -95,7 +186,13 @@ def search_locations(request: LocationSearch) -> list[LocationResult]:
             timezone=item.get("timezone", "UTC"),
         )
         for item in results
-    ]
+        if country != "KR" or item.get("country_code") == "KR"
+    )
+    if not places and unavailable:
+        raise ValueError(
+            "장소 검색 서버에 연결할 수 없습니다. 잠시 후 다시 검색하세요."
+        )
+    return places
 
 
 def _number(value):

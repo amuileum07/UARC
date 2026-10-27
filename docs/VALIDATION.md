@@ -390,3 +390,30 @@ Biome/TypeScript checks, Prettier and the production build. Added deterministic
 checks cover named/reordered trajectory columns, absolute heights and geoid
 offsets, malformed/reversed/out-of-range positions and short-flight camera range.
 No flight equations or terrain-contact behavior changed in this update.
+
+### Korean place and address search (2026-10-27)
+
+Explicit place searches now use Photon's OpenStreetMap POI/road index, with
+Open-Meteo/GeoNames as a city fallback. The default scope is South Korea; worldwide
+search remains selectable. Korean Unicode/whitespace is normalized, UNIST and
+유니스트 use the official-name query 울산과학기술원, and UNIST-gil/UNIST-gill use
+유니스트길. No campus coordinates are hardcoded. OSM node/way/relation IDs are
+namespaced, duplicate objects collapse, and categories/addresses/source are shown.
+The existing bounded HTTPS transport is reused. A lock, 1.1 s request interval
+and 128-entry in-memory cache limit repeated public-service requests. Missing
+foreign timezones are not inferred from coordinates.
+
+Live backend and visible production Qt checks found 울산과학기술원 for UNIST,
+유니스트 and the full Korean name, and 유니스트길 for both road-name spellings.
+울산 and worldwide Paris searches also returned results. Choosing the university
+applied 35.573527° N, 129.1898563° E while preserving the entered launch altitude.
+Korean IME Enter was prevented from prematurely submitting. Editing a pending
+query and returning to the original text still discarded the stale response.
+Only that response delay and the initial offline terrain fixture were controlled;
+the place queries, provider results and GUI coordinate application were real.
+
+The full backend suite passed 124 tests, including eight new location tests for
+normalization, caching, scope, deduplication, fallback, malformed coordinates,
+bridge validation and throttling. All 32 frontend tests, Ruff, Biome/TypeScript,
+format checks and production build passed. Public Photon service usage and
+attribution are documented in the frontend README.

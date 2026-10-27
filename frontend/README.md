@@ -90,13 +90,28 @@ not offered for new designs because that path cannot preserve its source through
 the existing snapshot workflow. Other direct provider modes may fetch at run time.
 
 The **발사장** navigation button opens the environment editor beside the map.
-The editor has **위치 · 지형** and **시각 · 기상** tabs. Search for a place name
-(Open-Meteo/GeoNames, not a street-address service), select a result, or enable
+The editor has **위치 · 지형** and **시각 · 기상** tabs. Search Korean/English place
+names or road addresses with Photon/OpenStreetMap, select a result, or enable
 **지도에서 발사점 선택** and click the globe. Escape cancels picking; coordinate
 inputs provide a keyboard alternative. Selections use WGS84, preserve the entered
 launch elevation, and invalidate the previous terrain/geoid data. Recheck elevation
 after moving. The map's **표시 자료** selector distinguishes the edited launch site
 from the selected run's immutable site and trajectory.
+
+Place search defaults to **대한민국**; choose **전 세계** for overseas locations.
+`UNIST`, `유니스트`, and `울산과학기술원` resolve through the same official-name
+query, while `UNIST-gil`/`UNIST-gill` resolve to `유니스트길`. Results distinguish
+universities, roads and bus stops, with address, source and coordinates. These are
+representative place points rather than exact launch-pad positions. Unknown
+overseas timezones are labelled for checking; selection does not change launch
+time/elevation. Searches run only on submission, are serialized with at least
+1.1 s between uncached lookups, and cache up to 128 query/scope pairs in memory.
+Open-Meteo/GeoNames supplements empty or unavailable Photon searches. Failed
+services are not cached as empty matches. Editing the query/scope discards stale
+responses, and Enter while composing Korean text does not submit prematurely.
+The public [Photon service](https://github.com/komoot/photon#demo-server) is for
+modest usage and has no availability guarantee; a larger deployment needs its own
+service. OSM attribution remains visible in the search panel.
 
 In **시각 · 기상**, enter the launch date/time and an IANA timezone (for example,
 `Asia/Seoul` or `UTC`). Choose **NOAA GFS** or **ECMWF IFS 0.25°** via Open-Meteo,

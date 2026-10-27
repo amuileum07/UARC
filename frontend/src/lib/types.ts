@@ -219,12 +219,14 @@ export type LiquidMotorConfig = {
 };
 
 export type LocationResult = {
-  id: number;
+  id: number | string;
   name: string;
   latitude: number;
   longitude: number;
   region?: string;
   timezone?: string;
+  source?: "OpenStreetMap" | "GeoNames";
+  category?: string;
 };
 
 export type MassBasedTankConfig = {

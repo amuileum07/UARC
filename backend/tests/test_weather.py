@@ -28,11 +28,13 @@ from app.simulation.engine import build_environment, build_rocket, run_simulatio
 from app.storage import RunStore
 from app.weather import (
     FORECAST_URL,
+    PLACE_URL,
     PRESSURE_LEVELS,
     SEARCH_URL,
     WYOMING_URL,
     _NoRedirect,
     _read_json,
+    _search_places,
     fetch_weather,
     search_locations,
 )
@@ -336,6 +338,7 @@ class WeatherTests(unittest.TestCase):
             )
 
     def test_search_and_bridge_return_only_validated_results(self):
+        _search_places.cache_clear()
         data = {
             "results": [
                 dict(
@@ -345,11 +348,20 @@ class WeatherTests(unittest.TestCase):
                     longitude=129,
                     admin1="울산",
                     country="대한민국",
+                    country_code="KR",
                     timezone="Asia/Seoul",
                 )
             ]
         }
-        with patch("app.weather._read_json", return_value=(data, "a" * 64)) as read:
+        with patch(
+            "app.weather._read_json",
+            side_effect=lambda url, parameters: (
+                {"type": "FeatureCollection", "features": []}
+                if url == PLACE_URL
+                else data,
+                "a" * 64,
+            ),
+        ) as read:
             places = search_locations(LocationSearch(query=" 울산 "))
             result = DesktopBridge().search_locations('{"query":"울산"}')
         self.assertEqual(places[0].region, "울산, 대한민국")

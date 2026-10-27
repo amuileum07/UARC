@@ -111,7 +111,7 @@ inside the worker process. The GUI loop stays on the main thread.
 | `select_input_file()` | Native open dialog; copy the selected file into inputs; cancellation returns null |
 | `import_openrocket(asset_path, options_json)` | Validated component design plus conversion warnings |
 | `export_csv(run_id)` | Native save dialog; stream all telemetry rows to a new CSV; cancellation returns null |
-| `search_locations(payload_json)` | Up to eight validated Open-Meteo/GeoNames place results for `{ "query": "Ulsan" }` |
+| `search_locations(payload_json)` | Up to eight validated Photon/OSM POI/address results, with GeoNames city fallback; `{ "query": "UNIST", "country": "KR" }` (default KR, optional all). Namespaced OSM IDs, category and source are included; repeated queries are cached. |
 | `get_weather(payload_json)` | Frozen `WeatherProfile`; GFS/IFS via Open-Meteo or Wyoming station/time observations |
 | `preview_weather_file(asset_path, sheet=null)` | First five rows, column/sheet names, row count, SHA256 of an authorized CSV/XLSX asset |
 | `import_weather_file(asset_path, options_json)` | Validate column mapping/units and freeze the numeric file profile; requires the preview SHA256 |

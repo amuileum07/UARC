@@ -94,6 +94,7 @@ def launch_time(value: datetime | tuple[int, int, int, int], timezone: str) -> d
 
 class LocationSearch(EngineConfig):
     query: Annotated[str, Field(min_length=2, max_length=120)]
+    country: Literal["KR", "all"] = "KR"
 
     @field_validator("query")
     @classmethod
@@ -105,12 +106,14 @@ class LocationSearch(EngineConfig):
 
 
 class LocationResult(EngineConfig):
-    id: int
+    id: int | Annotated[str, Field(pattern=r"^osm:[NWR]:[1-9][0-9]{0,18}$")]
     name: Annotated[str, Field(min_length=1, max_length=256)]
     latitude: Annotated[Number, Field(ge=-90, le=90)]
     longitude: Annotated[Number, Field(ge=-180, le=180)]
     region: Annotated[str, Field(max_length=512)] = ""
     timezone: Annotated[str, Field(max_length=128)] = "UTC"
+    source: Literal["OpenStreetMap", "GeoNames"] = "GeoNames"
+    category: Annotated[str, Field(max_length=128)] = ""
 
 
 class WeatherRequest(EngineConfig):
