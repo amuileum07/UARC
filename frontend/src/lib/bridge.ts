@@ -42,6 +42,8 @@ interface DesktopApi {
   validate_config(kind: "design", input: string): Promise<RocketDesign>;
   validate_config(kind: ConfigKind, input: string): Promise<JsonObject>;
   get_example_design(): Promise<RocketDesign>;
+  import_design_file(): Promise<RocketDesign | null>;
+  export_design_file(input: string): Promise<string | null>;
   get_config_schema(kind: ConfigKind): Promise<InputSchema>;
   preview_design(input: string): Promise<DesignPreview>;
   submit_design(input: string): Promise<RunRecord>;

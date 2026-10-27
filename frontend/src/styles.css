@@ -122,6 +122,19 @@ p {
   padding-left: 14px;
   font-weight: 500;
 }
+.project-name-button {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  text-align: left;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+.project-name-input {
+  width: 100%;
+  max-width: 400px;
+  padding: 2px 4px;
+}
 .app-nav {
   padding: 0 14px;
   border-bottom: 1px solid var(--border);

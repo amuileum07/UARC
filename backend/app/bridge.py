@@ -277,6 +277,40 @@ class DesktopBridge:
     def list_designs(self, limit: int = 50, offset: int = 0) -> list[dict]:
         return self._manager().list_designs(limit, offset)
 
+    def import_design_file(self) -> dict | None:
+        import webview
+
+        from app.design_files import read_design_file
+
+        selected = webview.windows[0].create_file_dialog(
+            webview.FileDialog.OPEN,
+            allow_multiple=False,
+            file_types=("UARC design (*.uarc;*.json)",),
+        )
+        return read_design_file(Path(selected[0])) if selected else None
+
+    def export_design_file(self, payload_json: str) -> str | None:
+        import webview
+
+        from app.design_files import (
+            design_filename,
+            validate_design_file,
+            write_design_file,
+        )
+
+        self._check_payload(payload_json)
+        design = validate_design_file(payload_json)
+        selected = webview.windows[0].create_file_dialog(
+            webview.FileDialog.SAVE,
+            save_filename=design_filename(design.name),
+            file_types=("UARC design (*.uarc)",),
+        )
+        return (
+            str(write_design_file(Path(selected[0]), payload_json))
+            if selected
+            else None
+        )
+
     def select_input_file(self) -> dict | None:
         """Only a file explicitly selected in the native dialog may enter inputs/."""
         import webview

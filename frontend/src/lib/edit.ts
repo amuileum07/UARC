@@ -1,5 +1,34 @@
 import type { RocketDesign } from "./types";
 
+export function componentRemovalIssue(
+  design: RocketDesign,
+  id: string,
+): string {
+  if (!design.components.some((component) => component.id === id))
+    return "부품 목록에서 삭제할 항목을 선택하세요.";
+  if (
+    !design.components.some(
+      (component) =>
+        component.id !== id &&
+        (component.component_type === "body_tube" ||
+          component.component_type === "surface"),
+    )
+  )
+    return "동체 또는 공력면이 하나 이상 필요합니다. 새 부품을 추가한 뒤 삭제하세요.";
+  return "";
+}
+
+export function removeDesignComponent(
+  design: RocketDesign,
+  id: string,
+): RocketDesign {
+  if (componentRemovalIssue(design, id)) return design;
+  return {
+    ...design,
+    components: design.components.filter((component) => component.id !== id),
+  };
+}
+
 export function editDesign(
   design: RocketDesign,
   path: string[],

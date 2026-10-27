@@ -1,6 +1,8 @@
 import { desktopApi } from "../../lib/bridge";
+import { componentRemovalIssue } from "../../lib/edit";
 import type { ReactNode } from "react";
 import { ConfigFields } from "../../components/ConfigFields";
+import { ProjectName } from "../../components/ProjectName";
 import {
   createComponent,
   createSurface,
@@ -15,6 +17,25 @@ import {
   MotorEditor,
 } from "./Settings";
 import { OpenRocketImporter } from "./OpenRocket";
+
+function DeleteComponent() {
+  const w = useWorkspace();
+  const issue = componentRemovalIssue(w.design, w.selection);
+  return (
+    <div>
+      <button
+        type="button"
+        className="danger"
+        disabled={!!issue}
+        title={issue || "선택한 부품을 설계에서 삭제합니다."}
+        onClick={() => w.removeComponent(w.selection)}
+      >
+        선택 부품 삭제
+      </button>
+      {issue && <p className="muted">{issue}</p>}
+    </div>
+  );
+}
 
 export function Explorer() {
   const w = useWorkspace();
@@ -39,7 +60,38 @@ export function Explorer() {
   return (
     <div className="panel scroll">
       <p className="eyebrow">ROCKET DESIGN</p>
-      <h2>{w.design.name}</h2>
+      <h2>
+        <ProjectName />
+      </h2>
+      <div className="panel-toolbar">
+        <button
+          type="button"
+          onClick={() =>
+            void w.act(async () => {
+              const design = await (await desktopApi()).import_design_file();
+              if (design) w.replace(design);
+            })
+          }
+        >
+          설계 파일 열기
+        </button>
+        <button
+          type="button"
+          disabled={
+            w.previewState !== "ready" ||
+            Object.keys(w.problems).some((key) => key.startsWith("field:"))
+          }
+          onClick={() =>
+            void w.act(async () => {
+              await (
+                await desktopApi()
+              ).export_design_file(JSON.stringify(w.design));
+            })
+          }
+        >
+          설계 파일 내보내기
+        </button>
+      </div>
       <fieldset className="tree" aria-label="로켓 부품">
         <button
           type="button"
@@ -80,6 +132,7 @@ export function Explorer() {
           ▦ 재질
         </button>
       </fieldset>
+      <DeleteComponent />
       <h3>부품 추가</h3>
       <div className="button-row">
         {Object.entries({
@@ -146,6 +199,7 @@ export function Properties() {
       <>
         <p className="eyebrow">COMPONENT PROPERTIES</p>
         <h2>{component.name || component.id}</h2>
+        <DeleteComponent />
         {"material" in component && (
           <label className="field">
             재질
@@ -199,23 +253,6 @@ export function Properties() {
           위치 기준: 동체 뒤끝 / 노즈 끝 / 핀 루트 앞전 / 수납 부품 CG. 단위 m.
           실측 관성은 부품 자체 CG 기준입니다.
         </p>
-        <button
-          type="button"
-          className="danger"
-          disabled={w.design.components.length < 2}
-          onClick={() => {
-            w.edit(
-              ["components"],
-              w.design.components.filter((c) => c.id !== component.id),
-            );
-            w.setSelection(
-              w.design.components.find((c) => c.id !== component.id)?.id ||
-                "assembly",
-            );
-          }}
-        >
-          부품 삭제
-        </button>
       </>
     );
   }

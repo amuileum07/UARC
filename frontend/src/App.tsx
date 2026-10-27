@@ -29,6 +29,7 @@ function MapPanel() {
 }
 import { Jobs, Results } from "./features/results/Results";
 import { DesignJson } from "./components/DesignJson";
+import { ProjectName } from "./components/ProjectName";
 
 const panels = {
   explorer: Explorer,
@@ -176,7 +177,7 @@ function Workspace() {
       <header className="app-header">
         <div className="brand">UARC</div>
         <div className="project-title">
-          {w.design.name}
+          <ProjectName />
           {w.dirty ? " · 수정됨" : ""}
         </div>
         <button type="button" onClick={() => void w.save()} title="Ctrl+S">

@@ -16,7 +16,12 @@ import {
 } from "./lib/bridge";
 import type { ElevationCheck } from "./lib/bridge";
 import { previewQueue } from "./lib/preview";
-import { editDesign, placeLaunchSite } from "./lib/edit";
+import {
+  componentRemovalIssue,
+  editDesign,
+  placeLaunchSite,
+  removeDesignComponent,
+} from "./lib/edit";
 import type { InputSchema } from "./lib/forms";
 import { defaultTerrainRequest, terrainMatchesSite } from "./lib/terrain";
 import { telemetryColumns } from "./lib/telemetry";
@@ -39,6 +44,7 @@ interface Workspace {
   selection: string;
   setSelection: (id: string) => void;
   edit: (path: string[], value: unknown) => void;
+  removeComponent: (id: string) => void;
   replace: (design: RocketDesign, saved?: boolean) => void;
   dirty: boolean;
   problems: Record<string, string>;
@@ -264,6 +270,24 @@ export function WorkspaceProvider({
     setDirty(true);
     if (path[0] === "environment") setMapMode("design");
   };
+  const removeComponent = (id: string) => {
+    const current = latest.current;
+    const issue = componentRemovalIssue(current, id);
+    if (issue) {
+      fieldIssue("action", issue);
+      return;
+    }
+    const index = current.components.findIndex(
+      (component) => component.id === id,
+    );
+    const remaining = current.components.filter(
+      (component) => component.id !== id,
+    );
+    setDesign((old) => removeDesignComponent(old, id));
+    setSelection(remaining[Math.min(index, remaining.length - 1)].id);
+    setDirty(true);
+    fieldIssue("action", "");
+  };
   const placeSite = useCallback((latitude: number, longitude: number) => {
     setDesign((old) => placeLaunchSite(old, latitude, longitude));
     setDirty(true);
@@ -453,6 +477,7 @@ export function WorkspaceProvider({
         selection,
         setSelection,
         edit,
+        removeComponent,
         replace,
         dirty,
         problems,
