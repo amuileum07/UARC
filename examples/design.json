@@ -59,7 +59,7 @@
   "power_off_drag": 0.5,
   "power_on_drag": 0.4,
   "rail_buttons": {"upper_button_position": 0.2, "lower_button_position": 0.05},
-  "environment": {"latitude": 0, "longitude": 0, "elevation": 120},
+  "environment": {"latitude": 0, "longitude": 0, "elevation": 120, "datum": "WGS84", "elevation_reference": "EGM96"},
   "flight": {
     "rail_length": 1.5, "inclination": 85, "heading": 0,
     "max_time": 60, "max_time_step": 0.05

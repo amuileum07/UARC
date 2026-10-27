@@ -1,8 +1,16 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { DockviewReact, themeLight } from "dockview-react";
 import type { DockviewApi, DockviewReadyEvent } from "dockview-react";
 import { desktopApi } from "./lib/bridge";
 import type { RocketDesign } from "./lib/types";
+import type { InputSchema } from "./lib/forms";
 import { WorkspaceProvider, useWorkspace } from "./workspace";
 import { Explorer, Properties } from "./features/rocket/Editor";
 import { RocketView } from "./features/rocket/RocketView";
@@ -109,14 +117,17 @@ function Workspace() {
     });
   };
   useEffect(() => () => subscription.current?.dispose(), []);
-  const open = (id: keyof typeof panels) => {
+  const open = useCallback((id: keyof typeof panels) => {
     const current = api.current;
     if (!current) return;
     const panel =
       current.getPanel(id) ||
       current.addPanel({ id, component: id, title: titles[id] });
     panel.api.setActive();
-  };
+  }, []);
+  useEffect(() => {
+    if (w.pickingSite) open("map");
+  }, [w.pickingSite, open]);
   const actions = useRef({ save: w.save, run: w.run });
   actions.current = { save: w.save, run: w.run };
   useEffect(() => {
@@ -148,6 +159,7 @@ function Workspace() {
           type="button"
           className="primary"
           disabled={
+            w.terrainBusy ||
             w.previewState !== "ready" ||
             Object.keys(w.problems).some((k) => k.startsWith("field:"))
           }
@@ -164,6 +176,7 @@ function Workspace() {
         <button
           type="button"
           onClick={() => {
+            w.setMapMode("design");
             open("environment");
             open("map");
           }}
@@ -230,13 +243,22 @@ function Workspace() {
 }
 export function App() {
   const [initial, setInitial] = useState<RocketDesign | null>(null);
+  const [schema, setSchema] = useState<InputSchema | null>(null);
   const [error, setError] = useState("");
   useEffect(() => {
     let active = true;
     void desktopApi()
-      .then((api) => api.get_example_design())
-      .then((design) => {
-        if (active) setInitial(design);
+      .then((api) =>
+        Promise.all([
+          api.get_example_design(),
+          api.get_config_schema("design"),
+        ]),
+      )
+      .then(([design, definition]) => {
+        if (active) {
+          setInitial(design);
+          setSchema(definition);
+        }
       })
       .catch((reason) => {
         if (active) setError(String(reason));
@@ -245,7 +267,7 @@ export function App() {
       active = false;
     };
   }, []);
-  if (!initial)
+  if (!initial || !schema)
     return (
       <main className="startup">
         <div className="brand">UARC</div>
@@ -260,7 +282,7 @@ export function App() {
       </main>
     );
   return (
-    <WorkspaceProvider initial={initial}>
+    <WorkspaceProvider initial={initial} schema={schema}>
       <Workspace />
     </WorkspaceProvider>
   );

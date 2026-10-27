@@ -106,7 +106,17 @@ def build_environment(config: EnvironmentConfig) -> Environment:
             }
         )
     )
-    if config.atmosphere_type != "standard_atmosphere":
+    if config.weather_profile is not None:
+        levels = config.weather_profile.levels
+        env.set_atmospheric_model(
+            type="custom_atmosphere",
+            pressure=[[level.altitude_m, level.pressure_pa] for level in levels],
+            temperature=[[level.altitude_m, level.temperature_k] for level in levels],
+            wind_u=[[level.altitude_m, level.wind_u_m_s] for level in levels],
+            wind_v=[[level.altitude_m, level.wind_v_m_s] for level in levels],
+        )
+        env.uarc_weather_bounds = (levels[0].altitude_m, levels[-1].altitude_m)
+    elif config.atmosphere_type != "standard_atmosphere":
         env.set_atmospheric_model(
             type=config.atmosphere_type,
             file=config.atmosphere_file,
@@ -207,6 +217,15 @@ def run_simulation(
         or np.any(np.diff(solution[:, 0]) < 0)
     ):
         raise RuntimeError("RocketPy returned an invalid flight solution.")
+    bounds = getattr(environment, "uarc_weather_bounds", None)
+    if bounds is not None and (
+        np.min(solution[:, 3]) < bounds[0] - 1e-3
+        or np.max(solution[:, 3]) > bounds[1] + 1e-3
+    ):
+        raise RuntimeError(
+            f"비행이 기상 자료의 고도 범위 ({bounds[0]:.0f}~{bounds[1]:.0f} m)를 벗어났습니다. "
+            "범위 밖으로 외삽한 결과는 저장하지 않습니다."
+        )
     return flight
 
 

@@ -18,7 +18,18 @@ overrides. Edit [examples/design.json](./examples/design.json); see
 
 ## Desktop workspace
 
-The first React/Dockview workspace is implemented: numeric editing, selectable SVG/Three.js previews, a Cesium site map, elevation checks, saved designs, jobs and result charts. See [frontend/README.md](./frontend/README.md) for launch commands and terrain-model limitations. Terrain contact uses a version-bound RocketPy 1.13.0 adapter; high-resolution DEM import and target-platform GUI verification remain pending.
+The first React/Dockview workspace is implemented: numeric editing, selectable SVG/Three.js previews, a Cesium site map, elevation checks, saved designs, jobs and result charts. See [frontend/README.md](./frontend/README.md) for launch commands and terrain-model limitations. Terrain contact uses a version-bound RocketPy 1.13.0 adapter; Automatic AWS public DEM acquisition, continuous surrounding terrain display, offline GeoTIFF/IMG import, and optional OpenTopography API acquisition feed the same frozen terrain used for rendering and contact. VWorld satellite imagery is optional.
+
+The launch-environment editor includes place-name search, map picking, date/time
+and timezone input, NOAA GFS / ECMWF IFS forecasts via Open-Meteo, University of
+Wyoming radiosonde observations, and CSV/Excel (.xlsx) profile import. Weather is
+previewed before applying and embedded in saved designs/runs for offline replay;
+see [usage and height/time limits](./frontend/README.md).
+
+The GUI also exposes the existing motor/tank variants, aerodynamic/recovery
+settings, curves and inertia tensors, measured airframe overrides, solver/initial
+state controls, material management, OpenRocket import, and bounded result queries.
+See the [editor control map](./frontend/README.md) for where each setting lives.
 
 Frontend packages use **pnpm 10.33.4** on Node.js 22.20+, pinned by
 `frontend/package.json` and `frontend/pnpm-lock.yaml`. From the **UARC repository
@@ -71,7 +82,8 @@ UARC/
 │   │   ├── bridge.py              # JSON validation, submission, status, cancellation, and results
 │   │   ├── schemas.py             # Serializable Pydantic input, result, and configuration models
 │   │   ├── design.py              # Component mass properties and design-to-solver conversion
-│   │   ├── terrain.py             # Bounded elevation grids, height references, site checks
+│   │   ├── terrain.py             # Height interpolation, vertical references, site checks
+│   │   ├── terrain_sources.py     # AWS/OpenTopography rasters and offline DEM import
 │   │   ├── simulation/
 │   │   │   ├── jobs.py            # Bounded scheduling, deadlines, and worker lifecycle
 │   │   │   ├── worker.py          # Build, solve, and save one run in a spawn process
@@ -172,7 +184,7 @@ For the current Linux setup, the project minimum (`>=3.13`) and locked PySide6 r
 | Library / Technology | Version | Python requirement | Purpose |
 |:--|:--|:--|:--|
 | Three.js | | N/A | Numeric-design-driven 3D rocket geometry; shares profiles with the 2D preview |
-| CesiumJS (candidate) | | N/A | 2D/3D geospatial views, terrain, flight paths, and predicted landing markers; data provider and DEM ingestion remain to be selected |
+| CesiumJS | 1.134.1 | N/A | 2D/3D terrain from AWS/public or imported DEMs, flight paths, and predicted landing markers |
 | TanStack Query | | N/A | Asynchronous bridge result caching and polling, if needed |
 | PyInstaller (build tool) | 6.14.2 | `>=3.8, <3.14` | Folder-bundle recipe implemented; build and verify on each target OS |
 

@@ -68,6 +68,8 @@ test("numeric edits retain the original, switch Haack fields, and invalidate old
   const moved = editDesign(original, ["environment", "latitude"], 36);
   assert.equal(moved.environment.terrain, null);
   assert.equal(moved.environment.terrain_mode, "flat");
+  const unchanged = editDesign(original, ["environment", "latitude"], 35);
+  assert.deepEqual(unchanged.environment.terrain, original.environment.terrain);
 });
 test("fin view transforms preserve station and cant in both projections", () => {
   const part = { radius: 0.025, station: 0.12, count: 4, cant: 90 };

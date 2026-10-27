@@ -206,7 +206,7 @@ class TerrainTests(unittest.TestCase):
             ballistic(environment(grid()))
 
     def test_fetch_is_bounded_and_checks_service_coordinates(self):
-        request = TerrainRequest(latitude=0, longitude=0)
+        request = TerrainRequest(latitude=0, longitude=0, provider="opentopodata")
         points = []
 
         def respond(req, timeout):

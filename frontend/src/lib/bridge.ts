@@ -3,12 +3,18 @@ import type {
   DesignReport,
   EnvironmentConfig,
   FlightSummary,
+  LocationResult,
   RocketDesign,
   RunRecord,
   SavedDesignRecord,
   TelemetryResult,
   TerrainGrid,
+  WeatherProfile,
+  WeatherTable,
+  ImportedFile,
+  OpenRocketImport,
 } from "./types";
+import type { InputSchema } from "./forms";
 
 export type JsonValue =
   | null
@@ -24,7 +30,8 @@ export type ConfigKind =
   | "rocket"
   | "flight"
   | "simulation"
-  | "design";
+  | "design"
+  | "openrocket_options";
 export interface ElevationCheck {
   status: "ok" | "warning" | "unverified";
   message: string;
@@ -35,6 +42,7 @@ interface DesktopApi {
   validate_config(kind: "design", input: string): Promise<RocketDesign>;
   validate_config(kind: ConfigKind, input: string): Promise<JsonObject>;
   get_example_design(): Promise<RocketDesign>;
+  get_config_schema(kind: ConfigKind): Promise<InputSchema>;
   preview_design(input: string): Promise<DesignPreview>;
   submit_design(input: string): Promise<RunRecord>;
   save_design(input: string): Promise<SavedDesignRecord>;
@@ -49,7 +57,20 @@ interface DesktopApi {
   get_summary(id: string): Promise<FlightSummary>;
   get_telemetry(id: string, query: string): Promise<TelemetryResult>;
   get_terrain(input: string): Promise<TerrainGrid>;
+  select_terrain_file(input: string): Promise<TerrainGrid | null>;
+  open_terrain_portal(
+    provider: "aws" | "local" | "opentopography" | "vworld",
+  ): Promise<boolean>;
   check_elevation(input: string): Promise<ElevationCheck>;
+  search_locations(input: string): Promise<LocationResult[]>;
+  get_weather(input: string): Promise<WeatherProfile>;
+  select_input_file(): Promise<ImportedFile | null>;
+  preview_weather_file(
+    path: string,
+    sheet?: string | null,
+  ): Promise<WeatherTable>;
+  import_weather_file(path: string, options: string): Promise<WeatherProfile>;
+  import_openrocket(path: string, options: string): Promise<OpenRocketImport>;
   export_csv(id: string): Promise<string | null>;
 }
 declare global {

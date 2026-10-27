@@ -233,6 +233,26 @@ legend {
   padding: 0 6px;
   color: var(--muted);
 }
+.config-field {
+  margin: 10px 0;
+  padding: 4px 8px 8px;
+  min-width: 0;
+}
+.numeric-table-input {
+  width: 100%;
+  resize: vertical;
+  font-family: monospace;
+  font-variant-numeric: tabular-nums;
+}
+.mapping-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.mapping-row .field {
+  flex: 1;
+  min-width: 0;
+}
 .view-panel {
   display: flex;
   flex-direction: column;
@@ -293,6 +313,12 @@ legend {
   flex: 1;
   min-height: 150px;
   position: relative;
+}
+.map-host[data-picking="true"] canvas {
+  cursor: crosshair;
+}
+.weather-table {
+  overflow-x: auto;
 }
 .metrics {
   display: flex;
@@ -368,6 +394,11 @@ td {
 th {
   color: var(--muted);
   font-weight: 500;
+}
+.weather-table th,
+.weather-table td {
+  padding: 5px;
+  white-space: nowrap;
 }
 .active-row {
   background: #e8e8e8;

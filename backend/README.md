@@ -111,6 +111,48 @@ inside the worker process. The GUI loop stays on the main thread.
 | `select_input_file()` | Native open dialog; copy the selected file into inputs; cancellation returns null |
 | `import_openrocket(asset_path, options_json)` | Validated component design plus conversion warnings |
 | `export_csv(run_id)` | Native save dialog; stream all telemetry rows to a new CSV; cancellation returns null |
+| `search_locations(payload_json)` | Up to eight validated Open-Meteo/GeoNames place results for `{ "query": "Ulsan" }` |
+| `get_weather(payload_json)` | Frozen `WeatherProfile`; GFS/IFS via Open-Meteo or Wyoming station/time observations |
+| `preview_weather_file(asset_path, sheet=null)` | First five rows, column/sheet names, row count, SHA256 of an authorized CSV/XLSX asset |
+| `import_weather_file(asset_path, options_json)` | Validate column mapping/units and freeze the numeric file profile; requires the preview SHA256 |
+| `get_terrain(payload_json)` | AWS public GeoTIFF terrain by default; optional keyed OpenTopography or legacy Open Topo Data |
+| `select_terrain_file(options_json)` | Native-dialog-authorized GeoTIFF/IMG/ASC/HGT window → frozen WGS84 grid |
+| `open_terrain_portal(provider)` | Open one fixed AWS/NGII/OpenTopography/VWorld URL in the default browser |
+| `check_elevation(payload_json)` | Height-reference-aware launch elevation check |
+
+The GUI environment editor exposes place search, map picking, launch date/time,
+timezone, forecast/observation fetch/preview/application, and CSV/XLSX import. The data-service
+methods share two concurrent request slots; HTTPS endpoints are fixed, redirects
+are refused, responses are limited to 256 KiB, and network reads time out after
+15 seconds. See [frontend usage and forecast limits](../frontend/README.md).
+
+`EnvironmentConfig.weather_profile` stores the actual numeric weather, its
+request, source/model, retrieval time, grid/station coordinates, and response SHA256.
+When present, it drives a custom RocketPy atmosphere and cannot be mixed with
+manual profiles. Site/time/height mismatches fail validation. Curves are frozen
+inside design/run JSON and require no provider access during preview, simulation,
+or replay. Legacy `forecast`/`reanalysis` provider forwarding remains separate:
+those live responses are not automatically frozen. `get_result_schema` also
+accepts `weather`, `weather_table`, and `location` for these DTOs.
+
+Wyoming uses the university's current HTTPS sounding endpoint, an explicit
+five-digit station ID, and a separate UTC observation time at a 3-hour interval.
+Station/time identity and table units are checked; missing essential rows are
+excluded with a count. Geopotential heights are converted before applying the
+profile. Station distance and time offset are shown without moving the launch
+site or changing its elevation. Availability depends on actual observations.
+
+Local imports require five distinct columns: height, pressure, temperature, and
+either east/north velocity or meteorological-from wind direction/speed. Units
+and ASL/AGL/geopotential height reference are explicit. Limits: 8 MiB, 4096 data
+rows, 32 columns, 16 sheets; XLSX expanded size is limited to 16 MiB/128 members.
+CSV supports UTF-8/BOM and CP949, with comma/semicolon/tab separators. XLSX uses
+`openpyxl` with `defusedxml`, without evaluating formulas; formula/error cells,
+macros, duplicate heights, pressure inversions, nonfinite/missing values, and
+unauthorized paths fail validation. Legacy .xls must be converted to .xlsx.
+The original input asset and normalized numbers are copied into design/run
+snapshots; replay uses the frozen numbers. File location/time are explicitly
+associated with the current launch settings, not inferred from arbitrary cells.
 
 `SimulationConfig` combines `environment`, `motor` (or `null` for an unpowered
 flight), `rocket`, and `flight`, with optional `surfaces` and `tanks`.
@@ -515,3 +557,19 @@ termination, recovery, repeated runs, profiles, validation, and weather errors.
 They also check JSON round-trips, JSON Schema generation, required motor fields,
 and rejection of runtime objects in DTOs and invalid solver results.
 External weather forwarding is mocked; it does not verify live forecast services.
+
+### DEM sources
+
+Rasterio 1.4.4 supplies GDAL raster drivers, CRS transforms, and bounded virtual
+warping. AWS public Terrain Tiles require no key. OpenTopography requests accept
+an in-memory `api_key` excluded from serialization; only source heights and
+metadata enter snapshots. HTTP errors suppress credential-bearing URL contexts.
+The `TerrainRequest` default is `aws`, radius 1000 m, target spacing 30 m. Areas
+are limited to a 5 km radius and 257×257 nodes. Legacy `opentopodata` retains its
+9×9 contract. Unsupported/missing data fails before replacing existing terrain.
+Offline imports read a user-selected self-contained raster up to 2 GiB without
+copying the full original; the immutable sampled grid is sufficient for replay.
+Orthometric references (EGM96, EGM2008, national datum) are distinct from ellipsoid
+heights. Cross-orthometric transformations require explicit preprocessing, while
+an ellipsoid/orthometric pair can use the local geoid undulation. Neither API keys
+nor arbitrary external URLs are accepted as persistent environment fields.

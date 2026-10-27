@@ -377,6 +377,9 @@ class RunStore:
         for tank in payload["tanks"]:
             references.extend((tank, key) for key in ("liquid_mass", "gas_mass"))
         weather = payload["environment"]
+        profile = weather.get("weather_profile")
+        if profile and profile.get("source_asset"):
+            references.append((profile, "source_asset"))
         source = weather["atmosphere_file"]
         if source is not None and (
             weather["atmosphere_type"] not in {"forecast", "ensemble", "windy"}

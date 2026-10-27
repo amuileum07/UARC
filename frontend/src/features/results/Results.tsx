@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { desktopApi } from "../../lib/bridge";
 import { useWorkspace } from "../../workspace";
+import type { TelemetryResult } from "../../lib/types";
+import { telemetryLabels } from "../../lib/telemetry";
+import { TelemetryQuery } from "./Query";
 
 const stateLabels: Record<string, string> = {
   queued: "대기",
@@ -92,8 +95,13 @@ export function Jobs() {
 }
 export function Results() {
   const w = useWorkspace();
-  const [variable, setVariable] = useState(3);
+  const [variable, setVariable] = useState("z_asl_m");
+  const [query, setQuery] = useState<{
+    id: string;
+    value: TelemetryResult;
+  } | null>(null);
   const [playing, setPlaying] = useState(false);
+  const [rerunning, setRerunning] = useState(false);
   const selectedTime = useRef(w.time);
   selectedTime.current = w.time;
   useEffect(() => {
@@ -122,28 +130,24 @@ export function Results() {
         <p className="muted">결과는 당시 입력 스냅샷을 사용합니다.</p>
       </div>
     );
-  const { summary, telemetry } = w.result;
+  const { summary } = w.result;
+  const telemetry =
+    query?.id === w.selectedRun ? query.value : w.result.telemetry;
   const data = telemetry.data;
-  const values = data.map((row) => row[variable]);
-  const min = Math.min(...values),
-    max = Math.max(...values);
+  const column = Math.max(1, telemetry.columns.indexOf(variable));
+  const values = data.map((row) => row[column]);
+  const min = data.length ? Math.min(...values) : 0,
+    max = data.length ? Math.max(...values) : 0;
   const range = Math.max(max - min, 1);
   const duration = Math.max(summary.duration_s, 0.001);
   const points = data
     .map(
       (row) =>
-        `${45 + ((row[0] - summary.start_time_s) / duration) * 680},${260 - ((row[variable] - min) / range) * 220}`,
+        `${45 + ((row[0] - summary.start_time_s) / duration) * 680},${260 - ((row[column] - min) / range) * 220}`,
     )
     .join(" ");
-  const labels = [
-    "시간",
-    "동쪽 위치 (m)",
-    "북쪽 위치 (m)",
-    "고도 (m)",
-    "동쪽 속도 (m/s)",
-    "북쪽 속도 (m/s)",
-    "수직 속도 (m/s)",
-  ];
+  const label =
+    telemetryLabels[telemetry.columns[column]] || telemetry.columns[column];
   return (
     <div className="panel scroll">
       <div className="panel-toolbar">
@@ -157,6 +161,24 @@ export function Results() {
           }
         >
           CSV 내보내기
+        </button>
+        <button
+          type="button"
+          disabled={rerunning}
+          onClick={() =>
+            void w.act(async () => {
+              if (rerunning) return;
+              setRerunning(true);
+              try {
+                const run = await (await desktopApi()).rerun(w.selectedRun);
+                w.selectRun(run.run_id);
+              } finally {
+                setRerunning(false);
+              }
+            })
+          }
+        >
+          {rerunning ? "재실행 요청 중…" : "동일 입력 재실행"}
         </button>
         <button
           type="button"
@@ -183,21 +205,30 @@ export function Results() {
       <label className="field chart-select">
         그래프 변수
         <select
-          value={variable}
-          onChange={(e) => setVariable(Number(e.target.value))}
+          value={telemetry.columns[column]}
+          onChange={(e) => setVariable(e.target.value)}
         >
-          {labels.slice(1).map((label, i) => (
-            <option value={i + 1} key={label}>
-              {label}
+          {telemetry.columns.slice(1).map((key) => (
+            <option value={key} key={key}>
+              {telemetryLabels[key] || key}
             </option>
           ))}
         </select>
       </label>
+      <TelemetryQuery
+        key={w.selectedRun}
+        onResult={(id, value) => setQuery(value ? { id, value } : null)}
+      />
+      {data.length === 0 && (
+        <p role="status">
+          선택한 구간에 자료가 없습니다. 조회 범위를 변경하세요.
+        </p>
+      )}
       <svg
         className="chart"
         viewBox="0 0 760 300"
         role="img"
-        aria-label={`${labels[variable]} 시계열`}
+        aria-label={`${label} 시계열`}
       >
         <line x1="45" y1="260" x2="725" y2="260" stroke="#bcbcbc" />
         <line x1="45" y1="40" x2="45" y2="260" stroke="#bcbcbc" />

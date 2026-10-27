@@ -65,6 +65,13 @@ class GroundSurface:
         if "unknown" in (config.elevation_reference, config.terrain.reference):
             raise ValueError("Vertical height reference is unknown.")
         if config.elevation_reference != config.terrain.reference:
+            if "ellipsoid" not in (
+                config.elevation_reference,
+                config.terrain.reference,
+            ):
+                raise ValueError(
+                    "Different orthometric datums require an explicit vertical transformation."
+                )
             if config.geoid_undulation_m is None:
                 raise ValueError(
                     "Geoid undulation is needed to compare height references."
@@ -96,6 +103,14 @@ def check_elevation(config: EnvironmentConfig) -> dict:
 
 
 def fetch_terrain(request: TerrainRequest) -> TerrainGrid:
+    if request.provider != "opentopodata":
+        from app.terrain_sources import fetch_dem
+
+        return fetch_dem(request)
+    return _fetch_opentopodata(request)
+
+
+def _fetch_opentopodata(request: TerrainRequest) -> TerrainGrid:
     """One explicit request: 81 samples, fixed HTTPS endpoint, no arbitrary URLs."""
     global _LAST_FETCH
     with _FETCH_LOCK:
@@ -147,6 +162,7 @@ def fetch_terrain(request: TerrainRequest) -> TerrainGrid:
             east=east,
             heights=[heights[i : i + 9] for i in range(0, 81, 9)],
             reference="EGM96",
+            provider="opentopodata",
             source="Open Topo Data / SRTM90m; response SHA256 "
             + hashlib.sha256(raw).hexdigest(),
             retrieved_at=datetime.now(UTC).isoformat(),

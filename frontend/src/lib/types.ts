@@ -53,7 +53,12 @@ export type EnvironmentConfig = {
   latitude: number;
   longitude: number;
   elevation: number;
-  elevation_reference?: "EGM96" | "ellipsoid" | "unknown";
+  elevation_reference?:
+    | "EGM96"
+    | "EGM2008"
+    | "national"
+    | "ellipsoid"
+    | "unknown";
   geoid_undulation_m?: number | null;
   pad_height_m?: number;
   elevation_tolerance_m?: number;
@@ -81,6 +86,7 @@ export type EnvironmentConfig = {
   atmosphere_dictionary?: Record<string, string | null> | string | null;
   pressure_conversion_factor?: "Pa" | "hPa" | "mbar" | number | null;
   ensemble_member?: number;
+  weather_profile?: WeatherProfile | null;
 };
 
 export type FlightConfig = {
@@ -187,6 +193,12 @@ export type HybridMotorConfig = {
   motor_type?: "hybrid";
 };
 
+export type ImportedFile = {
+  path: string;
+  original_name: string;
+  size_bytes: number;
+};
+
 export type LiquidMotorConfig = {
   thrust_source: number | string | Array<[number, number]>;
   nozzle_radius: number;
@@ -204,6 +216,15 @@ export type LiquidMotorConfig = {
   reference_pressure?: number | null;
   motor_type?: "liquid";
   center_of_dry_mass_position: number;
+};
+
+export type LocationResult = {
+  id: number;
+  name: string;
+  latitude: number;
+  longitude: number;
+  region?: string;
+  timezone?: string;
 };
 
 export type MassBasedTankConfig = {
@@ -278,6 +299,29 @@ export type NoseConeConfig = {
   bluffness?: number | null;
   power?: number | null;
   haack_c?: number | null;
+};
+
+export type OpenRocketImport = {
+  design: RocketDesign;
+  warnings: Array<string>;
+};
+
+export type OpenRocketOptions = {
+  environment: EnvironmentConfig;
+  flight: FlightConfig;
+  power_off_drag: number | string | Array<[number, number]>;
+  power_on_drag: number | string | Array<[number, number]>;
+  motor?:
+    | (
+        | SolidMotorConfig
+        | LiquidMotorConfig
+        | HybridMotorConfig
+        | GenericMotorConfig
+      )
+    | null;
+  motor_position?: number;
+  tanks?: Array<MassBasedTankConfig>;
+  parachute_trigger?: "apogee" | number | null;
 };
 
 export type ParachuteConfig = {
@@ -484,11 +528,29 @@ export type TerrainGrid = {
   west: number;
   east: number;
   heights: Array<Array<number | null>>;
-  reference: "EGM96" | "ellipsoid" | "unknown";
+  reference: "EGM96" | "EGM2008" | "national" | "ellipsoid" | "unknown";
+  provider?: "aws" | "local" | "opentopography" | "opentopodata" | "unknown";
   source: string;
   retrieved_at?: string;
   source_resolution_m: number;
   sampling_distance_m: number;
+};
+
+export type TerrainImportOptions = {
+  area: TerrainRequest;
+  reference?: "EGM96" | "EGM2008" | "national" | "ellipsoid" | "unknown";
+  crs_epsg?: number | null;
+  height_scale?: 1.0 | 0.3048;
+};
+
+export type TerrainRequest = {
+  latitude: number;
+  longitude: number;
+  radius_m?: number;
+  spacing_m?: number;
+  provider?: "aws" | "local" | "opentopography" | "opentopodata";
+  dataset?: "SRTMGL1" | "SRTMGL3" | "COP30";
+  api_key?: string;
 };
 
 export type TrapezoidalFinsConfig = {
@@ -502,4 +564,77 @@ export type TrapezoidalFinsConfig = {
   cant_angle?: number;
   sweep_length?: number | null;
   sweep_angle?: number | null;
+};
+
+export type WeatherColumns = {
+  altitude: string;
+  pressure: string;
+  temperature: string;
+  wind_u?: string | null;
+  wind_v?: string | null;
+  wind_speed?: string | null;
+  wind_direction?: string | null;
+};
+
+export type WeatherImportOptions = {
+  request: WeatherRequest;
+  columns: WeatherColumns;
+  expected_sha256: string;
+  source_name: string;
+  sheet?: string | null;
+  height_unit?: "m" | "ft";
+  height_reference?: "ASL" | "AGL" | "geopotential";
+  pressure_unit?: "Pa" | "hPa";
+  temperature_unit?: "K" | "C";
+  wind_format?: "uv" | "speed_direction";
+  wind_unit?: "m/s" | "km/h" | "knots";
+};
+
+export type WeatherLevel = {
+  altitude_m: number;
+  pressure_pa: number;
+  temperature_k: number;
+  wind_u_m_s: number;
+  wind_v_m_s: number;
+};
+
+export type WeatherProfile = {
+  request: WeatherRequest;
+  source?: "Open-Meteo" | "Wyoming" | "File";
+  retrieved_at: string;
+  grid_latitude: number;
+  grid_longitude: number;
+  response_sha256: string;
+  levels: Array<WeatherLevel>;
+  source_name?: string;
+  source_asset?: string | null;
+  notes?: Array<string>;
+};
+
+export type WeatherRequest = {
+  latitude: number;
+  longitude: number;
+  elevation: number;
+  pad_height_m?: number;
+  elevation_reference?:
+    | "EGM96"
+    | "EGM2008"
+    | "national"
+    | "ellipsoid"
+    | "unknown";
+  geoid_undulation_m?: number | null;
+  date: string;
+  timezone?: string;
+  model: "gfs_seamless" | "ecmwf_ifs025" | "wyoming_sounding" | "file";
+  station_id?: string | null;
+  observation_time?: string | null;
+};
+
+export type WeatherTable = {
+  sheets: Array<string>;
+  sheet: string | null;
+  columns: Array<string>;
+  rows: Array<Array<string | null>>;
+  row_count: number;
+  sha256: string;
 };

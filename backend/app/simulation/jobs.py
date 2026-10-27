@@ -14,11 +14,13 @@ from time import monotonic
 
 from app.design import compile_design
 from app.importers.openrocket import import_openrocket
+from app.importers.weather import import_weather_file, preview_weather_file
 from app.schemas import (
     OpenRocketOptions,
     RocketDesign,
     SimulationConfig,
     TelemetryQuery,
+    WeatherImportOptions,
 )
 from app.simulation.worker import run_worker
 from app.storage import TERMINAL_STATES, RunStore, read_json
@@ -152,6 +154,16 @@ class JobManager:
     def import_openrocket(self, name: str, options: OpenRocketOptions) -> dict:
         source = self._store.input_path(name)
         return import_openrocket(source, options).model_dump(mode="json")
+
+    def preview_weather_file(self, name: str, sheet: str | None = None) -> dict:
+        return preview_weather_file(self._store.input_path(name), sheet).model_dump(
+            mode="json"
+        )
+
+    def import_weather_file(self, name: str, options: WeatherImportOptions) -> dict:
+        return import_weather_file(self._store.input_path(name), options).model_dump(
+            mode="json"
+        )
 
     def export_csv(self, run_id: str, destination: Path) -> Path:
         return self._store.export_csv(run_id, destination)

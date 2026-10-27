@@ -1,10 +1,10 @@
 # GUI and terrain requirements
 
-This is the implementation plan, not a claim of completed GUI or terrain support.
-The current frontend contains the desktop bridge only. The backend already exposes
-numeric designs, bounded preview reports, workers, storage, and telemetry queries.
-The renderer, terrain provider, height conversion, and terrain-aware flight events
-still need implementation and verification.
+This document records workspace requirements and implementation guidance. The
+desktop now includes component editors, 2D/3D previews, environment/weather
+editors, a terrain map, jobs, and results. See [frontend usage](../frontend/README.md)
+for implemented controls and [validation](./VALIDATION.md) for tested behavior
+and remaining physical/model limitations.
 
 ## Workspace and visual design
 
@@ -84,7 +84,7 @@ engine or React-specific renderer wrapper unless it solves a demonstrated need.
 The renderer is not a data service: select and document imagery and elevation
 providers, coverage, resolution, attribution, access requirements, and permitted
 caching before enabling downloads. Do not assume a free renderer supplies free,
-unlimited terrain. No provider or API subscription is selected by this plan.
+unlimited terrain. The implemented default automatically loads AWS public Terrain Tiles for the launch site and streams surrounding visual terrain; offline DEM import and optional OpenTopography acquisition share the calculation grid. VWorld is a separately keyed satellite-imagery option.
 
 Distinguish base-map imagery from numeric elevation data. Images alone cannot
 validate elevation or provide ground-contact heights. Use a DEM with a declared

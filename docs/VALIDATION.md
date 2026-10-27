@@ -123,3 +123,242 @@ the sole formatter; Biome formatting and assist actions are disabled.
 
 From the repository root, run `corepack pnpm lint`, `corepack pnpm lint:fix`,
 and `corepack pnpm check` (lint plus types).
+
+## GUI launch-site and forecast selection (2026-10-26)
+
+The environment editor now has location/terrain and time/weather tabs, place
+search, explicit map picking, and separate edited-site versus run-result views.
+GFS and IFS forecasts are fetched/previewed before application and stored as
+numeric profiles in the design/run environment. Network calls do not run in
+the solver and replay uses the frozen data.
+
+All 94 backend tests passed, including 11 new offline weather tests. They cover
+UTC/IANA/DST handling, wind direction/vector interpolation, temperature/pressure
+units, geopotential-height conversion, ellipsoid/geoid offsets, pad-height ground
+coverage, stale-input rejection, missing/invalid provider data, bounded HTTP and
+redirect refusal, saved-design replay, engine use, and out-of-range flights.
+All 15 frontend tests passed, including site selection, unchanged-coordinate
+preservation, weather application, time conversion, and late-response matching.
+Ruff, Biome, TypeScript, Prettier, production build, and Cesium asset copying passed.
+The existing large-chunk build warning remains.
+
+Live read-only requests to Open-Meteo returned GFS and ECMWF IFS 0.25° profiles
+for a Berlin test coordinate, each with 14 levels from 50 m to approximately
+20.65 km. A place search returned Ulsan-area results. These checks establish
+provider connectivity and response compatibility at the time of the check,
+not guaranteed availability for every location or forecast time.
+
+A hidden source desktop window loaded the production frontend and exercised
+place selection, Cesium coordinate picking, time/timezone input, profile preview
+and application, stale-date execution blocking, saving, and a real spawned
+flight that reached ground contact. The map returned to editable-site mode after
+viewing the result. This deterministic GUI check used provider fixtures; live
+provider calls were checked separately above. Synthetic pointer capture was
+stubbed only in the probe so Cesium's actual camera picking could run without
+a physical pointer device. No test hook was added to the application.
+
+Forecast coverage starts at the launch elevation minus pad height and ends at
+the available upper-air level. A flight leaving that vertical range fails
+instead of publishing extrapolated results; terrain below that ground anchor
+therefore needs a different atmosphere input. Near-ground 2 m temperature and
+10 m wind are approximations, as labelled in the UI. This work does not validate
+landing accuracy or replace a boundary-layer/weather-field model.
+
+Provider references: [forecast API](https://open-meteo.com/en/docs),
+[GFS variables](https://open-meteo.com/en/docs/gfs-api),
+[IFS variables](https://open-meteo.com/en/docs/ecmwf-api), and
+[place search](https://open-meteo.com/en/docs/geocoding-api).
+
+## Wyoming observations and local weather profiles (2026-10-26)
+
+The complete backend suite passed **106 tests**; frontend tests passed **17**.
+Ruff, Biome/TypeScript, Prettier, and the production build passed. The existing
+large-chunk warning remains. New checks cover Wyoming identity/unit validation,
+CSV encoding/delimiters, actual multi-sheet XLSX files, column/unit conversion,
+meteorological wind direction, AGL/geopotential/geoid heights, missing/nonfinite
+values, duplicate heights, pressure inversions, formula/error cells, file/range
+limits, changed-preview hashes, authorized asset paths, and saved-file replay.
+
+A live read-only call to the [current Wyoming archive](https://weather.uwyo.edu/upperair/sounding.shtml)
+returned station **83779**, **2019-02-05 12:00 UTC**, with **59 levels** spanning
+approximately **722.08–21935.22 m** after geopotential-to-geometric conversion.
+This verifies compatibility with that actual response; other station/time
+combinations can be unavailable. The GUI keeps the launch site/elevation and
+shows station distance and observation/launch time difference.
+
+A hidden desktop window using production assets exercised native-dialog-selected
+CSV input, column defaults, profile preview/application, original-file snapshot
+storage, and a real spawned flight reaching ground contact. It then imported a
+real XLSX, changed worksheets, previewed/applied its six levels, and verified
+that cancelling the picker retained the profile. A Wyoming response fixture
+exercised station/time entry, the 59-level preview, distance notes, and the
+launch-outside-coverage warning. Only the native picker selection and provider
+responses were substituted in this deterministic GUI probe; parsing, bridge,
+workspace, persistence, and solver used the production implementations.
+
+CSV/XLSX metadata associates the imported profile with the explicitly selected
+launch location/time; it does not establish the file's actual provenance or
+meteorological suitability. XLSX values are read without evaluating formulas.
+Observation/file profiles keep their actual vertical bounds; launch application
+and flight range checks prevent extrapolation. This is still a single vertical
+profile, not a spatially/time-varying weather field or landing-accuracy validation.
+
+## Backend settings exposed in GUI (2026-10-26)
+
+The property editor now reads the existing backend configuration schema rather
+than discovering only numeric values in the current JSON. Coverage includes
+nullable inputs, enums, booleans, strings, vectors, inertia tensors, curves,
+material management, component variants, four motor variants/tanks, parachute
+deployment, airframe overrides/rail buttons, flight solver/initial state,
+manual/direct-provider atmosphere settings, and terrain request radius.
+OpenRocket conversion and result query/rerun controls use existing bridge APIs.
+No dependency or solver behavior was added for these editors.
+
+Backend tests passed **106** and frontend tests passed **21**. Frontend checks
+cover schema references/union/default selection, ordered finite pasted tables,
+all motor/component templates, atomic sweep alternatives, prototype-safe editing,
+and prior weather/preview/bridge behavior. All **11** new motor/component template
+combinations also passed Python validation, compilation, and native RocketPy
+assembly. Ruff, Biome, TypeScript, Prettier, production build, and diff whitespace
+checks passed; the existing Cesium/Three.js chunk-size warning remains.
+
+Hidden desktop checks with production assets and the real bridge/store exercised:
+
+- Four motor variants, tank creation/deletion/editing, material creation, and new
+  elliptical-fin/tail components, including persisted settings.
+- Mach/Cd table edits, measured airframe mass, rail-button angle, numeric AGL
+  parachute deployment, Cd·A and sampling frequency.
+- Six-component inertia, 14-component initial state with unit quaternion and
+  launch elevation, scalar/vector tolerances, and explicitly nullable motor input.
+- Manual pressure/temperature curves, gravity/height range, direct ensemble
+  settings, and clearing incompatible inputs on return to standard atmosphere.
+- Real 3DOF/RK45 flight ending at impact, bounded telemetry query, empty query
+  interval, and a second real run using the saved input.
+- Native-dialog-selected .ork conversion, warnings/preview and explicit apply;
+  cancelling a curve-file picker kept the prior curve.
+
+The earlier CSV/XLSX/Wyoming GUI probe also passed after the shared editor change.
+Provider-backed direct modes were validated as configuration without issuing
+forecast/reanalysis/ensemble network calls. Minimum time step is LSODA-specific;
+the GUI labels that limitation. Raw solver assembly-only coordinate frames,
+off-axis surface tuples, native Python callbacks, and unfrozen legacy Wyoming
+URL forwarding remain outside new component-design creation controls.
+
+## Visible 3D map correction (2026-10-27)
+
+The previous map used an ellipsoid terrain provider with independent opaque
+height polygons and a vertical camera. A visible-window check reproduced the
+flat-looking patch even with a 600 m synthetic hill. Earlier hidden-window
+checks established DOM/bridge behavior, not actual map pixel rendering; a hidden
+Qt window could report a canvas element while its drawing buffer was 0×0.
+
+Saved height grids now drive a Cesium `CustomHeightmapTerrainProvider`; OpenStreetMap
+imagery follows the mesh. North/south row order, bilinear sampling, geoid offset,
+negative elevations, and shared tile edges are covered by runnable tests against
+the real Cesium heightmap API. Missing elevation cells reject the display surface
+with a visible message instead of creating fabricated terrain. Outside dataset
+bounds the display uses an explicitly labelled reference ellipsoid. Flight contact
+and its height reference remain implemented in the existing Python adapter.
+
+The 3D camera is oblique, fits after the panel has a usable viewport, and has
+site/trajectory reset controls. Map errors remain visible. Static terrain/path
+entities are separated from the time-dependent marker. Design edits clone only
+their changed path so unrelated edits retain the same terrain reference.
+
+Frontend tests passed **26**, with Biome/TypeScript, Prettier and production build
+checks. Visible Qt screenshots were inspected before/after the fix, with a
+synthetic hill and with a live 9×9 SRTM90m response at 35.55° N, 129.3° E (4–96 m,
+no missing values). Real OpenStreetMap tiles rendered over the surface. Checks
+included 2D/3D transitions, resizing from 1500×1000 to 1200×850, and reopening
+the map tab. Rendered screenshots were allowed to complete; canvas dimensions
+alone do not establish that a restored WebGL frame has been painted.
+
+A real spawned flight using the live-grid site finished at impact, and its
+trajectory, predicted landing point, and selected-time marker were inspected in
+the visible result map. A separate incomplete-grid case displayed its error and
+ellipsoid fallback. No numerical flight/contact equations were changed.
+
+This changes display integration, not DEM resolution or landing accuracy.
+
+### Relief visibility and logo check (2026-10-27)
+
+A second visible-window check confirmed SCENE3D, a north-up 65° downward camera,
+and loaded globe heights of 4.21, 93.45, and 65.85 m at three positions in the saved
+Ulsan grid. Thus the terrain was genuinely elevated, but its unlit uniform gray
+surface made the 4–96 m relief across 2 km difficult to distinguish. The display
+now derives grayscale hillshade from mesh fragment derivatives, since the custom
+heightmap provider does not supply vertex normals. Heights stay at 1× and the
+caption reports the elevation range and sample spacing. No-data mode explicitly
+explains that online imagery alone does not supply terrain heights.
+
+Visible production-asset checks passed with relief and OSM imagery, 2D/3D switching,
+zero Cesium logo images, retained OSM attribution, and unchanged loaded heights.
+The no-elevation case retained its notice after imagery was enabled. The logo
+change uses `CreditDisplay.cesiumCredit`; the credit container is retained. This
+viewer uses local heightmaps and OSM, with no ion terrain, imagery, or geocoder.
+Frontend tests (26), Biome/TypeScript, Prettier, and the production build passed.
+
+### Public and offline DEM sources (2026-10-27)
+
+The default is now AWS Open Data Terrain Tiles, with bounded GeoTIFF acquisition,
+mosaicking, and reprojection into the same frozen grid used for display and
+terrain contact. Target spacing defaults to 30 m; actual spacing is reported when
+the 257×257 cap applies. Local self-contained GeoTIFF/ERDAS IMG/ASCII Grid/HGT
+imports use Rasterio 1.4.4 and a bounded warped window, with explicit vertical
+datum, unit, and optional EPSG override. NoData/outside coverage rejects an import.
+EGM96, EGM2008, national orthometric heights, and ellipsoid heights remain distinct.
+
+Deterministic tests cover projected EPSG:5186 rasters, IMG reading, row orientation,
+feet conversion, missing CRS/coverage/NoData, an AWS four-tile boundary mosaic,
+OpenTopography dataset/reference handling, credential redaction, and fixed portal
+URLs. A visible Qt probe acquired real AWS GeoTIFF data at 35.55° N, 129.3° E,
+radius 300 m, producing a 21×21 grid at 30 m spacing. After explicit launch-height
+adoption, a real spawned flight succeeded with `ground_model=terrain`.
+
+The same GUI probe exercised OpenTopography selection/key entry, COP30/EGM2008
+adoption, EPSG:5186 IMG import, native file-dialog cancellation preserving the
+previous grid, VWorld portal opening, and error-free visible terrain rendering.
+Only the OpenTopography response and native file choice were fixture-controlled;
+AWS acquisition, projection, storage, and flight integration were real. Browser
+launches were captured rather than opening account pages during the test.
+No personal API key was available: authenticated OpenTopography and VWorld tile
+responses were not live-verified. VWorld is explicitly a satellite-imagery option;
+its undocumented legacy DEM binary endpoint is not used for collision heights.
+
+Keys stay in memory and are excluded from design/run snapshots. HTTP failures
+suppress URL-bearing exception contexts. Frontend tests (26), static checks,
+formatting, and the production build passed; the backend suite passed 115 tests.
+
+### Automatic AWS acquisition and continuous terrain (2026-10-27)
+
+Valid WGS84 sites without an attached grid now acquire AWS calculation heights
+automatically after a 600 ms debounce. The existing request queue coalesces edits
+and discards late responses. Saved/alternate grids remain attached; changing site
+with another source selected does not issue an AWS calculation request. Choosing
+AWS explicitly after an alternate import replaces it only after successful fetch.
+Radius/spacing preferences are shared with the manual refresh controls. Failures
+remain visible and do not cause retries on unrelated height/weather/body edits.
+The bundled numeric example now explicitly declares WGS84 and EGM96.
+
+AWS display terrain now continues outside the saved rectangle using public
+Terrarium tiles, avoiding the previous artificial zero-height plateau boundary.
+Inside the boundary the frozen calculation grid takes precedence. Outside tiles
+are visual context; they do not expand flight-contact coverage. Display requests
+have a 15 s timeout, a size bound, a 64-tile decoded-memory cache, and source zoom
+cap 14. Fully saved tiles render without a network request; errors retain saved
+heights and label the outside ellipsoid fallback. Dense wire grids are hidden by
+default and can be toggled. The camera remains north-up, 65° downward, at 1× heights.
+
+A visible production Qt probe at 38.119° N, 128.465° E automatically fetched exactly
+one grid, with heights 1082.41–1699.59 m. Loaded globe heights were 1694.75 m at the
+site and 1462.07 m just outside the calculation rectangle; screenshots showed the
+continuous mountain surface. Checks covered changed-site acquisition with a shared
+500 m radius, 2D/3D transitions, alternate-source suppression, a controlled network
+failure without retry loops, and successful manual retry. A second probe preserved
+an attached local grid without any calculation request, then fetched AWS when
+explicitly selected. No account keys or simulated AWS heights were used.
+
+Frontend tests passed 30, including request eligibility, Terrarium decoding,
+negative/submeter heights, zoom-cap sampling, frozen-height precedence and offline
+covered tiles. Biome/TypeScript, Prettier, production build and the 23 weather tests
+which consume the changed numeric example passed. Flight equations were unchanged.

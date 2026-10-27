@@ -16,7 +16,10 @@ import {
 } from "./lib/bridge";
 import type { ElevationCheck } from "./lib/bridge";
 import { previewQueue } from "./lib/preview";
-import { editDesign } from "./lib/edit";
+import { editDesign, placeLaunchSite } from "./lib/edit";
+import type { InputSchema } from "./lib/forms";
+import { defaultTerrainRequest, terrainMatchesSite } from "./lib/terrain";
+import { telemetryColumns } from "./lib/telemetry";
 import type {
   DesignPreview,
   FlightSummary,
@@ -24,9 +27,12 @@ import type {
   RunRecord,
   SavedDesignRecord,
   TelemetryResult,
+  TerrainRequest,
+  TerrainImportOptions,
 } from "./lib/types";
 
 interface Workspace {
+  schema: InputSchema;
   design: RocketDesign;
   preview: { design: RocketDesign; result: DesignPreview } | null;
   previewState: "pending" | "ready" | "invalid";
@@ -51,7 +57,22 @@ interface Workspace {
   } | null;
   elevation: ElevationCheck | null;
   terrainBusy: boolean;
-  loadTerrain: () => Promise<void>;
+  terrainSource: NonNullable<TerrainRequest["provider"]>;
+  setTerrainSource: (source: NonNullable<TerrainRequest["provider"]>) => void;
+  terrainAutoError: string;
+  terrainArea: { radius_m: number; spacing_m: number };
+  setTerrainArea: (area: { radius_m: number; spacing_m: number }) => void;
+  loadTerrain: (
+    options: Omit<TerrainRequest, "latitude" | "longitude">,
+    local?: Omit<TerrainImportOptions, "area">,
+  ) => Promise<void>;
+  vworldKey: string;
+  setVworldKey: (key: string) => void;
+  mapMode: "design" | "result";
+  setMapMode: (mode: "design" | "result") => void;
+  pickingSite: boolean;
+  setPickingSite: (picking: boolean) => void;
+  placeSite: (latitude: number, longitude: number) => void;
   time: number;
   setTime: (time: number) => void;
 }
@@ -63,9 +84,11 @@ export function useWorkspace() {
 }
 export function WorkspaceProvider({
   initial,
+  schema,
   children,
 }: {
   initial: RocketDesign;
+  schema: InputSchema;
   children: ReactNode;
 }) {
   const [design, setDesign] = useState(initial);
@@ -83,6 +106,23 @@ export function WorkspaceProvider({
   const [result, setResult] = useState<Workspace["result"]>(null);
   const [elevation, setElevation] = useState<ElevationCheck | null>(null);
   const [terrainBusy, setTerrainBusy] = useState(false);
+  const [terrainArea, setTerrainArea] = useState({
+    radius_m: 1000,
+    spacing_m: 30,
+  });
+  const [terrainAutoBusy, setTerrainAutoBusy] = useState(false);
+  const [terrainAutoError, setTerrainAutoError] = useState("");
+  const [terrainSource, setTerrainSource] = useState<
+    NonNullable<TerrainRequest["provider"]>
+  >(
+    initial.environment.terrain?.provider === "unknown"
+      ? "local"
+      : initial.environment.terrain?.provider || "aws",
+  );
+  const pendingTerrain = useRef(false);
+  const [vworldKey, setVworldKey] = useState("");
+  const [mapMode, setMapMode] = useState<"design" | "result">("design");
+  const [pickingSite, setPickingSite] = useState(false);
   const [time, setTime] = useState(0);
   const pendingRun = useRef(false);
   const fieldIssue = useCallback(
@@ -195,15 +235,7 @@ export function WorkspaceProvider({
         api.get_telemetry(
           selectedRun,
           JSON.stringify({
-            columns: [
-              "time_s",
-              "x_m",
-              "y_m",
-              "z_asl_m",
-              "vx_m_s",
-              "vy_m_s",
-              "vz_m_s",
-            ],
+            columns: telemetryColumns,
             max_points: 2000,
           }),
         ),
@@ -220,15 +252,32 @@ export function WorkspaceProvider({
   const edit = (path: string[], value: unknown) => {
     setDesign((old) => editDesign(old, path, value));
     setDirty(true);
+    if (path[0] === "environment") setMapMode("design");
   };
+  const placeSite = useCallback((latitude: number, longitude: number) => {
+    setDesign((old) => placeLaunchSite(old, latitude, longitude));
+    setDirty(true);
+    setMapMode("design");
+    setPickingSite(false);
+  }, []);
   const replace = (value: RocketDesign, saved = false) => {
     if (dirty && !window.confirm("저장하지 않은 편집 내용을 바꿀까요?")) return;
+    autoTerrain.push(null);
+    setTerrainSource(
+      value.environment.terrain?.provider === "unknown"
+        ? "local"
+        : value.environment.terrain?.provider || "aws",
+    );
     setDesign(value);
     setDirty(!saved);
     setSelection(value.components[0].id);
+    setMapMode("design");
+    setPickingSite(false);
   };
   const save = () =>
     act(async () => {
+      if (Object.keys(problems).some((key) => key.startsWith("field:")))
+        throw new Error("편집 중인 입력을 적용하거나 수정한 뒤 저장하세요.");
       const snapshot = design;
       await (await desktopApi()).save_design(JSON.stringify(snapshot));
       if (latest.current === snapshot) setDirty(false);
@@ -236,6 +285,20 @@ export function WorkspaceProvider({
   const run = () =>
     act(async () => {
       if (pendingRun.current) return;
+      if (
+        terrainBusy ||
+        terrainAutoBusy ||
+        (terrainSource === "aws" &&
+          !terrainAutoError &&
+          defaultTerrainRequest(
+            design.environment,
+            terrainArea.radius_m,
+            terrainArea.spacing_m,
+          ))
+      )
+        throw new Error(
+          "계산용 지형을 가져오는 중입니다. 완료한 뒤 실행하세요.",
+        );
       if (
         previewState !== "ready" ||
         Object.keys(problems).some((k) => k.startsWith("field:"))
@@ -246,45 +309,124 @@ export function WorkspaceProvider({
         const record = await submitDesign(design);
         setRuns((old) => [record, ...old]);
         setSelectedRun(record.run_id);
+        setMapMode("result");
       } finally {
         pendingRun.current = false;
       }
     });
-  const loadTerrain = () =>
+  const loadTerrain: Workspace["loadTerrain"] = (options, local) =>
     act(async () => {
-      if (terrainBusy) return;
-      const environment = design.environment;
+      if (pendingTerrain.current) return;
+      autoTerrain.push(null);
+      setTerrainAutoError("");
+      const environment = latest.current.environment;
       if (environment.datum !== "WGS84")
         throw new Error(
           "지형 조회 전에 좌표 기준을 WGS84로 지정해 주세요. 기존 좌표는 자동 변환하지 않습니다.",
         );
       setTerrainBusy(true);
+      pendingTerrain.current = true;
       try {
-        const grid = await (
-          await desktopApi()
-        ).get_terrain(
-          JSON.stringify({
-            latitude: environment.latitude,
-            longitude: environment.longitude,
-            radius_m: 1000,
-          }),
-        );
-        const current = latest.current.environment;
-        if (
-          current.latitude === environment.latitude &&
-          current.longitude === environment.longitude &&
-          current.datum === environment.datum
-        ) {
-          setDesign((old) => ({
-            ...old,
-            environment: { ...old.environment, terrain: grid },
-          }));
-          setDirty(true);
-        }
+        const api = await desktopApi();
+        const area = {
+          ...options,
+          latitude: environment.latitude,
+          longitude: environment.longitude,
+        };
+        const grid = local
+          ? await api.select_terrain_file(JSON.stringify({ ...local, area }))
+          : await api.get_terrain(JSON.stringify(area));
+        if (!grid) return;
+        if (latest.current.environment !== environment)
+          throw new Error(
+            "조회 중 발사 환경이 변경되어 지형을 적용하지 않았습니다. 다시 가져오세요.",
+          );
+        setDesign((old) => ({
+          ...old,
+          environment: {
+            ...old.environment,
+            terrain: grid,
+            terrain_mode: "terrain",
+          },
+        }));
+        setMapMode("design");
+        setDirty(true);
       } finally {
+        pendingTerrain.current = false;
         setTerrainBusy(false);
       }
     });
+  const autoTerrain = useMemo(
+    () =>
+      previewQueue(
+        async (area: TerrainRequest | null) => {
+          if (!area) return null;
+          setTerrainAutoBusy(true);
+          setTerrainAutoError("");
+          try {
+            return {
+              area,
+              grid: await (
+                await desktopApi()
+              ).get_terrain(JSON.stringify(area)),
+            };
+          } finally {
+            setTerrainAutoBusy(false);
+          }
+        },
+        (response) => {
+          if (
+            !response ||
+            latest.current.environment.terrain ||
+            !terrainMatchesSite(latest.current.environment, response.area)
+          )
+            return;
+          setDesign((old) =>
+            old.environment.terrain ||
+            !terrainMatchesSite(old.environment, response.area)
+              ? old
+              : {
+                  ...old,
+                  environment: {
+                    ...old.environment,
+                    terrain: response.grid,
+                    terrain_mode: "terrain",
+                  },
+                },
+          );
+          setDirty(true);
+        },
+        () =>
+          setTerrainAutoError(
+            "AWS 기본 지형을 가져오지 못했습니다. 네트워크를 확인하고 다시 가져오거나 다른 소스를 선택하세요.",
+          ),
+        600,
+      ),
+    [],
+  );
+  const { latitude, longitude, datum, terrain } = design.environment;
+  useEffect(() => {
+    setTerrainAutoError("");
+    autoTerrain.push(
+      terrainSource === "aws"
+        ? defaultTerrainRequest(
+            { latitude, longitude, datum, terrain },
+            terrainArea.radius_m,
+            terrainArea.spacing_m,
+          )
+        : null,
+    );
+  }, [
+    autoTerrain,
+    terrainSource,
+    latitude,
+    longitude,
+    datum,
+    terrain,
+    terrainArea.radius_m,
+    terrainArea.spacing_m,
+  ]);
+  useEffect(() => () => autoTerrain.dispose(), [autoTerrain]);
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
       if (dirty) event.preventDefault();
@@ -295,6 +437,7 @@ export function WorkspaceProvider({
   return (
     <Context
       value={{
+        schema,
         design,
         preview,
         previewState,
@@ -311,11 +454,34 @@ export function WorkspaceProvider({
         saved,
         runs,
         selectedRun,
-        selectRun: setSelectedRun,
+        selectRun: (id) => {
+          setSelectedRun(id);
+          setMapMode("result");
+        },
         result,
         elevation,
-        terrainBusy,
+        terrainBusy: terrainBusy || terrainAutoBusy,
+        terrainSource,
+        setTerrainSource: (source) => {
+          setTerrainSource(source);
+          if (
+            source === "aws" &&
+            latest.current.environment.terrain &&
+            latest.current.environment.terrain.provider !== "aws"
+          )
+            void loadTerrain({ provider: "aws", ...terrainArea });
+        },
+        terrainAutoError,
+        terrainArea,
+        setTerrainArea,
         loadTerrain,
+        vworldKey,
+        setVworldKey,
+        mapMode,
+        setMapMode,
+        pickingSite,
+        setPickingSite,
+        placeSite,
         time,
         setTime,
       }}
