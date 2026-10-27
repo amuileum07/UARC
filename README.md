@@ -80,7 +80,7 @@ UARC/
 │   │   ├── cli.py                 # Design files, input import, history, and CSV export
 │   │   ├── config.py              # App settings, frontend asset paths, and user data location
 │   │   ├── bridge.py              # JSON validation, submission, status, cancellation, and results
-│   │   ├── schemas.py             # Serializable Pydantic input, result, and configuration models
+│   │   ├── schemas/               # Domain-specific Pydantic models; stable app.schemas imports
 │   │   ├── design.py              # Component mass properties and design-to-solver conversion
 │   │   ├── terrain.py             # Height interpolation, vertical references, site checks
 │   │   ├── terrain_sources.py     # AWS/OpenTopography rasters and offline DEM import
