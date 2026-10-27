@@ -188,6 +188,7 @@ function Workspace() {
           className="primary"
           disabled={
             w.terrainBusy ||
+            w.weatherBusy ||
             w.previewState !== "ready" ||
             Object.keys(w.problems).some((k) => k.startsWith("field:"))
           }

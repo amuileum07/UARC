@@ -2,12 +2,14 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   applyWeather,
+  applyAutomaticWeather,
+  automaticWeatherRequest,
   localDateInput,
   weatherMatches,
   weatherRequest,
   suggestWeatherColumns,
 } from "./weather.ts";
-import { placeLaunchSite } from "./edit.ts";
+import { editDesign, placeLaunchSite } from "./edit.ts";
 
 const env = {
   latitude: 35,
@@ -135,4 +137,143 @@ test("map/search selection updates WGS84 coordinates together and invalidates on
   assert.throws(() => placeLaunchSite(original, Infinity, 130));
   assert.throws(() => placeLaunchSite(original, 91, 130));
   assert.equal(placeLaunchSite(original, 35, 129), original);
+});
+
+test("automatic weather follows the applied provider and preserves manual inputs", () => {
+  assert.equal(
+    automaticWeatherRequest({ ...env, weather_profile: profile }),
+    null,
+  );
+  assert.equal(
+    automaticWeatherRequest({ ...env, latitude: 36, wind_u: 7 }),
+    null,
+  );
+  for (const model of ["gfs_seamless", "ecmwf_ifs025", "wyoming_sounding"]) {
+    const applied = {
+      ...profile,
+      request: {
+        ...profile.request,
+        model,
+        ...(model === "wyoming_sounding"
+          ? { station_id: "47122", observation_time: "2026-10-26T00:00:00Z" }
+          : {}),
+      },
+    };
+    const moved = { ...env, latitude: 36, weather_profile: applied };
+    const request = automaticWeatherRequest(moved);
+    assert.equal(request.latitude, 36);
+    assert.equal(request.model, model);
+    if (model === "wyoming_sounding") {
+      assert.equal(request.station_id, "47122");
+      assert.equal(request.observation_time, applied.request.observation_time);
+    }
+    assert.equal(automaticWeatherRequest({ ...moved, datum: "NAD83" }), null);
+    assert.equal(automaticWeatherRequest({ ...moved, date: null }), null);
+  }
+});
+
+test("automatic weather applies atomically and rejects late locations, providers, and custom modes", () => {
+  const original = {
+    environment: { ...env, latitude: 36, weather_profile: profile },
+    components: [],
+  };
+  const request = automaticWeatherRequest(original.environment);
+  const response = { ...profile, request };
+  const updated = applyAutomaticWeather(original, request, response);
+  assert.equal(updated.environment.weather_profile, response);
+  assert.equal(updated.components, original.components);
+  assert.equal(original.environment.weather_profile, profile);
+  assert.equal(automaticWeatherRequest(updated.environment), null);
+  for (const changes of [
+    { latitude: 37 },
+    { elevation: 200 },
+    { date: "2026-10-26T13:00" },
+    { weather_profile: null, wind_u: 7 },
+    {
+      weather_profile: {
+        ...profile,
+        request: { ...profile.request, model: "ecmwf_ifs025" },
+      },
+    },
+  ]) {
+    const newer = {
+      ...original,
+      environment: { ...original.environment, ...changes },
+    };
+    assert.equal(applyAutomaticWeather(newer, request, response), newer);
+  }
+});
+
+test("file weather keeps its numeric tables and provenance when moving or aligning launch height", () => {
+  const file = {
+    ...profile,
+    request: { ...profile.request, model: "file" },
+    response_sha256: "a".repeat(64),
+    source_asset: "authorized.csv",
+    grid_latitude: 35,
+  };
+  const original = { environment: { ...env, weather_profile: file } };
+  const moved = placeLaunchSite(original, 36, 130);
+  assert.equal(automaticWeatherRequest(moved.environment), null);
+  assert.equal(
+    weatherMatches(moved.environment, moved.environment.weather_profile),
+    true,
+  );
+  assert.equal(moved.environment.weather_profile.levels, file.levels);
+  assert.equal(
+    moved.environment.weather_profile.response_sha256,
+    file.response_sha256,
+  );
+  assert.equal(
+    moved.environment.weather_profile.source_asset,
+    file.source_asset,
+  );
+  assert.equal(moved.environment.weather_profile.grid_latitude, 35);
+  assert.equal(file.request.latitude, 35);
+  const numeric = editDesign(original, ["environment", "latitude"], 36);
+  assert.equal(
+    weatherMatches(numeric.environment, numeric.environment.weather_profile),
+    true,
+  );
+  const aligned = editDesign(moved, ["environment"], {
+    ...moved.environment,
+    elevation: 200,
+  });
+  assert.equal(aligned.environment.weather_profile.levels, file.levels);
+  assert.equal(aligned.environment.weather_profile.request.elevation, 200);
+  assert.equal(
+    weatherMatches(aligned.environment, aligned.environment.weather_profile),
+    true,
+  );
+  const changedReference = editDesign(
+    moved,
+    ["environment", "elevation_reference"],
+    "EGM2008",
+  );
+  assert.equal(
+    changedReference.environment.weather_profile,
+    moved.environment.weather_profile,
+  );
+  assert.equal(
+    weatherMatches(
+      changedReference.environment,
+      changedReference.environment.weather_profile,
+    ),
+    false,
+  );
+  const manual = {
+    environment: {
+      ...env,
+      pressure: [
+        [0, 100000],
+        [1000, 90000],
+      ],
+      wind_u: 7,
+      wind_v: -2,
+    },
+  };
+  const manualMoved = placeLaunchSite(manual, 36, 130);
+  assert.equal(manualMoved.environment.pressure, manual.environment.pressure);
+  assert.equal(manualMoved.environment.wind_u, 7);
+  assert.equal(manualMoved.environment.wind_v, -2);
 });

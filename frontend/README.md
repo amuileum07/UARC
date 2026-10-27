@@ -101,8 +101,9 @@ The editor has **위치 · 지형** and **시각 · 기상** tabs. Search Korean
 names or road addresses with Photon/OpenStreetMap, select a result, or enable
 **지도에서 발사점 선택** and click the globe. Escape cancels picking; coordinate
 inputs provide a keyboard alternative. Selections use WGS84, preserve the entered
-launch elevation, and invalidate the previous terrain/geoid data. Recheck elevation
-after moving. The map's **표시 자료** selector distinguishes the edited launch site
+launch elevation, and invalidate the previous terrain/geoid data. Under **지형 자료**,
+use **발사 고도·기준을 지형 + 발사대로 맞추기** below the loaded terrain information
+after the terrain loads. The map's **표시 자료** selector distinguishes the edited launch site
 from the selected run's immutable site and trajectory.
 
 Place search defaults to **대한민국**; choose **전 세계** for overseas locations.
@@ -125,15 +126,30 @@ In **시각 · 기상**, enter the launch date/time and an IANA timezone (for ex
 fetch the upper-air profile, inspect its grid/time/height table, and explicitly
 apply it. Requests cover recent five days through the following nine calendar
 days; individual models may have shorter availability. There is no silent fallback
-when the chosen model/time is unavailable. Searches and forecast fetches are
-explicit network actions, with bounded responses and timeouts.
+when the chosen model/time is unavailable. Once an online profile is applied,
+changing the location, height, or launch time automatically fetches and applies
+the same provider's profile after a 600 ms debounce, even if the weather panel is
+closed. Late responses are discarded when the site/provider changes or a manual
+atmosphere is selected. Running stays blocked until matching weather is applied;
+failed requests retain the previous snapshot and show an error. Use the existing
+fetch/apply buttons to retry. Unchanged saved designs and run snapshots are not
+refetched. Requests retain bounded responses and timeouts.
 
 Alternatively choose **University of Wyoming · 고층 관측**, enter a five-digit
 WMO station number and a separate UTC observation time (00/03/06/09/12/15/18/21).
 This retrieves radiosonde observations rather than a launch-time forecast.
 The preview shows station coordinates, distance to the launch site, time offset,
 and any rows excluded for missing fields. The launch location/elevation stays
-as entered. A station may have no observation at the selected time.
+as entered. Automatic refresh preserves the explicitly selected station and UTC
+observation time; it does not silently choose a different station. A station may
+have no observation at the selected time.
+
+Manual atmospheric curves and constants are preserved when moving. Imported
+CSV/Excel profiles retain their numeric heights/values, source hash, and file
+reference; their application site/time metadata follows the edited environment
+without a network request. They still must cover the launch/flight heights.
+Changing the vertical reference or geoid conversion requires reimporting the
+profile rather than relabelling its saved heights.
 
 The independent **기상 파일 가져오기** section accepts **CSV / Excel (.xlsx)**
 from the native file picker. Select a worksheet, inspect the first five rows,
@@ -202,8 +218,8 @@ at 257×257 nodes and reports its actual spacing; interpolation cannot improve t
 original DEM accuracy. Missing coverage or NoData rejects the import and preserves
 existing terrain. Sources/runs retain heights, source, sampling/pixel spacing,
 vertical reference, acquisition time, and a grid hash. Local replay needs no
-provider request. Successful imports enable terrain contact; use **발사 고도·기준을
-지형 + 발사대로 맞추기** if those inputs need to adopt the DEM's declared datum.
+provider request. Successful imports enable terrain contact; use **지형 자료 →
+발사 고도·기준을 지형 + 발사대로 맞추기** if those inputs need to adopt the DEM's declared datum.
 Different orthometric datums cannot be converted using a single geoid offset.
 
 The map's **배경 지도** selector offers none, OpenStreetMap roads, or **VWorld

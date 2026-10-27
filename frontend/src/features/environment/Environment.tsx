@@ -86,6 +86,16 @@ export function EnvironmentEditor() {
           value={env.pad_height_m || 0}
           onChange={(v) => w.edit(["environment", "pad_height_m"], v)}
         />
+        {w.weatherBusy && (
+          <p role="status">
+            변경된 발사 위치·고도·시각의 기상을 자동으로 갱신하고 있습니다…
+          </p>
+        )}
+        {w.problems.weather && (
+          <p className="notice warning" role="status">
+            {w.problems.weather}
+          </p>
+        )}
         <NumberField
           label="고도 경고 허용차"
           unit="m"

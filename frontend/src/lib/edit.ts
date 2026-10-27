@@ -1,4 +1,5 @@
 import type { RocketDesign } from "./types";
+import { preserveFileWeather } from "./weather.ts";
 
 export function componentRemovalIssue(
   design: RocketDesign,
@@ -79,6 +80,11 @@ export function editDesign(
     updated.environment.terrain_mode = "flat";
     updated.environment.geoid_undulation_m = null;
   }
+  if (path[0] === "environment")
+    updated.environment = preserveFileWeather(
+      design.environment,
+      updated.environment,
+    );
   return updated;
 }
 
@@ -102,7 +108,7 @@ export function placeLaunchSite(
     return design;
   return {
     ...design,
-    environment: {
+    environment: preserveFileWeather(design.environment, {
       ...design.environment,
       latitude,
       longitude,
@@ -110,6 +116,6 @@ export function placeLaunchSite(
       terrain: null,
       terrain_mode: "flat",
       geoid_undulation_m: null,
-    },
+    }),
   };
 }

@@ -25,6 +25,7 @@ import {
 import type { InputSchema } from "./lib/forms";
 import { defaultTerrainRequest, terrainMatchesSite } from "./lib/terrain";
 import { telemetryColumns } from "./lib/telemetry";
+import { automaticWeatherRequest, applyAutomaticWeather } from "./lib/weather";
 import type {
   DesignPreview,
   FlightSummary,
@@ -34,6 +35,7 @@ import type {
   TelemetryResult,
   TerrainRequest,
   TerrainImportOptions,
+  WeatherRequest,
 } from "./lib/types";
 
 interface Workspace {
@@ -65,6 +67,7 @@ interface Workspace {
     telemetry: TelemetryResult;
   } | null;
   elevation: ElevationCheck | null;
+  weatherBusy: boolean;
   terrainBusy: boolean;
   terrainSource: NonNullable<TerrainRequest["provider"]>;
   setTerrainSource: (source: NonNullable<TerrainRequest["provider"]>) => void;
@@ -297,6 +300,7 @@ export function WorkspaceProvider({
   const replace = (value: RocketDesign, saved = false) => {
     if (dirty && !window.confirm("저장하지 않은 편집 내용을 바꿀까요?")) return;
     autoTerrain.push(null);
+    autoWeather.push(null);
     setTerrainSource(
       value.environment.terrain?.provider === "unknown"
         ? "local"
@@ -319,6 +323,11 @@ export function WorkspaceProvider({
   const run = () =>
     act(async () => {
       if (pendingRun.current) return;
+      if (automaticWeatherRequest(design.environment))
+        throw new Error(
+          problems.weather ||
+            "기상 자료를 자동 갱신 중입니다. 완료한 뒤 실행하세요.",
+        );
       if (
         terrainBusy ||
         terrainAutoBusy ||
@@ -460,6 +469,52 @@ export function WorkspaceProvider({
     terrainArea.spacing_m,
   ]);
   useEffect(() => () => autoTerrain.dispose(), [autoTerrain]);
+  const autoWeather = useMemo(
+    () =>
+      previewQueue(
+        async (request: WeatherRequest | null) => {
+          if (!request) return null;
+          return {
+            request,
+            profile: await (
+              await desktopApi()
+            ).get_weather(JSON.stringify(request)),
+          };
+        },
+        (response) => {
+          if (!response) return;
+          const current = latest.current;
+          if (
+            applyAutomaticWeather(
+              current,
+              response.request,
+              response.profile,
+            ) === current
+          )
+            return;
+          setDesign((old) =>
+            applyAutomaticWeather(old, response.request, response.profile),
+          );
+          setDirty(true);
+          fieldIssue("weather", "");
+        },
+        (error) =>
+          fieldIssue(
+            "weather",
+            `기상 자동 갱신 실패: ${error instanceof Error ? error.message : String(error)} 시각 · 기상에서 다시 가져오세요.`,
+          ),
+        600,
+      ),
+    [fieldIssue],
+  );
+  const weatherQuery = JSON.stringify(
+    automaticWeatherRequest(design.environment),
+  );
+  useEffect(() => {
+    fieldIssue("weather", "");
+    autoWeather.push(JSON.parse(weatherQuery));
+  }, [autoWeather, weatherQuery, fieldIssue]);
+  useEffect(() => () => autoWeather.dispose(), [autoWeather]);
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
       if (dirty) event.preventDefault();
@@ -496,6 +551,7 @@ export function WorkspaceProvider({
             ? result
             : null,
         elevation,
+        weatherBusy: weatherQuery !== "null" && !problems.weather,
         terrainBusy: terrainBusy || terrainAutoBusy,
         terrainSource,
         setTerrainSource: (source) => {

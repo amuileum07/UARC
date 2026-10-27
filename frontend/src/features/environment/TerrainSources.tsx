@@ -214,24 +214,34 @@ export function TerrainSources() {
           {terrainReferences[grid.reference]}
         </p>
       )}
-      {grid && grid.reference !== "unknown" && ground !== null && (
-        <button
-          type="button"
-          onClick={() =>
-            w.edit(["environment"], {
-              ...env,
-              elevation: ground + (env.pad_height_m || 0),
-              elevation_reference: grid.reference,
-              geoid_undulation_m:
-                env.elevation_reference === grid.reference
-                  ? env.geoid_undulation_m
-                  : null,
-              terrain_mode: "terrain",
-            })
-          }
-        >
-          발사 고도·기준을 지형 + 발사대로 맞추기
-        </button>
+      <button
+        type="button"
+        disabled={
+          w.terrainBusy ||
+          !grid ||
+          grid.reference === "unknown" ||
+          ground === null
+        }
+        onClick={() => {
+          if (!grid || grid.reference === "unknown" || ground === null) return;
+          w.edit(["environment"], {
+            ...env,
+            elevation: ground + (env.pad_height_m || 0),
+            elevation_reference: grid.reference,
+            geoid_undulation_m:
+              env.elevation_reference === grid.reference
+                ? env.geoid_undulation_m
+                : null,
+            terrain_mode: "terrain",
+          });
+        }}
+      >
+        발사 고도·기준을 지형 + 발사대로 맞추기
+      </button>
+      {!grid && (
+        <p className="muted">
+          지형을 가져오면 발사 고도를 지면에 맞출 수 있습니다.
+        </p>
       )}
       {grid?.reference === "unknown" && (
         <p className="notice" role="status">

@@ -39,7 +39,8 @@ export function WeatherEditor() {
   const [pending, setPending] = useState<WeatherProfile | null>(null);
   const [message, setMessage] = useState("");
   const active = env.weather_profile;
-  const profile = pending || active;
+  const preview = pending && weatherMatches(env, pending) ? pending : null;
+  const profile = preview || active;
   const matching = profile ? weatherMatches(env, profile) : false;
   const coversLaunch = profile
     ? profile.levels[0].altitude_m <= env.elevation &&
@@ -197,6 +198,7 @@ export function WeatherEditor() {
         type="button"
         disabled={
           busy ||
+          w.weatherBusy ||
           !env.date ||
           (model === "wyoming_sounding" &&
             (!/^[0-9]{5}$/.test(station) || !observationTime))
@@ -242,6 +244,21 @@ export function WeatherEditor() {
         {busy ? "기상 자료 요청 중…" : "고도별 기상 가져오기"}
       </button>
       <p className="muted">
+        적용된 온라인 기상은 위치·고도·발사 시각을 바꾸면 자동으로 다시 가져와
+        적용합니다. Wyoming은 선택한 관측소·관측 시각을 유지합니다. 사용자
+        대기와 CSV·Excel의 고도별 수치는 자동으로 바꾸지 않습니다.
+      </p>
+      {w.weatherBusy && (
+        <p role="status">
+          변경된 발사 환경의 기상을 자동으로 갱신하고 있습니다…
+        </p>
+      )}
+      {w.problems.weather && (
+        <p className="notice warning" role="status">
+          {w.problems.weather}
+        </p>
+      )}
+      <p className="muted">
         {model === "wyoming_sounding"
           ? "클릭 시 관측소 번호·관측 시각을 University of Wyoming에 전송합니다. 기상관측 풍선의 고층 관측 자료이며, 발사 시각의 예보와 다릅니다. 발사장 위치·고도는 자동으로 바꾸지 않습니다."
           : "클릭 시 좌표·고도·발사 시각을 Open-Meteo에 전송합니다. 최근 5일~향후 9일 범위이며 모델별 제공 기간이 다릅니다."}
@@ -259,7 +276,7 @@ export function WeatherEditor() {
           role="status"
         >
           <strong>
-            {pending ? "적용 전 미리보기" : "적용된 기상"} ·{" "}
+            {preview ? "적용 전 미리보기" : "적용된 기상"} ·{" "}
             {weatherModels[profile.request.model]}
           </strong>
           <p>
@@ -275,16 +292,27 @@ export function WeatherEditor() {
               : profile.source === "File"
                 ? "적용 위치"
                 : "조회 격자"}{" "}
-            {profile.grid_latitude.toFixed(4)}°,{" "}
-            {profile.grid_longitude.toFixed(4)}° · {profile.levels.length}개
-            고도
+            {(profile.source === "File"
+              ? profile.request.latitude
+              : profile.grid_latitude
+            ).toFixed(4)}
+            °,{" "}
+            {(profile.source === "File"
+              ? profile.request.longitude
+              : profile.grid_longitude
+            ).toFixed(4)}
+            ° · {profile.levels.length}개 고도
           </p>
           <p>
             자료 범위 {profile.levels[0].altitude_m.toFixed(0)}~
             {profile.levels.at(-1)?.altitude_m.toFixed(0)} m · 비행 좌표 고도
           </p>
           {!matching && (
-            <p>발사장·고도·시각이 바뀌었습니다. 기상 자료를 다시 가져오세요.</p>
+            <p>
+              {w.weatherBusy
+                ? "발사 환경이 바뀌어 기상을 자동 갱신하고 있습니다."
+                : "발사장·고도·시각이 바뀌었습니다. 기상 자료를 다시 가져오세요."}
+            </p>
           )}
           {!coversLaunch && (
             <p>
@@ -296,13 +324,13 @@ export function WeatherEditor() {
           {profile.notes?.map((note) => (
             <p key={note}>{note}</p>
           ))}
-          {pending && (
+          {preview && (
             <button
               type="button"
               disabled={!matching || !coversLaunch}
               onClick={() =>
                 void w.act(async () => {
-                  w.edit(["environment"], applyWeather(w.design, pending));
+                  w.edit(["environment"], applyWeather(w.design, preview));
                   setPending(null);
                   setMessage(
                     "기상을 적용했습니다. 설계·실행에 이 자료가 보존되며 재실행 시 다시 조회하지 않습니다.",

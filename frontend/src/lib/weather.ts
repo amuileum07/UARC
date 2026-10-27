@@ -95,6 +95,70 @@ export function weatherRequest(
   };
 }
 
+export function automaticWeatherRequest(
+  env: EnvironmentConfig,
+): WeatherRequest | null {
+  const profile = env.weather_profile;
+  if (
+    !profile ||
+    profile.request.model === "file" ||
+    weatherMatches(env, profile)
+  )
+    return null;
+  try {
+    return weatherRequest(
+      env,
+      profile.request.model,
+      profile.request.model === "wyoming_sounding"
+        ? {
+            station_id: profile.request.station_id,
+            observation_time: profile.request.observation_time,
+          }
+        : undefined,
+    );
+  } catch {
+    return null;
+  }
+}
+
+export function applyAutomaticWeather(
+  design: RocketDesign,
+  request: WeatherRequest,
+  profile: WeatherProfile,
+): RocketDesign {
+  if (
+    JSON.stringify(automaticWeatherRequest(design.environment)) !==
+    JSON.stringify(request)
+  )
+    return design;
+  return { ...design, environment: applyWeather(design, profile) };
+}
+
+export function preserveFileWeather(
+  previous: EnvironmentConfig,
+  current: EnvironmentConfig,
+): EnvironmentConfig {
+  const profile = previous.weather_profile;
+  if (
+    profile?.request.model !== "file" ||
+    current.weather_profile !== profile ||
+    previous.elevation_reference !== current.elevation_reference ||
+    previous.geoid_undulation_m !== current.geoid_undulation_m ||
+    weatherMatches(current, profile)
+  )
+    return current;
+  try {
+    // Keep imported absolute heights/values and provenance; only rebind the site/time.
+    // A changed vertical reference needs a new import, not relabelled heights.
+    return {
+      ...current,
+      weather_profile: { ...profile, request: weatherRequest(current, "file") },
+    };
+  } catch {
+    return current;
+  }
+}
+
 export function weatherMatches(
   env: EnvironmentConfig,
   profile: WeatherProfile,
