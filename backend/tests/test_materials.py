@@ -5,6 +5,7 @@ import tempfile
 import unittest
 import xml.etree.ElementTree as ET
 from collections import Counter
+from math import pi
 from pathlib import Path
 from unittest.mock import patch
 from urllib.parse import urlsplit
@@ -23,12 +24,16 @@ from app.schemas import MaterialConfig, RocketDesign, SurfaceFinishConfig
 class MaterialTests(unittest.TestCase):
     def test_catalogue_contains_only_independent_product_facts_with_sources(self):
         catalog = material_catalog()
-        self.assertEqual(len(catalog["materials"]), 56)
-        self.assertEqual(len({m["id"] for m in catalog["materials"]}), 56)
-        self.assertEqual(catalog["coverage"]["materials"], 56)
+        self.assertEqual(len(catalog["materials"]), 86)
+        self.assertEqual(len({m["id"] for m in catalog["materials"]}), 86)
+        self.assertEqual(catalog["coverage"]["materials"], 86)
         self.assertEqual(
             Counter(item["density_type"] for item in catalog["materials"]),
-            {"bulk": 36, "surface": 5, "line": 15},
+            {"bulk": 43, "surface": 16, "line": 27},
+        )
+        self.assertEqual(
+            catalog["coverage"]["density_types"],
+            dict(Counter(item["density_type"] for item in catalog["materials"])),
         )
         self.assertEqual(catalog["surface_finishes"], [])
         sources = catalog["sources"]
@@ -63,6 +68,41 @@ class MaterialTests(unittest.TestCase):
         densities = {item["id"]: item["density"] for item in catalog["materials"]}
         self.assertEqual(densities["prusa_petg"], 1.27 * 1000)
         self.assertEqual(densities["hexcel_8552_as4"], 1.58 * 1000)
+
+    def test_added_presets_keep_tube_film_and_momme_conversion_definitions(self):
+        materials = {item["id"]: item for item in material_catalog()["materials"]}
+        for key, inner, wall, ounces in (
+            ("loc_quantum21_derived", 2.152, 0.063, 10.7),
+            ("loc_quantum30_derived", 3.002, 0.072, 15.2),
+        ):
+            radius, thickness = inner * 0.0254 / 2, wall * 0.0254
+            volume = pi * ((radius + thickness) ** 2 - radius**2) * (36 * 0.0254)
+            self.assertAlmostEqual(
+                materials[key]["density"] * volume,
+                ounces * 0.028349523125,
+                places=9,
+            )
+        for microns in (2, 6, 13):
+            self.assertEqual(
+                materials[f"lebow_mylar_{microns}um"]["density"],
+                round(1390 * microns * 1e-6, 9),
+            )
+        self.assertAlmostEqual(
+            materials["goodfellow_cellulose31"]["density"], 1440 * 31e-6
+        )
+        self.assertEqual(materials["goodfellow_ldpe_25um"]["density"], 0.023)
+        self.assertEqual(materials["goodfellow_ldpe_50um"]["density"], 0.046)
+        for momme in (8, 12):
+            self.assertAlmostEqual(
+                materials[f"dharma_habotai{momme}"]["density"],
+                momme * 0.45359237 / ((45 * 0.0254) * (100 * 0.9144)),
+                places=12,
+            )
+        self.assertEqual(materials["rossi_crepe40"]["density"], 0.032)
+        self.assertEqual(materials["rossi_crepe60"]["density"], 0.048)
+        self.assertEqual(materials["marlow_aramid1_5"]["density"], 0.0016)
+        self.assertEqual(materials["marlow_shockcord4"]["density"], 0.0125)
+        self.assertFalse(any("blue_tube" in key for key in materials))
 
     def test_independent_units_moisture_coatings_and_preset_mass(self):
         materials = {item["id"]: item for item in material_catalog()["materials"]}
@@ -166,6 +206,13 @@ class MaterialTests(unittest.TestCase):
         self.assertEqual(compile_payload(restored)[1], measured)
 
     def test_wrong_density_dimensions_missing_line_and_nonfinite_values_reject(self):
+        for kind in ("bulk", "surface", "line"):
+            for density in (0, -1, float("inf"), float("nan"), True):
+                with (
+                    self.subTest(kind=kind, density=density),
+                    self.assertRaises(ValidationError),
+                ):
+                    MaterialConfig(name="Custom", density=density, density_type=kind)
         for bad_kind in ("surface", "line"):
             payload = design_payload()
             payload["materials"]["body_stock"]["density_type"] = bad_kind
@@ -219,7 +266,7 @@ class MaterialTests(unittest.TestCase):
         bridge = DesktopBridge()
         catalog = bridge.get_material_catalog()
         catalog["materials"].clear()
-        self.assertEqual(len(bridge.get_material_catalog()["materials"]), 56)
+        self.assertEqual(len(bridge.get_material_catalog()["materials"]), 86)
         with patch("webbrowser.open", return_value=True) as opened:
             self.assertTrue(bridge.open_material_reference("prusa_petg"))
             self.assertEqual(

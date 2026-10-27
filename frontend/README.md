@@ -85,11 +85,14 @@ click **표 적용** to commit pasted data. Incomplete numeric fields or unappli
 tables block saving/running. Cancelling a curve-file picker preserves the
 previous curve. Incompatible fin sweep definitions are cleared atomically.
 Motor variants retain their prior settings while that motor editor stays open.
-New components, materials, motors, and tanks contain **example values** that
+New components, motors, and tanks contain **example values** that
 must be replaced with actual specifications. Used materials cannot be deleted.
-The material library contains 56 independently sourced density presets
-(36 bulk, 5 surface, 15 line), with manufacturer, industry, USDA and original
+The material library contains 86 independently sourced density presets
+(43 bulk, 16 surface, 27 line), with manufacturer, industry, USDA and original
 research references. The material editor also lists unresolved research items.
+Under **재질 → 사용자 재질 추가**, enter a name, density type and positive
+finite density. Units are kg/m³, kg/m² or kg/m; changing type clears the draft
+value. User materials are stored with the design and included in `.uarc` files.
 Simulator material and surface-finish tables are not included.
 Body/surface properties accept measured or independently documented roughness,
 with its convention preserved. These values are saved for a future drag model;

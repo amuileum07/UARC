@@ -38,8 +38,8 @@ it is included in both Python packages and desktop bundles. No material lookup
 requires a network request. Source buttons open the registered document in the
 system browser only when selected.
 
-The catalogue contains **56 independently sourced density presets**: 36 bulk,
-5 surface and 15 line. Sources include manufacturer technical sheets and product
+The catalogue contains **86 independently sourced density presets**: 43 bulk,
+16 surface and 27 line. Sources include manufacturer technical sheets and product
 specifications, industry references, USDA's Wood Handbook and original research.
 Each entry identifies its evidence type, source and grade/condition limitations.
 Simulator material/finish tables are not bundled. These presets do not overwrite
@@ -48,12 +48,12 @@ existing designs or claim to cover every material supported by other programs.
 | Family | Examples and scope |
 | --- | --- |
 | Metals | 6061 aluminum, steel reference, austenitic stainless product-group reference, C26000 brass, C11000 copper, Grade 2 titanium |
-| Plastics | PLA, PETG, POM-C, PA66, PMMA, PC, ABS, solid GPPS, PVC-U, HDPE, PP and Melinex 238 PET film |
+| Plastics | PLA, PETG, POM-C/POM-H, PA66, PMMA, PC, ABS, solid GPPS, PVC-U, HDPE/LDPE, PP, regenerated cellulose, PET film and product-specific Quantum Tube estimates |
 | Wood/cork | Balsaflex 150, five USDA species at 12% moisture, KoskiPly Standard birch plywood and an NL20 cork research specimen |
 | Composites/fibres | Cured HexPly 8552 AS4 UD, NP500A glass/epoxy G-10, NP629 paper/phenolic XX and raw Kevlar 29 filament |
-| Foams | Two ROHACELL IG-F grades, two Filcor EPS grades and a specified 3 mm Depron research specimen |
-| Paper/fabric/film | Xpression Bright kraft paper, DWR ripstop nylon, finished coated nylon/polyester and a specified PET film thickness |
-| Cord/webbing/thread | Selected HMPE, polyamide, polyester and aramid-core cords, elastic shockcord, tubular/flat webbing and sewing thread |
+| Foams | Two ROHACELL IG-F grades, two Filcor EPS grades, Terra XPS 300/500 and a specified 3 mm Depron research specimen |
+| Paper/fabric/film | Xpression Bright kraft paper, unstretched crepe paper, Habotai silk, DWR ripstop nylon, finished coated nylon/polyester, specified cellulose/LDPE thicknesses and bare Mylar 2/6/13 µm |
+| Cord/webbing/thread | Selected HMPE, polyamide, polyester, aramid and polyester-covered Vectran cords, elastic shockcord, tubular/flat webbing and sewing thread |
 
 Conversions retain the source's definitions. USDA Table 5-3a specific gravity
 uses oven-dry mass and volume at the stated moisture content: the 12% MC presets
@@ -64,14 +64,31 @@ thread `tex` is g/1000 m. Shockcord length is its zero-tension reference length.
 Specific-gravity conversions use the conventional 1000 kg/m³ water reference.
 These are reference estimates, not batch certificates or structural allowables.
 
+Film areal density is `bulk density × nominal thickness`, explicitly labelled
+as a conversion rather than measured grammage. Habotai silk uses the supplier's
+momme definition: pounds per 45 inch × 100 yard piece; `mm` is not millimetres.
+Crepe grade names denote roll mass, so the finished, unstretched g/m² is used.
+Quantum QT-2.1/3.0 use `mass / (π × (outer_radius² − inner_radius²) × length)`
+from each product's nominal wall dimensions and listed mass. These estimates
+are sensitive to wall thickness; actual component mass overrides take priority.
+
 The `research_gaps` list, also shown in the material editor, records unresolved
-thin/metallised films, cellulose/silk papers and fabrics, finished proprietary
-tubes, other foam grades and aerodynamic surface roughness. A lower bound or
-range without a representative nominal density is not silently used as a point
+metallised films, other fabric/cord specifications, finished proprietary tubes,
+other foam grades and aerodynamic surface roughness. Blue Tube's engineering
+sheet provides a 1300–1450 kg/m³ range; one dealer's 54 mm dimensions/mass imply
+about 1208 kg/m³, so no single preset is assigned to that unresolved discrepancy.
+A lower bound or range without a representative nominal density is not silently used as a point
 value. Research-specimen values are labelled separately from product data.
 Only individual property facts, unit conversions and independently written
 notes are included; publisher documents, figures and complete tables are not
 redistributed. Source documents retain their own terms.
+
+In **재질 → 사용자 재질 추가**, users enter a name, bulk/surface/line density
+type and a positive finite density before adding the material. Changing the
+type clears the draft value to prevent accidental unit reinterpretation. These
+materials belong to the design, are editable, and survive saved snapshots and
+`.uarc` export/import. Built-in presets are copied into the design rather than
+linked to mutable catalogue values. The existing limit is 64 materials per design.
 
 | `MaterialConfig.density_type` | Unit | Allowed use |
 | --- | --- | --- |

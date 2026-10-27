@@ -3,11 +3,11 @@
   "checked_on": "2026-10-27",
   "coverage": {
     "scope": "Independently sourced product and reference density facts; representative grades, not an exhaustive simulator-compatible material list.",
-    "materials": 56,
+    "materials": 86,
     "density_types": {
-      "bulk": 36,
-      "surface": 5,
-      "line": 15
+      "bulk": 43,
+      "surface": 16,
+      "line": 27
     },
     "surface_finishes": 0,
     "custom_inputs": "Bulk, surface and line densities remain editable. Finished-part roughness requires measured or independently documented input."
@@ -303,7 +303,7 @@
     "marlow_shockcord2024": {
       "title": "Marlow Ropes Standard Shockcord Polyester datasheet (2024)",
       "url": "https://shop.marlowropes.com/content/files/datasheets/defence/datasheets%20with%20iso%2014001/standard%20shockcord%20poly%202024.pdf",
-      "locator": "Performance: 3 mm 7 g/m; 6 mm 33 g/m. Testing method: zero tension",
+      "locator": "Performance: 3/4/5/6 mm mass 7/12.5/20/33 g/m. Testing method: zero tension.",
       "kind": "manufacturer_tds",
       "note": "Typical reference properties for the named grade, not a batch certificate or structural allowable."
     },
@@ -334,6 +334,139 @@
       "locator": "p. 2, density 1.4 g/cc ASTM D1505; p. 1, 300-gauge grade described as 0.075 mm",
       "kind": "manufacturer_tds",
       "note": "Specific electrical-insulation PET film, not every Mylar/PET film. Areal density is explicitly calculated using the stated metric thickness, not a guessed gauge conversion."
+    },
+    "ensinger_pomh": {
+      "title": "Ensinger TECAFORM AD natural, international TDS (2023-07-19)",
+      "url": "https://www.ensinger-online.com/modules/public/sheet/createsheet.php?FILENAME=TECAFORM_AD_natural_0.PDF&FL=0&SID=687&ZOOM=1.2",
+      "locator": "p. 1: POM-H, density 1.43 g/cm³. International grade sheet; US product page has a different listed value.",
+      "kind": "manufacturer_tds",
+      "note": "Typical values for the named product and condition; not certified batch properties."
+    },
+    "goodfellow_ldpe": {
+      "title": "Goodfellow LDPE film physical properties",
+      "url": "https://www.goodfellow.com/usa/ldpe-film-group",
+      "locator": "Physical properties: density 0.92 g/cm³; film thickness tolerance ±20%.",
+      "kind": "publisher_product_spec",
+      "note": "Supplier reference density; areal values are density × specified film thickness, not measured grammage."
+    },
+    "goodfellow_ldpe_sizes": {
+      "title": "Goodfellow LDPE coil size options",
+      "url": "https://www.goodfellow.com/de/ldpe-coil-group",
+      "locator": "Thickness options include 0.025 mm and 0.05 mm.",
+      "kind": "publisher_product_spec",
+      "note": "Typical values for the named product and condition; not certified batch properties."
+    },
+    "goodfellow_cellulose": {
+      "title": "Goodfellow regenerated cellulose film physical properties",
+      "url": "https://www.goodfellow.com/usa/cellulose-film-group",
+      "locator": "Regenerated cellulose film: density 1.44 g/cm³; thickness tolerance ±20%.",
+      "kind": "publisher_product_spec",
+      "note": "Regenerated cellulose supplier reference. Moisture/coating affect mass; not cellulose acetate or all cellophane products."
+    },
+    "goodfellow_cellulose31": {
+      "title": "Sigma-Aldrich GF02990123 / Goodfellow AC321030 cellulose film",
+      "url": "https://www.sigmaaldrich.com/KR/en/product/aldrich/gf02990123",
+      "locator": "Goodfellow 029-901-23: regenerated cellulose, thickness 0.031 mm.",
+      "kind": "publisher_product_spec",
+      "note": "Typical values for the named product and condition; not certified batch properties."
+    },
+    "loc_quantum_dimensions": {
+      "title": "LOC Precision / PML Quantum Airframe Tubing product specifications",
+      "url": "https://locprecision.com/products/quantum-airframe-tubing",
+      "locator": "Visible Part# table: QT-2.1 ID 2.152 in, wall ~0.063 in, length 36 in, 10.7 oz; QT-3.0 ID 3.002 in, wall ~0.072 in, length 36 in, 15.2 oz.",
+      "kind": "manufacturer_reference",
+      "note": "Apparent wall densities derived from listed tube mass and nominal dimensions, not universal material densities. Shopify shipping weights are not used."
+    },
+    "bewi_terra2026": {
+      "title": "BEWI Terra XPS 55% EPD NEPD-14692-15367 (2026-01-23)",
+      "url": "https://bewi.com/wp-content/uploads/2023/08/EPD-Jackofoam-Terra-XPS-NO.pdf",
+      "locator": "p. 3, Technical data: Terra XPS 300 density 32.0 kg/m³; Terra XPS 500 37.5 kg/m³.",
+      "kind": "manufacturer_reference",
+      "note": "Named product-grade densities from manufacturer-owned, independently verified EPD; grade numbers denote pressure class, not density."
+    },
+    "lebow_mylar": {
+      "title": "Lebow Company, Mylar PET foil and sheet specifications",
+      "url": "https://lebowcompany.com/foils-list",
+      "locator": "MYLAR (PET): density 1.39 g/cm³; listed thicknesses include 2, 6 and 13 µm. Sheets explicitly not metallized.",
+      "kind": "publisher_product_spec",
+      "note": "Selected supplier film facts. Areal values are calculated from nominal thickness and density; not metallized-film mass."
+    },
+    "rossi_crepe40": {
+      "title": "Cartotecnica Rossi Educational 40g crepe paper",
+      "url": "https://b2b.cartotecnicarossi.com/en/prodotti/educational-40g-crepe-paper/",
+      "locator": "Finished, unstretched solid-color roll: 32 g/m². Grade name is roll mass, not g/m².",
+      "kind": "manufacturer_reference",
+      "note": "Typical values for the named product and condition; not certified batch properties."
+    },
+    "rossi_crepe60": {
+      "title": "Cartotecnica Rossi Hobby 60g solid color crepe paper",
+      "url": "https://b2b.cartotecnicarossi.com/en/prodotti/hobby-60g-crepe-paper/",
+      "locator": "Finished, unstretched solid-color roll: 48 g/m². Grade name is roll mass, not g/m².",
+      "kind": "manufacturer_reference",
+      "note": "Typical values for the named product and condition; not certified batch properties."
+    },
+    "dharma_momme": {
+      "title": "Dharma Trading, Fabric Weight: momme definition",
+      "url": "https://www.dharmatrading.com/blogs/a/did-you-know-momme-fabric-weight",
+      "locator": "Momme is pounds per 45 inch × 100 yard piece; not millimetres or thickness.",
+      "kind": "publisher_product_spec",
+      "note": "Conversion uses international pound 0.45359237 kg, inch 0.0254 m and yard 0.9144 m; nominal unwashed areal mass."
+    },
+    "dharma_habotai8": {
+      "title": "Dharma Trading Habotai Silk 8 momme product details",
+      "url": "https://www.dharmatrading.com/products/habotai-silk-8mm",
+      "locator": "Fabric Details: 100% Habotai silk, 8 mm (momme); washing shrinkage stated separately.",
+      "kind": "publisher_product_spec",
+      "note": "Typical values for the named product and condition; not certified batch properties."
+    },
+    "dharma_habotai12": {
+      "title": "Dharma Trading Habotai Silk 12 momme product details",
+      "url": "https://www.dharmatrading.com/products/habotai-silk-12mm",
+      "locator": "Fabric Details: 100% Habotai silk, 12 mm (momme); washing shrinkage stated separately.",
+      "kind": "publisher_product_spec",
+      "note": "Typical values for the named product and condition; not certified batch properties."
+    },
+    "rbtr_nylon19": {
+      "title": "Ripstop by the Roll 1.9 oz Ripstop Nylon product specifications",
+      "url": "https://ripstopbytheroll.com/products/1-9-oz-ripstop-nylon-1",
+      "locator": "Product Details: 64.4 gsm, 70D, breathable DWR finish, uncalendered.",
+      "kind": "publisher_product_spec",
+      "note": "Brand-published average/estimate for the finished fabric; not certified parachute suitability or permeability."
+    },
+    "petzl_nylon_cords": {
+      "title": "Petzl nylon accessory cords R044–R047 technical references",
+      "url": "https://www.petzl.com/int/en/sport/products/cords/cords/Cordelettes_SPO_a2mw0000001TkhtAAC.html",
+      "locator": "References: 4/5/6/7 mm finished nylon cords, 10/15/24/31 g per metre. Strengths are not used as simulation inputs.",
+      "kind": "manufacturer_reference",
+      "note": "Typical values for the named product and condition; not certified batch properties."
+    },
+    "marlow_singlebraid_aramid": {
+      "title": "Marlow Singlebraid Aramid (Uncovered Aramid) datasheet",
+      "url": "https://www.shopusa.marlowropes.com/content/files/singlebraid%20aramid%20(uncovered%20aramid).pdf",
+      "locator": "p. 1, general diameter table (not BS F143 references): 0.8/1.5/2/3 mm; mass 0.8/1.6/3.4/6.3 g/m.",
+      "kind": "manufacturer_tds",
+      "note": "Typical values for the named product and condition; not certified batch properties."
+    },
+    "marlow_vectran2024": {
+      "title": "Marlow Excel Vectran datasheet (2024)",
+      "url": "https://shop.marlowropes.com/content/files/datasheets/defence/datasheets%20with%20iso%2014001/excel%20vectran%20new%202024.pdf",
+      "locator": "p. 1: Vectran core, polyester cover; 2 mm 3.2 g/m, 3 mm 6.7 g/m.",
+      "kind": "manufacturer_tds",
+      "note": "Typical values for the named product and condition; not certified batch properties."
+    },
+    "blue_tube_engineering": {
+      "title": "Always Ready Rocketry Blue Tube engineering data",
+      "url": "https://alwaysreadyrocketry.com/wp-content/uploads/2020/01/Blue-Tube-Engineering-Data.pdf",
+      "locator": "Scanned p. 1: density range 1.30–1.45 g/cm³. No nominal point density given.",
+      "kind": "manufacturer_tds",
+      "note": "Range retained as an unresolved reference, not converted to a fabricated nominal preset."
+    },
+    "blue_tube_apogee54": {
+      "title": "Apogee 10502 54 mm Blue Tube product specifications",
+      "url": "https://www.apogeerockets.com/Building_Supplies/Body_Tubes/Blue_Tubes/54mm_Blue_Tube",
+      "locator": "Listed mass 410 g, ID 2.135 in, OD 2.260 in, length 48 in. Dimensions differ from ARR current 54 mm airframe listing.",
+      "kind": "publisher_product_spec",
+      "note": "Listed dimensions/mass imply ~1208 kg/m³, outside the separate engineering range. No material preset created from this unresolved discrepancy."
     }
   },
   "groups": {
@@ -369,7 +502,12 @@
         "roughness_review",
         "plexiglas_gs",
         "roechling_pvc",
-        "mylar_melinex238"
+        "mylar_melinex238",
+        "ensinger_pomh",
+        "goodfellow_ldpe",
+        "goodfellow_cellulose",
+        "loc_quantum_dimensions",
+        "lebow_mylar"
       ]
     },
     "composites": {
@@ -387,7 +525,9 @@
       "notes": "면밀도와 두께로 계산한 겉보기 체적밀도는 구분됩니다. 습기·압축·접착층·코팅·겹침을 확인하세요. Bendtsen 공기유량(ml/min)을 Ra 또는 ks 길이로 바꾸지 않습니다.",
       "source_ids": [
         "billerud_xpression_bright",
-        "roughness_review"
+        "roughness_review",
+        "rossi_crepe40",
+        "rossi_crepe60"
       ]
     },
     "foams": {
@@ -397,7 +537,8 @@
         "evonik_rohacell",
         "roughness_review",
         "cordek_filcor",
-        "rakhshani_depron2025"
+        "rakhshani_depron2025",
+        "bewi_terra2026"
       ]
     },
     "fabrics": {
@@ -406,7 +547,10 @@
       "source_ids": [
         "rbtr_nylon11",
         "rbtr_silnylon11",
-        "rbtr_silpoly11"
+        "rbtr_silpoly11",
+        "dharma_habotai8",
+        "dharma_momme",
+        "rbtr_nylon19"
       ]
     },
     "fibers": {
@@ -422,7 +566,10 @@
       "source_ids": [
         "samson_amsteel_blue",
         "edelrid_helix2025",
-        "marlow_shockcord2024"
+        "marlow_shockcord2024",
+        "petzl_nylon_cords",
+        "marlow_singlebraid_aramid",
+        "marlow_vectran2024"
       ]
     }
   },
@@ -1098,6 +1245,371 @@
       ],
       "evidence": "manufacturer_typical",
       "notes": "TDS에 명시된 0.075 mm 두께 × 1400 kg/m³ = 0.105 kg/m²의 공칭 계산값입니다. 코팅·증착·공극·두께 변경 시 재계산하세요."
+    },
+    {
+      "id": "ensinger_pomh",
+      "name": "POM-H · Delrin 수지 · TECAFORM AD natural 국제 등급",
+      "density": 1430,
+      "density_type": "bulk",
+      "group": "plastics",
+      "evidence": "manufacturer_typical",
+      "source_ids": [
+        "ensinger_pomh"
+      ],
+      "notes": "국제판 TDS의 POM-H 밀도 1.43 g/cm³입니다. 기존 POM-C와 구분하며, 미국 판매 페이지의 1.41과도 달라 해당 공급 등급을 확인하세요."
+    },
+    {
+      "id": "goodfellow_ldpe_bulk",
+      "name": "LDPE · 저밀도 폴리에틸렌 필름 · Goodfellow",
+      "density": 920,
+      "density_type": "bulk",
+      "group": "plastics",
+      "evidence": "publisher_typical",
+      "source_ids": [
+        "goodfellow_ldpe"
+      ],
+      "notes": "공급사 필름 참고 밀도 0.92 g/cm³입니다. HDPE와 다르며 발포 PE나 충전 제품에 적용하지 않습니다."
+    },
+    {
+      "id": "goodfellow_ldpe_25um",
+      "name": "LDPE 필름 · Goodfellow 25 µm · 면밀도 환산",
+      "density": 0.023,
+      "density_type": "surface",
+      "group": "plastics",
+      "evidence": "publisher_typical",
+      "source_ids": [
+        "goodfellow_ldpe",
+        "goodfellow_ldpe_sizes"
+      ],
+      "notes": "920 kg/m³ × 25 µm로 환산한 면밀도입니다. 직접 측정한 평량이 아니며 두께 공차·접착·접합부 질량은 따로 확인하세요."
+    },
+    {
+      "id": "goodfellow_ldpe_50um",
+      "name": "LDPE 필름 · Goodfellow 50 µm · 면밀도 환산",
+      "density": 0.046,
+      "density_type": "surface",
+      "group": "plastics",
+      "evidence": "publisher_typical",
+      "source_ids": [
+        "goodfellow_ldpe",
+        "goodfellow_ldpe_sizes"
+      ],
+      "notes": "920 kg/m³ × 50 µm로 환산한 면밀도입니다. 직접 측정한 평량이 아니며 두께 공차·접착·접합부 질량은 따로 확인하세요."
+    },
+    {
+      "id": "goodfellow_cellulose_bulk",
+      "name": "Cellophane 계열 · 재생 셀룰로스 필름 · Goodfellow",
+      "density": 1440,
+      "density_type": "bulk",
+      "group": "plastics",
+      "evidence": "publisher_typical",
+      "source_ids": [
+        "goodfellow_cellulose"
+      ],
+      "notes": "재생 셀룰로스 필름의 공급사 참고 밀도 1.44 g/cm³입니다. 수분·가소제·코팅이 다른 셀로판 제품에는 실측값을 사용하세요."
+    },
+    {
+      "id": "goodfellow_cellulose31",
+      "name": "Cellophane 계열 · Goodfellow AC321030 31 µm · 면밀도 환산",
+      "density": 0.04464,
+      "density_type": "surface",
+      "group": "plastics",
+      "evidence": "publisher_typical",
+      "source_ids": [
+        "goodfellow_cellulose",
+        "goodfellow_cellulose31"
+      ],
+      "notes": "1440 kg/m³ × 31 µm = 44.64 g/m²의 환산값입니다. 공급사 일반 밀도와 해당 규격 두께를 사용했으며 실측 평량은 아닙니다."
+    },
+    {
+      "id": "loc_quantum21_derived",
+      "name": "Quantum Tube · PML QT-2.1 · 겉보기 밀도 환산",
+      "density": 1172.902015,
+      "density_type": "bulk",
+      "group": "plastics",
+      "evidence": "manufacturer_typical",
+      "source_ids": [
+        "loc_quantum_dimensions"
+      ],
+      "notes": "내경 2.152 in·벽 약 0.063 in·길이 36 in·질량 10.7 oz에서 질량/[π((내경/2+벽)²−(내경/2)²)×길이]로 계산했습니다. 공칭 치수에 민감한 제품별 추정값으로, 같은 규격·벽 두께를 확인하고 실측 질량을 우선하세요."
+    },
+    {
+      "id": "loc_quantum30_derived",
+      "name": "Quantum Tube · PML QT-3.0 · 겉보기 밀도 환산",
+      "density": 1050.508239,
+      "density_type": "bulk",
+      "group": "plastics",
+      "evidence": "manufacturer_typical",
+      "source_ids": [
+        "loc_quantum_dimensions"
+      ],
+      "notes": "내경 3.002 in·벽 약 0.072 in·길이 36 in·질량 15.2 oz에서 질량/[π((내경/2+벽)²−(내경/2)²)×길이]로 계산했습니다. 공칭 치수에 민감한 제품별 추정값으로, 같은 규격·벽 두께를 확인하고 실측 질량을 우선하세요."
+    },
+    {
+      "id": "bewi_terra300",
+      "name": "XPS foam · 압출 폴리스티렌 · BEWI Terra 300",
+      "density": 32,
+      "density_type": "bulk",
+      "group": "foams",
+      "evidence": "manufacturer_typical",
+      "source_ids": [
+        "bewi_terra2026"
+      ],
+      "notes": "2026 EPD의 Terra XPS 300 등급 밀도 32 kg/m³입니다. 등급 번호는 밀도가 아닌 압축 등급이며 표피 제거·도장·접착 후 질량은 별도입니다."
+    },
+    {
+      "id": "bewi_terra500",
+      "name": "XPS foam · 압출 폴리스티렌 · BEWI Terra 500",
+      "density": 37.5,
+      "density_type": "bulk",
+      "group": "foams",
+      "evidence": "manufacturer_typical",
+      "source_ids": [
+        "bewi_terra2026"
+      ],
+      "notes": "2026 EPD의 Terra XPS 500 등급 밀도 37.5 kg/m³입니다. 등급 번호는 밀도가 아닌 압축 등급이며 표피 제거·도장·접착 후 질량은 별도입니다."
+    },
+    {
+      "id": "lebow_mylar_2um",
+      "name": "Mylar PET 박막 · Lebow 2 µm · 비증착 면밀도 환산",
+      "density": 0.00278,
+      "density_type": "surface",
+      "group": "plastics",
+      "evidence": "publisher_typical",
+      "source_ids": [
+        "lebow_mylar"
+      ],
+      "notes": "1390 kg/m³ × 2 µm의 공칭 면밀도입니다. 비증착 Mylar 필름이며 알루미늄 코팅·접착제·보강재가 포함된 제품에는 적용하지 않습니다."
+    },
+    {
+      "id": "lebow_mylar_6um",
+      "name": "Mylar PET 박막 · Lebow 6 µm · 비증착 면밀도 환산",
+      "density": 0.00834,
+      "density_type": "surface",
+      "group": "plastics",
+      "evidence": "publisher_typical",
+      "source_ids": [
+        "lebow_mylar"
+      ],
+      "notes": "1390 kg/m³ × 6 µm의 공칭 면밀도입니다. 비증착 Mylar 필름이며 알루미늄 코팅·접착제·보강재가 포함된 제품에는 적용하지 않습니다."
+    },
+    {
+      "id": "lebow_mylar_13um",
+      "name": "Mylar PET 박막 · Lebow 13 µm · 비증착 면밀도 환산",
+      "density": 0.01807,
+      "density_type": "surface",
+      "group": "plastics",
+      "evidence": "publisher_typical",
+      "source_ids": [
+        "lebow_mylar"
+      ],
+      "notes": "1390 kg/m³ × 13 µm의 공칭 면밀도입니다. 비증착 Mylar 필름이며 알루미늄 코팅·접착제·보강재가 포함된 제품에는 적용하지 않습니다."
+    },
+    {
+      "id": "rossi_crepe40",
+      "name": "Crepe paper · 크레이프지 · Rossi Educational 40g",
+      "density": 0.032,
+      "density_type": "surface",
+      "group": "paper",
+      "evidence": "manufacturer_typical",
+      "source_ids": [
+        "rossi_crepe40"
+      ],
+      "notes": "늘리지 않은 완성 롤 기준 32 g/m²입니다. 제품명 40g는 평량이 아닙니다. 늘려 사용하면 실제 면적당 질량이 달라지며, 금속 코팅판·난연 제품과도 다릅니다."
+    },
+    {
+      "id": "rossi_crepe60",
+      "name": "Crepe paper · 크레이프지 · Rossi Hobby 60g solid color",
+      "density": 0.048,
+      "density_type": "surface",
+      "group": "paper",
+      "evidence": "manufacturer_typical",
+      "source_ids": [
+        "rossi_crepe60"
+      ],
+      "notes": "늘리지 않은 완성 롤 기준 48 g/m²입니다. 제품명 60g는 평량이 아닙니다. 늘려 사용하면 실제 면적당 질량이 달라지며, 금속 코팅판·난연 제품과도 다릅니다."
+    },
+    {
+      "id": "dharma_habotai8",
+      "name": "Silk · 실크 · Dharma Habotai 8 momme",
+      "density": 0.034719485414,
+      "density_type": "surface",
+      "group": "fabrics",
+      "evidence": "publisher_typical",
+      "source_ids": [
+        "dharma_habotai8",
+        "dharma_momme"
+      ],
+      "notes": "8 momme × 0.45359237 kg / [(45×0.0254 m)×(100×0.9144 m)]의 공칭 면밀도입니다. mm은 두께가 아닌 momme 표기입니다. 세탁 수축·염색·봉제 후에는 재측정하세요."
+    },
+    {
+      "id": "dharma_habotai12",
+      "name": "Silk · 실크 · Dharma Habotai 12 momme",
+      "density": 0.052079228121,
+      "density_type": "surface",
+      "group": "fabrics",
+      "evidence": "publisher_typical",
+      "source_ids": [
+        "dharma_habotai12",
+        "dharma_momme"
+      ],
+      "notes": "12 momme × 0.45359237 kg / [(45×0.0254 m)×(100×0.9144 m)]의 공칭 면밀도입니다. mm은 두께가 아닌 momme 표기입니다. 세탁 수축·염색·봉제 후에는 재측정하세요."
+    },
+    {
+      "id": "rbtr_nylon19",
+      "name": "Ripstop nylon · 립스톱 나일론 · RBTR 1.9 oz",
+      "density": 0.0644,
+      "density_type": "surface",
+      "group": "fabrics",
+      "evidence": "publisher_typical",
+      "source_ids": [
+        "rbtr_nylon19"
+      ],
+      "notes": "완성 원단의 표시 면밀도 64.4 g/m²입니다. 70D·비캘린더링 DWR 제품이며 기존 1.1 oz 원단과 구분합니다. 투기도·낙하산 Cd는 별도입니다."
+    },
+    {
+      "id": "petzl_nylon4",
+      "name": "Nylon 줄 · Petzl R044 4 mm",
+      "density": 0.01,
+      "density_type": "line",
+      "group": "threads_lines",
+      "evidence": "manufacturer_typical",
+      "source_ids": [
+        "petzl_nylon_cords"
+      ],
+      "notes": "완성 나일론 줄 4 mm의 표시 선밀도 10 g/m입니다. 원섬유 밀도로 환산하지 않으며 파단하중·전개 충격 해석은 별도입니다."
+    },
+    {
+      "id": "petzl_nylon5",
+      "name": "Nylon 줄 · Petzl R045 5 mm",
+      "density": 0.015,
+      "density_type": "line",
+      "group": "threads_lines",
+      "evidence": "manufacturer_typical",
+      "source_ids": [
+        "petzl_nylon_cords"
+      ],
+      "notes": "완성 나일론 줄 5 mm의 표시 선밀도 15 g/m입니다. 원섬유 밀도로 환산하지 않으며 파단하중·전개 충격 해석은 별도입니다."
+    },
+    {
+      "id": "petzl_nylon6",
+      "name": "Nylon 줄 · Petzl R046 6 mm",
+      "density": 0.024,
+      "density_type": "line",
+      "group": "threads_lines",
+      "evidence": "manufacturer_typical",
+      "source_ids": [
+        "petzl_nylon_cords"
+      ],
+      "notes": "완성 나일론 줄 6 mm의 표시 선밀도 24 g/m입니다. 원섬유 밀도로 환산하지 않으며 파단하중·전개 충격 해석은 별도입니다."
+    },
+    {
+      "id": "petzl_nylon7",
+      "name": "Nylon 줄 · Petzl R047 7 mm",
+      "density": 0.031,
+      "density_type": "line",
+      "group": "threads_lines",
+      "evidence": "manufacturer_typical",
+      "source_ids": [
+        "petzl_nylon_cords"
+      ],
+      "notes": "완성 나일론 줄 7 mm의 표시 선밀도 31 g/m입니다. 원섬유 밀도로 환산하지 않으며 파단하중·전개 충격 해석은 별도입니다."
+    },
+    {
+      "id": "marlow_aramid0_8",
+      "name": "Aramid 줄 · Marlow Singlebraid 0.8 mm",
+      "density": 0.0008,
+      "density_type": "line",
+      "group": "threads_lines",
+      "evidence": "manufacturer_typical",
+      "source_ids": [
+        "marlow_singlebraid_aramid"
+      ],
+      "notes": "피복 없는 파라아라미드 편조 줄 0.8 mm의 선밀도 0.8 g/m입니다. Kevlar 상표·개별 BS F143 규격 또는 피복 제품과 동일하다고 가정하지 않습니다."
+    },
+    {
+      "id": "marlow_aramid1_5",
+      "name": "Aramid 줄 · Marlow Singlebraid 1.5 mm",
+      "density": 0.0016,
+      "density_type": "line",
+      "group": "threads_lines",
+      "evidence": "manufacturer_typical",
+      "source_ids": [
+        "marlow_singlebraid_aramid"
+      ],
+      "notes": "피복 없는 파라아라미드 편조 줄 1.5 mm의 선밀도 1.6 g/m입니다. Kevlar 상표·개별 BS F143 규격 또는 피복 제품과 동일하다고 가정하지 않습니다."
+    },
+    {
+      "id": "marlow_aramid2",
+      "name": "Aramid 줄 · Marlow Singlebraid 2 mm",
+      "density": 0.0034,
+      "density_type": "line",
+      "group": "threads_lines",
+      "evidence": "manufacturer_typical",
+      "source_ids": [
+        "marlow_singlebraid_aramid"
+      ],
+      "notes": "피복 없는 파라아라미드 편조 줄 2 mm의 선밀도 3.4 g/m입니다. Kevlar 상표·개별 BS F143 규격 또는 피복 제품과 동일하다고 가정하지 않습니다."
+    },
+    {
+      "id": "marlow_aramid3",
+      "name": "Aramid 줄 · Marlow Singlebraid 3 mm",
+      "density": 0.0063,
+      "density_type": "line",
+      "group": "threads_lines",
+      "evidence": "manufacturer_typical",
+      "source_ids": [
+        "marlow_singlebraid_aramid"
+      ],
+      "notes": "피복 없는 파라아라미드 편조 줄 3 mm의 선밀도 6.3 g/m입니다. Kevlar 상표·개별 BS F143 규격 또는 피복 제품과 동일하다고 가정하지 않습니다."
+    },
+    {
+      "id": "marlow_vectran2",
+      "name": "Vectran 줄 · Marlow Excel 2 mm · 폴리에스터 피복",
+      "density": 0.0032,
+      "density_type": "line",
+      "group": "threads_lines",
+      "evidence": "manufacturer_typical",
+      "source_ids": [
+        "marlow_vectran2024"
+      ],
+      "notes": "Vectran 코어·폴리에스터 피복 완성 줄 2 mm의 선밀도 3.2 g/m입니다. 코어 섬유의 체적밀도와 다르며 피복 질량을 포함합니다."
+    },
+    {
+      "id": "marlow_vectran3",
+      "name": "Vectran 줄 · Marlow Excel 3 mm · 폴리에스터 피복",
+      "density": 0.0067,
+      "density_type": "line",
+      "group": "threads_lines",
+      "evidence": "manufacturer_typical",
+      "source_ids": [
+        "marlow_vectran2024"
+      ],
+      "notes": "Vectran 코어·폴리에스터 피복 완성 줄 3 mm의 선밀도 6.7 g/m입니다. 코어 섬유의 체적밀도와 다르며 피복 질량을 포함합니다."
+    },
+    {
+      "id": "marlow_shockcord4",
+      "name": "Elastic 줄 · Marlow Standard Shockcord 4 mm",
+      "density": 0.0125,
+      "density_type": "line",
+      "group": "threads_lines",
+      "evidence": "manufacturer_typical",
+      "source_ids": [
+        "marlow_shockcord2024"
+      ],
+      "notes": "천연고무 코어·폴리에스터 피복, 무장력 기준 12.5 g/m입니다. 늘리기 전 기준 길이를 사용하세요. 스프링·전개 충격 해석은 하지 않습니다."
+    },
+    {
+      "id": "marlow_shockcord5",
+      "name": "Elastic 줄 · Marlow Standard Shockcord 5 mm",
+      "density": 0.02,
+      "density_type": "line",
+      "group": "threads_lines",
+      "evidence": "manufacturer_typical",
+      "source_ids": [
+        "marlow_shockcord2024"
+      ],
+      "notes": "천연고무 코어·폴리에스터 피복, 무장력 기준 20 g/m입니다. 늘리기 전 기준 길이를 사용하세요. 스프링·전개 충격 해석은 하지 않습니다."
     }
   ],
   "surface_finishes": [],
@@ -1109,21 +1621,30 @@
   },
   "research_gaps": [
     {
-      "name": "기타 XPS·Depron 등급",
-      "reason": "등록된 Depron은 특정 3 mm 연구시편의 명시값입니다. 다른 제품에서 확인된 밀도 하한·범위만으로는 공칭값을 지정하지 않습니다.",
+      "name": "기타 발포재 등급",
+      "reason": "Terra XPS 300·500과 기존 Depron 연구시편 등은 등록했습니다. 다른 등급·발포율에 보편 밀도를 적용하지 않습니다.",
       "source_ids": [
+        "bewi_terra2026",
         "rakhshani_depron2025"
       ]
     },
     {
-      "name": "초박막·증착 Mylar·셀로판·크레이프지·실크",
-      "reason": "등록된 Melinex 238과 다른 제품입니다. 정확한 제품 등급·두께·가공 조건에 대응하는 면밀도 자료가 더 필요합니다.",
-      "source_ids": []
+      "name": "증착 필름·다른 코팅 및 원단 규격",
+      "reason": "비증착 Mylar 2·6·13 µm, 재생 셀룰로스·LDPE, 실크·크레이프지를 추가했습니다. 금속 증착·코팅층을 포함한 미확인 제품과 다른 줄 굵기의 질량은 실측하거나 별도 자료가 필요합니다.",
+      "source_ids": [
+        "lebow_mylar",
+        "goodfellow_cellulose",
+        "dharma_momme"
+      ]
     },
     {
-      "name": "종이 튜브·Quantum tubing·Blue Tube 등 완성품",
-      "reason": "벽재·접착층·코팅·제품 치수 또는 실측 질량이 필요합니다. 재료명만으로 완성 튜브의 밀도를 지정하지 않습니다.",
-      "source_ids": []
+      "name": "Blue Tube·기타 완성 튜브",
+      "reason": "Quantum QT-2.1·3.0은 제품 질량·공칭 치수에서 환산했습니다. Blue Tube 제조사 자료는 1300–1450 kg/m³ 범위만 제공하며, Apogee 54 mm 제품 표의 환산값 약 1208 kg/m³와 일치하지 않아 단일 밀도를 지정하지 않았습니다. 해당 부품의 실측 질량을 사용하세요.",
+      "source_ids": [
+        "loc_quantum_dimensions",
+        "blue_tube_engineering",
+        "blue_tube_apogee54"
+      ]
     },
     {
       "name": "표면 마감·공력 거칠기",

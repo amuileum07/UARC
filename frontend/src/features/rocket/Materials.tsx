@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { NumberField } from "../../components/Fields";
 import { desktopApi } from "../../lib/bridge";
 import {
@@ -9,7 +9,7 @@ import {
   materialInUse,
 } from "../../lib/materials";
 import type { MaterialCatalog } from "../../lib/materials";
-import type { SurfaceFinishConfig } from "../../lib/types";
+import type { MaterialConfig, SurfaceFinishConfig } from "../../lib/types";
 import { useWorkspace } from "../../workspace";
 
 function useMaterialCatalog() {
@@ -66,8 +66,18 @@ export function MaterialsEditor() {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState("");
   const [name, setName] = useState("");
+  const [densityType, setDensityType] =
+    useState<NonNullable<MaterialConfig["density_type"]>>("bulk");
+  const [density, setDensity] = useState("");
+  const densityIssueId = useId();
   const [added, setAdded] = useState("");
   const materials = w.design.materials || {};
+  const validDensity = Number.isFinite(Number(density)) && Number(density) > 0;
+  const canAdd =
+    !!name.trim() &&
+    name.trim().length <= 128 &&
+    validDensity &&
+    Object.keys(materials).length < 64;
   const matches =
     catalog?.materials.filter((entry) =>
       `${entry.name} ${catalog.groups[entry.group].name} ${densityLabels[entry.density_type || "bulk"]}`
@@ -150,7 +160,6 @@ export function MaterialsEditor() {
                 </button>
               </>
             )}
-            <p role="status">{added}</p>
             <details>
               <summary>자료 적용 범위 · 미확인 항목</summary>
               {catalog.research_gaps.map((gap) => (
@@ -162,6 +171,80 @@ export function MaterialsEditor() {
           </>
         )}
       </details>
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (!canAdd) return;
+          const id = crypto.randomUUID().replaceAll("-", "");
+          w.edit(["materials"], {
+            ...materials,
+            [id]: {
+              name: name.trim(),
+              density: Number(density),
+              density_type: densityType,
+            },
+          });
+          setAdded(`${name.trim()}을 설계 재질에 추가했습니다.`);
+          setName("");
+          setDensity("");
+        }}
+      >
+        <fieldset>
+          <legend>사용자 재질 추가</legend>
+          <label className="field">
+            새 사용자 재질 이름
+            <input
+              value={name}
+              maxLength={128}
+              required
+              onChange={(event) => setName(event.target.value)}
+            />
+          </label>
+          <label className="field">
+            새 재질 밀도 종류
+            <select
+              value={densityType}
+              onChange={(event) => {
+                setDensityType(event.target.value as typeof densityType);
+                setDensity("");
+              }}
+            >
+              {Object.entries(densityLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label} · {densityUnits[value as keyof typeof densityUnits]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            새 재질 {densityLabels[densityType]}
+            <span className="input-unit">
+              <input
+                type="text"
+                inputMode="decimal"
+                value={density}
+                required
+                aria-invalid={density !== "" && !validDensity}
+                aria-describedby={densityIssueId}
+                onChange={(event) => setDensity(event.target.value)}
+              />
+              <small>{densityUnits[densityType]}</small>
+            </span>
+          </label>
+          <p id={densityIssueId} className="muted">
+            0보다 큰 유한한 값을 입력하세요. 원단은 면밀도, 줄은 선밀도를
+            사용합니다. 밀도 종류를 바꾸면 입력값을 다시 지정해야 합니다.
+          </p>
+          <button type="submit" disabled={!canAdd}>
+            사용자 재질 추가
+          </button>
+          <p className="muted">
+            추가한 재질은 이 설계와 함께 저장·내보내집니다. 설계에는 최대 64개의
+            재질을 저장할 수 있습니다.
+          </p>
+        </fieldset>
+      </form>
+      <p role="status">{added}</p>
       <h3>이 설계의 재질</h3>
       {Object.entries(materials).map(([id, material]) => {
         const used = materialInUse(w.design, id);
@@ -236,29 +319,6 @@ export function MaterialsEditor() {
           </fieldset>
         );
       })}
-      <label className="field">
-        새 사용자 재질 이름
-        <input
-          value={name}
-          maxLength={128}
-          onChange={(e) => setName(e.target.value)}
-        />
-      </label>
-      <button
-        type="button"
-        disabled={!name.trim() || Object.keys(materials).length >= 64}
-        onClick={() => {
-          const id = crypto.randomUUID().replaceAll("-", "");
-          w.edit(["materials"], {
-            ...materials,
-            [id]: { name: name.trim(), density: 1000 },
-          });
-          setName("");
-        }}
-      >
-        사용자 재질 추가
-      </button>
-      <p className="muted">설계에는 최대 64개의 재질을 저장할 수 있습니다.</p>
     </>
   );
 }
