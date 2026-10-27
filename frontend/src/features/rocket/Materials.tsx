@@ -91,8 +91,8 @@ export function MaterialsEditor() {
         {catalog && (
           <>
             <p className="muted">
-              제조사 TDS로 확인한 제품 {catalog.materials.length}종 · 자료
-              확인일 {catalog.checked_on}
+              제조사·공공·학술 자료로 확인한 재질 {catalog.materials.length}종 ·
+              자료 확인일 {catalog.checked_on}
             </p>
             <label className="field">
               재질 검색 · 이름 / 종류 / 밀도 단위
@@ -151,6 +151,14 @@ export function MaterialsEditor() {
               </>
             )}
             <p role="status">{added}</p>
+            <details>
+              <summary>자료 적용 범위 · 미확인 항목</summary>
+              {catalog.research_gaps.map((gap) => (
+                <p key={gap.name}>
+                  <strong>{gap.name}</strong>: {gap.reason}
+                </p>
+              ))}
+            </details>
           </>
         )}
       </details>

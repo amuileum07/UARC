@@ -87,8 +87,10 @@ previous curve. Incompatible fin sweep definitions are cleared atomically.
 Motor variants retain their prior settings while that motor editor stays open.
 New components, materials, motors, and tanks contain **example values** that
 must be replaced with actual specifications. Used materials cannot be deleted.
-The material library contains six independently verified manufacturer-grade
-density presets. Simulator material and surface-finish tables are not included.
+The material library contains 56 independently sourced density presets
+(36 bulk, 5 surface, 15 line), with manufacturer, industry, USDA and original
+research references. The material editor also lists unresolved research items.
+Simulator material and surface-finish tables are not included.
 Body/surface properties accept measured or independently documented roughness,
 with its convention preserved. These values are saved for a future drag model;
 current drag curves remain explicit inputs. Existing designs retain their values.

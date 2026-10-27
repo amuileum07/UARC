@@ -7,7 +7,12 @@ import type {
 export interface MaterialPreset extends MaterialConfig {
   id: string;
   group: string;
-  evidence: "software_reference" | "manufacturer_typical";
+  evidence:
+    | "manufacturer_typical"
+    | "publisher_typical"
+    | "government_reference"
+    | "industry_reference"
+    | "literature_reference";
   source_ids: string[];
   notes: string;
 }
@@ -25,6 +30,7 @@ export interface MaterialCatalog {
     { title: string; url: string; locator: string; note: string }
   >;
   groups: Record<string, { name: string; notes: string; source_ids: string[] }>;
+  research_gaps: { name: string; reason: string; source_ids: string[] }[];
 }
 export const densityUnits = { bulk: "kg/m³", surface: "kg/m²", line: "kg/m" };
 export const densityLabels = {

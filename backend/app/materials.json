@@ -2,10 +2,15 @@
   "schema_version": 1,
   "checked_on": "2026-10-27",
   "coverage": {
-    "scope": "Six product-grade density facts independently verified against manufacturer technical data sheets. Not an exhaustive material database.",
-    "materials": 6,
+    "scope": "Independently sourced product and reference density facts; representative grades, not an exhaustive simulator-compatible material list.",
+    "materials": 56,
+    "density_types": {
+      "bulk": 36,
+      "surface": 5,
+      "line": 15
+    },
     "surface_finishes": 0,
-    "custom_inputs": "Bulk, surface and line densities remain editable. Surface roughness requires measured or independently documented input."
+    "custom_inputs": "Bulk, surface and line densities remain editable. Finished-part roughness requires measured or independently documented input."
   },
   "units": {
     "bulk": "kg/m³",
@@ -65,11 +70,11 @@
       "note": "AS4 UD cured laminate density is 1.58 g/cm³; fibre density is 1.79 g/cm³. Lay-up and resin content matter; neither is a universal carbon-composite density."
     },
     "dupont_kevlar": {
-      "title": "DuPont Kevlar Aramid Fiber Technical Guide",
-      "url": "https://www.dupont.com/content/dam/dupont/amer/us/en/safety/public/documents/en/Kevlar_Technical_Guide_0319.pdf",
-      "locator": "Typical properties of industrial yarns; linear density and fibre density",
-      "kind": "manufacturer_tds",
-      "note": "Fibre volumetric density cannot replace measured cord kg/m; yarn count, braid, coating and moisture affect finished cord."
+      "title": "Toray-DuPont Kevlar product properties",
+      "url": "https://www.td-net.co.jp/kevlar/data/",
+      "locator": "Representative filament properties: Kevlar 29 density 1.44 g/cm³; moisture content 7.0%",
+      "kind": "manufacturer_reference",
+      "note": "Raw filament reference; not the density of cured aramid laminate, fabric, or braided rope."
     },
     "roughness_review": {
       "title": "Flack & Schultz (2010), Review of Hydraulic Roughness Scales in the Fully Rough Regime",
@@ -77,6 +82,258 @@
       "locator": "ASME Journal of Fluids Engineering 132(4), 041203",
       "kind": "journal",
       "note": "Equivalent sand-grain roughness depends on surface topology. Do not equate Ra with ks or use a universal Ra-to-ks multiplier."
+    },
+    "ssab_steel": {
+      "title": "SSAB, 20 questions about steel",
+      "url": "https://www.ssab.com/en/support/product-material-data/steel/20-questions",
+      "locator": "What is the density of steel? 7.85 g/cm³",
+      "kind": "manufacturer_reference",
+      "note": "General steel reference density; stainless and other alloy families have separate values."
+    },
+    "outokumpu_austenitic": {
+      "title": "Outokumpu hot rolled austenitic stainless steel EPD (2024)",
+      "url": "https://www.outokumpu.com/en/products/product-ranges/-/media/files/sustainability/epd-hot-rolled-austenitic.pdf?modified=20241112103526&revision=0a6036aa-83fc-4b4f-b955-baa2dbe6f024",
+      "locator": "p. 7, Technical information: density at 20 °C, 7900 kg/m³",
+      "kind": "manufacturer_reference",
+      "note": "EPD product-group reference including 304/304L; not a universal density for every stainless grade."
+    },
+    "cda_c26000": {
+      "title": "Copper Development Association, C26000 Cartridge Brass",
+      "url": "https://alloys.copper.org/alloy/C26000",
+      "locator": "Physical Properties: specific gravity 8.53",
+      "kind": "industry_reference",
+      "note": "Individual alloy reference fact; density uses the conventional 1000 kg/m³ water reference for specific gravity."
+    },
+    "cda_c11000": {
+      "title": "Copper Development Association, C11000 ETP Copper",
+      "url": "https://alloys.copper.org/alloy/C11000",
+      "locator": "Physical Properties: specific gravity 8.91",
+      "kind": "industry_reference",
+      "note": "Individual alloy reference fact; specific gravity converted with conventional water reference density."
+    },
+    "timet_50a": {
+      "title": "TIMET, TIMETAL 50A commercially pure titanium",
+      "url": "https://www.timet.com/documents/datasheets/cp-grades/timetal-50a.pdf",
+      "locator": "p. 1, Table 2: density 4.51 g/cm³; ASTM Grade 2",
+      "kind": "manufacturer_tds",
+      "note": "Typical reference properties for the named grade, not a batch certificate or structural allowable."
+    },
+    "plexiglas_gs": {
+      "title": "Röhm, PLEXIGLAS GS and XT, Technical Information 211-1",
+      "url": "https://www.plexiglas.de/files/plexiglas-content/pdf/technische-informationen/211-1-PLEXIGLAS-GS-XT-EN.pdf",
+      "locator": "Technical data: PLEXIGLAS GS density 1.19 g/cm³, ISO 1183",
+      "kind": "manufacturer_tds",
+      "note": "Typical reference properties for the named grade, not a batch certificate or structural allowable."
+    },
+    "ensinger_pc": {
+      "title": "Ensinger, TECANAT natural PC product data",
+      "url": "https://www.ensingerplastics.com/en/shapes/polycarbonate-tecanat-natural",
+      "locator": "Facts: density 1.19 g/cm³",
+      "kind": "manufacturer_reference",
+      "note": "Typical reference properties for the named grade, not a batch certificate or structural allowable."
+    },
+    "ineos_abs_gp22": {
+      "title": "INEOS Styrolution, TERLURAN GP-22 ABS",
+      "url": "https://eshop.ineos-styrolution.com/Product/Terluran_TERLURAN-GP-22_SKU300600120827.html",
+      "locator": "Other physical properties: density 1.04 g/cm³ ASTM D792 / 1040 kg/m³ ISO 1183",
+      "kind": "manufacturer_reference",
+      "note": "Typical reference properties for the named grade, not a batch certificate or structural allowable."
+    },
+    "ineos_ps1700": {
+      "title": "INEOS Styrolution, Styrolution PS 1700 GPPS",
+      "url": "https://eshop.ineos-styrolution.com/Product/GPPS_Styrolution-PS-1700_SKU200300060597.html",
+      "locator": "Other physical properties: density 1.04 g/cm³, ASTM D792",
+      "kind": "manufacturer_reference",
+      "note": "Typical reference properties for the named grade, not a batch certificate or structural allowable."
+    },
+    "roechling_pvc": {
+      "title": "Röchling, Trovidur PVC-U white TDS, release 2025-05-05",
+      "url": "https://www.roechling.com/fileadmin/assets/37/13/Trovidur%C2%AE%20PVC-U%20white%20%E2%80%93%20Technical%20Data%20Sheet%20%28EN%29%20%5B591337%5D.pdf",
+      "locator": "p. 1, Density: 1.45 g/cm³, DIN EN ISO 1183-1, PIM-ID 591337",
+      "kind": "manufacturer_tds",
+      "note": "Typical reference properties for the named grade, not a batch certificate or structural allowable."
+    },
+    "ensinger_hdpe": {
+      "title": "Ensinger, TECAFINE HDPE natural product data",
+      "url": "https://www.ensingerplastics.com/en-us/shapes/polyethylene-tecafine-hdpe-natural",
+      "locator": "Facts: density 0.95 g/cm³",
+      "kind": "manufacturer_reference",
+      "note": "Typical reference properties for the named grade, not a batch certificate or structural allowable."
+    },
+    "ensinger_pp": {
+      "title": "Ensinger, TECAFINE PP grey product data",
+      "url": "https://www.ensingerplastics.com/en-sg/shapes/polypropylene-tecafine-pp-grey",
+      "locator": "Facts: density 0.91 g/cm³",
+      "kind": "manufacturer_reference",
+      "note": "Typical reference properties for the named grade, not a batch certificate or structural allowable."
+    },
+    "gurit_balsa": {
+      "title": "Gurit Balsaflex PDS-Balsaflex-12-0321",
+      "url": "https://www.gurit.com/wp-content/uploads/bsk-pdf-manager/2022/08/balsaflex.pdf",
+      "locator": "p. 2, Balsaflex 150 nominal density 155 kg/m³; typical range 135–176",
+      "kind": "manufacturer_tds",
+      "note": "Typical reference properties for the named grade, not a batch certificate or structural allowable."
+    },
+    "usda_wood_mechanical": {
+      "title": "USDA FPL Wood Handbook (2021), Chapter 5",
+      "url": "https://research.fs.usda.gov/download/treesearch/62244.pdf",
+      "locator": "Table 5-3a, 12% MC rows; footnote b: oven-dry mass / volume at stated MC",
+      "kind": "government_handbook",
+      "note": "Species averages for clear wood, not certified stock. At 12% MC, density = G12 × 1000 × 1.12; G12 alone excludes water mass."
+    },
+    "koskisen_standard": {
+      "title": "Koskisen, KoskiPly Standard technical specifications (2025-10-07)",
+      "url": "https://koskisen.fi/pl/produkty/do-pobrania/koskiply-standard-eng/",
+      "locator": "p. 2, approximate density 700 kg/m³; birch veneers",
+      "kind": "manufacturer_tds",
+      "note": "Typical reference properties for the named grade, not a batch certificate or structural allowable."
+    },
+    "sergi_cork2019": {
+      "title": "Sergi et al. (2019), Polymers 11(12), 2118",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6960757/",
+      "locator": "§2.1 Materials: supplied NL20 cork average density 200 kg/m³; DOI 10.3390/polym11122118",
+      "kind": "journal",
+      "note": "Published specimen reference, not a current manufacturer batch specification."
+    },
+    "evonik_rohacell": {
+      "title": "Evonik ROHACELL IG-F product information (April 2022)",
+      "url": "https://products.evonik.com/assets/35/34/ROHACELL_IG_F_2022_April_EN_243534.pdf",
+      "locator": "p. 1, density ISO 845: 31 IG-F 32±7; 51 IG-F 52±12 kg/m³",
+      "kind": "manufacturer_tds",
+      "note": "Typical reference properties for the named grade, not a batch certificate or structural allowable."
+    },
+    "norplex_np500a": {
+      "title": "Norplex-Micarta NP500A Technical Data Bulletin",
+      "url": "https://www.norplex-micarta.com/wp-content/uploads/2017/07/TDB_NP500A.pdf",
+      "locator": "p. 1, Specific Gravity 1.77 ASTM D792; glass/epoxy G-10 sheet",
+      "kind": "manufacturer_tds",
+      "note": "Typical reference properties for the named grade, not a batch certificate or structural allowable."
+    },
+    "norplex_np629": {
+      "title": "Norplex-Micarta NP629 Technical Data Bulletin (2022-07-14)",
+      "url": "https://www.norplex-micarta.com/wp-content/uploads/2017/07/TDB_NP629.pdf",
+      "locator": "p. 1, Specific Gravity 1.35 ASTM D792; paper phenolic XX sheet",
+      "kind": "manufacturer_tds",
+      "note": "Typical reference properties for the named grade, not a batch certificate or structural allowable."
+    },
+    "toray_kevlar": {
+      "title": "Toray-DuPont Kevlar product properties",
+      "url": "https://www.td-net.co.jp/kevlar/data/",
+      "locator": "Representative filament properties: Kevlar 29 density 1.44 g/cm³; moisture content 7.0%",
+      "kind": "manufacturer_reference",
+      "note": "Raw filament reference; not the density of cured aramid laminate, fabric, or braided rope."
+    },
+    "rbtr_nylon11": {
+      "title": "Ripstop by the Roll, 1.1 oz Ripstop Nylon product specifications",
+      "url": "https://ripstopbytheroll.com/products/1-1-oz-ripstop-nylon",
+      "locator": "Product Details: weight 37.3 gsm, 20D, DWR/calendering options",
+      "kind": "publisher_product_spec",
+      "note": "Brand-published average/estimate, not a certified parachute canopy or measured permeability."
+    },
+    "rbtr_silnylon11": {
+      "title": "Ripstop by the Roll, 1.1 oz Silnylon product specifications",
+      "url": "https://ripstopbytheroll.com/products/1-1-oz-silnylon",
+      "locator": "Product Details: finished coated weight approximately 42 gsm, base 37.3 gsm",
+      "kind": "publisher_product_spec",
+      "note": "Use finished coated weight, not uncoated substrate weight. No parachute suitability or Cd is inferred."
+    },
+    "rbtr_silpoly11": {
+      "title": "Ripstop by the Roll, 1.1 oz Silpoly product specifications",
+      "url": "https://ripstopbytheroll.com/products/1-1-oz-silpoly",
+      "locator": "Product Details: finished sil/PU-coated weight approximately 42 gsm",
+      "kind": "publisher_product_spec",
+      "note": "Finished coated fabric reference; not an aerodynamic coefficient or a certified recovery fabric."
+    },
+    "billerud_xpression_bright": {
+      "title": "BillerudKorsnäs Xpression Bright TDS (2017-01)",
+      "url": "https://www.billerud.com/globalassets/billerudkorsnas/our-offer/packaging-materials/kraft-paper-bags/billerudkorsnas-xpression-bright-70-120.pdf",
+      "locator": "80 g/m² column: ISO 536 grammage; ISO 534 thickness 98 µm; test climate 23 °C, 50% RH",
+      "kind": "manufacturer_tds",
+      "note": "Historical grade-specific typical values; current stock must be checked. Bulk density is explicitly derived from the same grammage/thickness column."
+    },
+    "samson_amsteel_blue": {
+      "title": "Samson, AmSteel-Blue product 872 specifications",
+      "url": "https://www.samsonrope.com/mooring/amsteel--blue",
+      "locator": "Specifications (not MEG4 Mainlines): 3/5/6 mm; weight 0.74/1.5/2.4 kg per 100 m",
+      "kind": "manufacturer_reference",
+      "note": "Selected small-diameter finished-rope facts only, not the complete catalogue; braid and coating are included."
+    },
+    "edelrid_multicord2": {
+      "title": "Nylon 줄 · EDELRID Multicord SP 2 mm product data",
+      "url": "https://edelrid.com/int-en/sport/ropes/multicord-sp-2-0mm",
+      "locator": "Technical information: 2 mm; 2.10 g/m; polyamide",
+      "kind": "manufacturer_reference",
+      "note": "Typical reference properties for the named grade, not a batch certificate or structural allowable."
+    },
+    "edelrid_multicord3": {
+      "title": "Nylon 줄 · EDELRID Multicord SP 3 mm product data",
+      "url": "https://edelrid.com/us-en/sport/ropes/multicord-sp-3-0mm",
+      "locator": "Technical information: 3 mm; 6 g/m; polyamide",
+      "kind": "manufacturer_reference",
+      "note": "Typical reference properties for the named grade, not a batch certificate or structural allowable."
+    },
+    "edelrid_pes4": {
+      "title": "Polyester 줄 · EDELRID PES Cord 4 mm product data",
+      "url": "https://edelrid.com/int-en/sport/ropes/pes-cord-4mm",
+      "locator": "Technical information: 4 mm; 16 g/m; polyester",
+      "kind": "manufacturer_reference",
+      "note": "Typical reference properties for the named grade, not a batch certificate or structural allowable."
+    },
+    "edelrid_pes_webbing16": {
+      "title": "Polyester 웨빙 · EDELRID PES 16 mm product data",
+      "url": "https://edelrid.com/int-en/sport/webbing-shop/pes-webbing-16mm",
+      "locator": "Technical information: width 16 mm; 34 g/m",
+      "kind": "manufacturer_reference",
+      "note": "Typical reference properties for the named grade, not a batch certificate or structural allowable."
+    },
+    "edelrid_xtube25": {
+      "title": "Nylon 튜블러 웨빙 · EDELRID X-Tube 25 mm product data",
+      "url": "https://edelrid.com/eu-en/sport/webbing-shop/x-tube-25mm",
+      "locator": "Technical information: width 25 mm; 43 g/m; polyamide",
+      "kind": "manufacturer_reference",
+      "note": "Typical reference properties for the named grade, not a batch certificate or structural allowable."
+    },
+    "edelrid_helix2025": {
+      "title": "EDELRID HELIX Technical Data, version 04 (2025)",
+      "url": "https://avs.edelrid.com/images/attribut/ED-TD-7343-HELIX-2025.pdf",
+      "locator": "p. 1, items 050/190/340: nominal weight 0.65/1.80/3.70 g/m; aramid core, polyester sleeve",
+      "kind": "manufacturer_tds",
+      "note": "Typical reference properties for the named grade, not a batch certificate or structural allowable."
+    },
+    "marlow_shockcord2024": {
+      "title": "Marlow Ropes Standard Shockcord Polyester datasheet (2024)",
+      "url": "https://shop.marlowropes.com/content/files/datasheets/defence/datasheets%20with%20iso%2014001/standard%20shockcord%20poly%202024.pdf",
+      "locator": "Performance: 3 mm 7 g/m; 6 mm 33 g/m. Testing method: zero tension",
+      "kind": "manufacturer_tds",
+      "note": "Typical reference properties for the named grade, not a batch certificate or structural allowable."
+    },
+    "gutermann_tera": {
+      "title": "Gütermann Industry, leather shoes thread-count recommendations",
+      "url": "https://industry.guetermann.com/en/industry-overview/shoes/leather-shoes/",
+      "locator": "Thread-count table: Tera 40 tex 75; Tera 20 tex 150; tex = g/1000 m",
+      "kind": "manufacturer_reference",
+      "note": "Selected continuous-filament polyester sewing-thread counts, not a qualified load-bearing recovery cord."
+    },
+    "cordek_filcor": {
+      "title": "Cordek Filcor EPS product physical properties",
+      "url": "https://cordek.com/products/filcor",
+      "locator": "Suitability table: Filcor 20 nominal density 15; Filcor 70 nominal density 25 kg/m³",
+      "kind": "manufacturer_reference",
+      "note": "Individual grade facts; grade numbers denote compressive strength, not density. No complete product table is reproduced."
+    },
+    "rakhshani_depron2025": {
+      "title": "Rakhshani et al. (2025), International Journal of Aerospace Engineering, 1212535",
+      "url": "https://doi.org/10.1155/ijae/1212535",
+      "locator": "§2, experimental model skin: 3 mm Depron sheets, stated density 40 kg/m³",
+      "kind": "journal",
+      "note": "Only the described experimental material fact is used; no CFD model, aerodynamic result, or universal Depron density is imported."
+    },
+    "mylar_melinex238": {
+      "title": "Mylar Specialty Films, Melinex 238 TDS (2024-05-01)",
+      "url": "https://mylar.com/wp-content/uploads/2025/08/melinex_238-1.pdf",
+      "locator": "p. 2, density 1.4 g/cc ASTM D1505; p. 1, 300-gauge grade described as 0.075 mm",
+      "kind": "manufacturer_tds",
+      "note": "Specific electrical-insulation PET film, not every Mylar/PET film. Areal density is explicitly calculated using the stated metric thickness, not a guessed gauge conversion."
     }
   },
   "groups": {
@@ -85,7 +342,9 @@
       "notes": "합금·열처리·제품 밀도를 확인하세요. 연마·절삭·도장·산화 상태는 부품 표면에서 별도로 지정합니다. 합금 이름만으로 거칠기나 Cd를 정할 수 없습니다.",
       "source_ids": [
         "kaiser_6061",
-        "roughness_review"
+        "roughness_review",
+        "ssab_steel",
+        "timet_50a"
       ]
     },
     "woods": {
@@ -93,7 +352,11 @@
       "notes": "수종·함수율·결 방향·접착층에 따라 밀도와 강성이 달라집니다. 도프·실러·도장 후 외부 표면을 측정하세요.",
       "source_ids": [
         "wood_handbook",
-        "roughness_review"
+        "roughness_review",
+        "usda_wood_mechanical",
+        "gurit_balsa",
+        "koskisen_standard",
+        "sergi_cork2019"
       ]
     },
     "plastics": {
@@ -103,7 +366,10 @@
         "ensinger_shapes",
         "natureworks_4043d",
         "prusa_petg",
-        "roughness_review"
+        "roughness_review",
+        "plexiglas_gs",
+        "roechling_pvc",
+        "mylar_melinex238"
       ]
     },
     "composites": {
@@ -111,13 +377,16 @@
       "notes": "섬유 자체와 경화 적층재의 밀도를 구분하세요. 섬유 체적분율·수지·적층·공극·겔코트가 필요하며 공력 계산에는 완성된 외부 표면 상태를 사용합니다.",
       "source_ids": [
         "hexcel_8552",
-        "roughness_review"
+        "roughness_review",
+        "norplex_np500a",
+        "norplex_np629"
       ]
     },
     "paper": {
       "name": "종이·판지",
-      "notes": "종이·판지는 제품과 수분·코팅·접착층에 따라 달라집니다. 원단은 kg/m², 성형 벽은 kg/m³를 구분하세요. 범용 이름에 대응하는 제조사 인증값은 미확인입니다.",
+      "notes": "면밀도와 두께로 계산한 겉보기 체적밀도는 구분됩니다. 습기·압축·접착층·코팅·겹침을 확인하세요. Bendtsen 공기유량(ml/min)을 Ra 또는 ks 길이로 바꾸지 않습니다.",
       "source_ids": [
+        "billerud_xpression_bright",
         "roughness_review"
       ]
     },
@@ -125,29 +394,35 @@
       "name": "발포재",
       "notes": "셀 구조·발포 등급·밀폐 표피 여부와 겉보기 밀도를 확인하세요. 벌크 고분자 밀도를 EPS/XPS 발포재에 적용하지 않습니다. 범용 이름에 대응하는 제조사 인증값은 미확인입니다.",
       "source_ids": [
-        "roughness_review"
+        "evonik_rohacell",
+        "roughness_review",
+        "cordek_filcor",
+        "rakhshani_depron2025"
       ]
     },
     "fabrics": {
       "name": "원단",
-      "notes": "면밀도·코팅·투기도·전개 형상이 필요합니다. 면밀도에서 낙하산 Cd를 계산하지 않으며 원단 투기도의 단일 보편값은 지정하지 않습니다.",
+      "notes": "원단은 완성품 면밀도·코팅·투기도·전개 형상이 중요합니다. 코팅 전 무게나 섬유 체적밀도를 대신 사용하지 않습니다. 면밀도만으로 낙하산 Cd·투기도·사용 적합성을 계산하지 않습니다.",
       "source_ids": [
-        "dupont_kevlar"
+        "rbtr_nylon11",
+        "rbtr_silnylon11",
+        "rbtr_silpoly11"
       ]
     },
     "fibers": {
       "name": "섬유 재료",
       "notes": "벌크 밀도와 완제품 원단·줄의 면/선밀도는 다릅니다. 제품·흡습·가공 상태를 확인하고 완성 부품의 표면 마감을 지정하세요.",
       "source_ids": [
-        "ensinger_shapes",
-        "dupont_kevlar"
+        "toray_kevlar"
       ]
     },
     "threads_lines": {
       "name": "줄·웨빙",
       "notes": "선밀도는 완제품 길이당 질량입니다. 가닥 수·굵기·편조·코팅·신장 상태별 제품 자료나 실측값을 사용하세요. 섬유의 kg/m³만으로 kg/m를 추정하지 않습니다.",
       "source_ids": [
-        "dupont_kevlar"
+        "samson_amsteel_blue",
+        "edelrid_helix2025",
+        "marlow_shockcord2024"
       ]
     }
   },
@@ -223,13 +498,639 @@
       ],
       "evidence": "manufacturer_typical",
       "notes": "경화 UD 적층재 공칭 밀도 1.58 g/cm³. 섬유 자체 밀도 1.79 g/cm³와 다릅니다. 적층·수지·공극 조건을 확인하세요."
+    },
+    {
+      "id": "ssab_steel_reference",
+      "name": "Steel · 일반 강 · SSAB 참고값",
+      "density": 7850,
+      "density_type": "bulk",
+      "group": "metals",
+      "source_ids": [
+        "ssab_steel"
+      ],
+      "evidence": "manufacturer_typical",
+      "notes": "제조사의 일반 강 밀도 7.85 g/cm³를 환산한 참고값입니다. 합금·제품이 지정되지 않았으므로 실제 부품 질량을 확인하세요."
+    },
+    {
+      "id": "outokumpu_austenitic_reference",
+      "name": "Stainless steel · 오스테나이트계 · Outokumpu EPD",
+      "density": 7900,
+      "density_type": "bulk",
+      "group": "metals",
+      "source_ids": [
+        "outokumpu_austenitic"
+      ],
+      "evidence": "manufacturer_typical",
+      "notes": "열간압연 오스테나이트계 제품군 EPD의 20 °C 참고값입니다. 모든 스테인리스 등급의 보증 밀도가 아닙니다."
+    },
+    {
+      "id": "cda_c26000",
+      "name": "Brass C26000 · 황동 · CDA",
+      "density": 8530,
+      "density_type": "bulk",
+      "group": "metals",
+      "source_ids": [
+        "cda_c26000"
+      ],
+      "evidence": "industry_reference",
+      "notes": "C26000 황동 비중 8.53 × 기준 물 밀도 1000 kg/m³의 공학적 환산값입니다. 황동 합금 전체에 동일하게 적용하지 않습니다."
+    },
+    {
+      "id": "cda_c11000",
+      "name": "Copper C11000 ETP · 구리 · CDA",
+      "density": 8910,
+      "density_type": "bulk",
+      "group": "metals",
+      "source_ids": [
+        "cda_c11000"
+      ],
+      "evidence": "industry_reference",
+      "notes": "C11000 ETP 구리 비중 8.91 × 기준 물 밀도 1000 kg/m³의 환산값입니다."
+    },
+    {
+      "id": "timet_50a",
+      "name": "Titanium Grade 2 · 티타늄 · TIMETAL 50A",
+      "density": 4510,
+      "density_type": "bulk",
+      "group": "metals",
+      "source_ids": [
+        "timet_50a"
+      ],
+      "evidence": "manufacturer_typical",
+      "notes": "ASTM Grade 2 상당 제품의 밀도 4.51 g/cm³입니다. Ti-6Al-4V 같은 다른 티타늄 합금과 구분하세요."
+    },
+    {
+      "id": "plexiglas_gs",
+      "name": "PMMA · 아크릴 · PLEXIGLAS GS",
+      "density": 1190,
+      "density_type": "bulk",
+      "group": "plastics",
+      "source_ids": [
+        "plexiglas_gs"
+      ],
+      "evidence": "manufacturer_typical",
+      "notes": "주조 PMMA 제품의 밀도 1.19 g/cm³, ISO 1183. 절삭·연마·접착·도장 후 표면 상태는 따로 확인하세요."
+    },
+    {
+      "id": "ensinger_pc",
+      "name": "PC · 폴리카보네이트 · TECANAT natural",
+      "density": 1190,
+      "density_type": "bulk",
+      "group": "plastics",
+      "source_ids": [
+        "ensinger_pc"
+      ],
+      "evidence": "manufacturer_typical",
+      "notes": "TECANAT natural 무충전 PC의 제품 밀도 1.19 g/cm³입니다. PC 전체의 보편값으로 사용하지 않습니다."
+    },
+    {
+      "id": "ineos_abs_gp22",
+      "name": "ABS · TERLURAN GP-22",
+      "density": 1040,
+      "density_type": "bulk",
+      "group": "plastics",
+      "source_ids": [
+        "ineos_abs_gp22"
+      ],
+      "evidence": "manufacturer_typical",
+      "notes": "제품 수지 밀도 1.04 g/cm³입니다. 부분 인필·공극이 있는 3D 출력물에는 실측 질량을 사용하세요."
+    },
+    {
+      "id": "ineos_ps1700",
+      "name": "GPPS · 고체 폴리스티렌 · Styrolution PS 1700",
+      "density": 1040,
+      "density_type": "bulk",
+      "group": "plastics",
+      "source_ids": [
+        "ineos_ps1700"
+      ],
+      "evidence": "manufacturer_typical",
+      "notes": "비발포 수지의 밀도 1.04 g/cm³입니다. 발포한 EPS/XPS 부품에 적용하지 않습니다."
+    },
+    {
+      "id": "roechling_pvc_white",
+      "name": "PVC-U · 경질 PVC · Trovidur white 591337",
+      "density": 1450,
+      "density_type": "bulk",
+      "group": "plastics",
+      "source_ids": [
+        "roechling_pvc"
+      ],
+      "evidence": "manufacturer_typical",
+      "notes": "591337 흰색 제품 밀도 1.45 g/cm³입니다. 다른 Trovidur 등급·색상이나 연질 PVC의 밀도와 혼용하지 마세요."
+    },
+    {
+      "id": "ensinger_hdpe",
+      "name": "HDPE · 고밀도 폴리에틸렌 · TECAFINE natural",
+      "density": 950,
+      "density_type": "bulk",
+      "group": "plastics",
+      "source_ids": [
+        "ensinger_hdpe"
+      ],
+      "evidence": "manufacturer_typical",
+      "notes": "무충전 HDPE 봉·판재의 제품 밀도 0.95 g/cm³입니다. LDPE 필름이나 발포 PE와 구분하세요."
+    },
+    {
+      "id": "ensinger_pp_grey",
+      "name": "PP · 폴리프로필렌 · TECAFINE grey",
+      "density": 910,
+      "density_type": "bulk",
+      "group": "plastics",
+      "source_ids": [
+        "ensinger_pp"
+      ],
+      "evidence": "manufacturer_typical",
+      "notes": "회색 호모폴리머 PP 제품의 밀도 0.91 g/cm³입니다. 충전재·등급이 다른 PP와 구분하세요."
+    },
+    {
+      "id": "gurit_balsaflex150",
+      "name": "Balsa · 발사 · Gurit Balsaflex 150",
+      "density": 155,
+      "density_type": "bulk",
+      "group": "woods",
+      "source_ids": [
+        "gurit_balsa"
+      ],
+      "evidence": "manufacturer_typical",
+      "notes": "엔드그레인 코어의 공칭 밀도 155 kg/m³, 통상 범위 135–176입니다. 수지·접착제 흡수와 외피 질량은 별도입니다."
+    },
+    {
+      "id": "usda_basswood_mc12",
+      "name": "Basswood · 미국 피나무 · USDA MC12%",
+      "density": 414.4,
+      "density_type": "bulk",
+      "group": "woods",
+      "source_ids": [
+        "usda_wood_mechanical"
+      ],
+      "evidence": "government_reference",
+      "notes": "함수율 12% 참고 밀도: G12=0.37 × 1000 × 1.12. 해당 수종 평균이며 실측·함수율 변화 및 도장 질량을 확인하세요."
+    },
+    {
+      "id": "usda_yellow_birch_mc12",
+      "name": "Yellow birch · 황자작나무 · USDA MC12%",
+      "density": 694.4,
+      "density_type": "bulk",
+      "group": "woods",
+      "source_ids": [
+        "usda_wood_mechanical"
+      ],
+      "evidence": "government_reference",
+      "notes": "함수율 12% 참고 밀도: G12=0.62 × 1000 × 1.12. 해당 수종 평균이며 실측·함수율 변화 및 도장 질량을 확인하세요."
+    },
+    {
+      "id": "usda_sugar_maple_mc12",
+      "name": "Sugar maple · 사탕단풍나무 · USDA MC12%",
+      "density": 705.6,
+      "density_type": "bulk",
+      "group": "woods",
+      "source_ids": [
+        "usda_wood_mechanical"
+      ],
+      "evidence": "government_reference",
+      "notes": "함수율 12% 참고 밀도: G12=0.63 × 1000 × 1.12. 해당 수종 평균이며 실측·함수율 변화 및 도장 질량을 확인하세요."
+    },
+    {
+      "id": "usda_ponderosa_pine_mc12",
+      "name": "Ponderosa pine · 폰데로사소나무 · USDA MC12%",
+      "density": 448.0,
+      "density_type": "bulk",
+      "group": "woods",
+      "source_ids": [
+        "usda_wood_mechanical"
+      ],
+      "evidence": "government_reference",
+      "notes": "함수율 12% 참고 밀도: G12=0.4 × 1000 × 1.12. 해당 수종 평균이며 실측·함수율 변화 및 도장 질량을 확인하세요."
+    },
+    {
+      "id": "usda_sitka_spruce_mc12",
+      "name": "Sitka spruce · 시트카가문비나무 · USDA MC12%",
+      "density": 448.0,
+      "density_type": "bulk",
+      "group": "woods",
+      "source_ids": [
+        "usda_wood_mechanical"
+      ],
+      "evidence": "government_reference",
+      "notes": "함수율 12% 참고 밀도: G12=0.4 × 1000 × 1.12. 해당 수종 평균이며 실측·함수율 변화 및 도장 질량을 확인하세요."
+    },
+    {
+      "id": "koskisen_standard",
+      "name": "Birch plywood · 자작나무 합판 · KoskiPly Standard",
+      "density": 700,
+      "density_type": "bulk",
+      "group": "woods",
+      "source_ids": [
+        "koskisen_standard"
+      ],
+      "evidence": "manufacturer_typical",
+      "notes": "자작나무 합판 제품의 대략적인 밀도 700 kg/m³입니다. 적층·접착층이 포함되며 원목 자작나무 밀도로 대체하지 않습니다."
+    },
+    {
+      "id": "sergi_corecork_nl20",
+      "name": "Agglomerated cork · 응집 코르크 · CoreCork NL20 연구시편",
+      "density": 200,
+      "density_type": "bulk",
+      "group": "woods",
+      "source_ids": [
+        "sergi_cork2019"
+      ],
+      "evidence": "literature_reference",
+      "notes": "논문에 사용된 Amorim NL20 코르크 시편 평균 밀도 200 kg/m³입니다. 폴리우레탄 결합제가 포함된 응집재이며 천연 코르크와 다릅니다."
+    },
+    {
+      "id": "evonik_rohacell31",
+      "name": "PMI foam · 발포재 · ROHACELL 31 IG-F",
+      "density": 32,
+      "density_type": "bulk",
+      "group": "foams",
+      "source_ids": [
+        "evonik_rohacell"
+      ],
+      "evidence": "manufacturer_typical",
+      "notes": "공칭 밀도 32 ± 7 kg/m³, ISO 845. 절삭 셀·수지 흡수·외피에 따라 완성품 질량과 표면이 달라집니다."
+    },
+    {
+      "id": "evonik_rohacell51",
+      "name": "PMI foam · 발포재 · ROHACELL 51 IG-F",
+      "density": 52,
+      "density_type": "bulk",
+      "group": "foams",
+      "source_ids": [
+        "evonik_rohacell"
+      ],
+      "evidence": "manufacturer_typical",
+      "notes": "공칭 밀도 52 ± 12 kg/m³, ISO 845. EPS·XPS와 다른 PMI 발포재입니다."
+    },
+    {
+      "id": "norplex_np500a",
+      "name": "Glass/epoxy G-10 · 유리섬유 적층재 · NP500A",
+      "density": 1770,
+      "density_type": "bulk",
+      "group": "composites",
+      "source_ids": [
+        "norplex_np500a"
+      ],
+      "evidence": "manufacturer_typical",
+      "notes": "경화 유리직물/에폭시 판재의 비중 1.77 환산값입니다. 유리섬유 원사 밀도와 구분하며 적층·수지·가공면을 확인하세요."
+    },
+    {
+      "id": "norplex_np629",
+      "name": "Paper/phenolic XX · 종이 페놀 적층재 · NP629",
+      "density": 1350,
+      "density_type": "bulk",
+      "group": "composites",
+      "source_ids": [
+        "norplex_np629"
+      ],
+      "evidence": "manufacturer_typical",
+      "notes": "종이/페놀 고압 적층 판재의 비중 1.35 환산값입니다. 일반 크라프트 종이·로켓용 페놀 튜브의 보편값이 아닙니다."
+    },
+    {
+      "id": "toray_kevlar29_fiber",
+      "name": "Aramid fiber · 아라미드 원섬유 · Kevlar 29",
+      "density": 1440,
+      "density_type": "bulk",
+      "group": "fibers",
+      "source_ids": [
+        "toray_kevlar"
+      ],
+      "evidence": "manufacturer_typical",
+      "notes": "원섬유 밀도 1.44 g/cm³의 참고값입니다. 직물·수지 적층재·편조 줄의 밀도로 사용하지 마세요. 제품 표의 함수율은 7.0%입니다."
+    },
+    {
+      "id": "rbtr_nylon11",
+      "name": "Ripstop nylon · 립스톱 나일론 · RBTR 1.1 oz",
+      "density": 0.0373,
+      "density_type": "surface",
+      "group": "fabrics",
+      "source_ids": [
+        "rbtr_nylon11"
+      ],
+      "evidence": "publisher_typical",
+      "notes": "표시 면밀도 37.3 g/m² ÷ 1000. DWR·캘린더링 옵션과 실제 로트를 확인하세요. 투기도와 낙하산 Cd는 별도로 입력합니다."
+    },
+    {
+      "id": "rbtr_silnylon11_finished",
+      "name": "Coated nylon · 코팅 나일론 · RBTR Silnylon 완성품",
+      "density": 0.042,
+      "density_type": "surface",
+      "group": "fabrics",
+      "source_ids": [
+        "rbtr_silnylon11"
+      ],
+      "evidence": "publisher_typical",
+      "notes": "실리콘/PU 코팅 후 약 42 g/m²를 사용합니다. 코팅 전 37.3 g/m²와 다릅니다. 투기도·전개 성능은 미지정입니다."
+    },
+    {
+      "id": "rbtr_silpoly11_finished",
+      "name": "Coated polyester · 코팅 폴리에스터 · RBTR Silpoly 완성품",
+      "density": 0.042,
+      "density_type": "surface",
+      "group": "fabrics",
+      "source_ids": [
+        "rbtr_silpoly11"
+      ],
+      "evidence": "publisher_typical",
+      "notes": "코팅 후 약 42 g/m²입니다. 폴리에스터 원단이며 나일론과 구분하세요. 코팅·투기도만으로 Cd를 정하지 않습니다."
+    },
+    {
+      "id": "billerud_xpression80_surface",
+      "name": "Kraft paper · 크라프트 종이 · Xpression Bright 80 g/m²",
+      "density": 0.08,
+      "density_type": "surface",
+      "group": "paper",
+      "source_ids": [
+        "billerud_xpression_bright"
+      ],
+      "evidence": "manufacturer_typical",
+      "notes": "23 °C·50% RH의 면밀도 80 g/m², ISO 536. 봉제·접착·겹침·도장 질량은 포함하지 않습니다."
+    },
+    {
+      "id": "billerud_xpression80_bulk",
+      "name": "Kraft paper · 크라프트 벽재 · Xpression Bright 80/98",
+      "density": 816.326531,
+      "density_type": "bulk",
+      "group": "paper",
+      "source_ids": [
+        "billerud_xpression_bright"
+      ],
+      "evidence": "manufacturer_typical",
+      "notes": "같은 제품 열의 0.080 kg/m² ÷ 98 µm로 계산한 겉보기 체적밀도입니다. 23 °C·50% RH; 압축·습기·접착층 변화 시 재측정하세요."
+    },
+    {
+      "id": "samson_amsteel_3mm",
+      "name": "HMPE 줄 · Samson AmSteel-Blue 3 mm",
+      "density": 0.0074,
+      "density_type": "line",
+      "group": "threads_lines",
+      "source_ids": [
+        "samson_amsteel_blue"
+      ],
+      "evidence": "manufacturer_typical",
+      "notes": "완성된 12가닥 Dyneema/HMPE 편조 줄 3 mm, 0.74 kg/100 m ÷ 100. 코팅 포함 제품값이며 섬유 체적밀도로 추정하지 않습니다."
+    },
+    {
+      "id": "samson_amsteel_5mm",
+      "name": "HMPE 줄 · Samson AmSteel-Blue 5 mm",
+      "density": 0.015,
+      "density_type": "line",
+      "group": "threads_lines",
+      "source_ids": [
+        "samson_amsteel_blue"
+      ],
+      "evidence": "manufacturer_typical",
+      "notes": "완성된 12가닥 Dyneema/HMPE 편조 줄 5 mm, 1.5 kg/100 m ÷ 100. 코팅 포함 제품값이며 섬유 체적밀도로 추정하지 않습니다."
+    },
+    {
+      "id": "samson_amsteel_6mm",
+      "name": "HMPE 줄 · Samson AmSteel-Blue 6 mm",
+      "density": 0.024,
+      "density_type": "line",
+      "group": "threads_lines",
+      "source_ids": [
+        "samson_amsteel_blue"
+      ],
+      "evidence": "manufacturer_typical",
+      "notes": "완성된 12가닥 Dyneema/HMPE 편조 줄 6 mm, 2.4 kg/100 m ÷ 100. 코팅 포함 제품값이며 섬유 체적밀도로 추정하지 않습니다."
+    },
+    {
+      "id": "edelrid_multicord2",
+      "name": "Nylon 줄 · EDELRID Multicord SP 2 mm",
+      "density": 0.0021000000000000003,
+      "density_type": "line",
+      "group": "threads_lines",
+      "source_ids": [
+        "edelrid_multicord2"
+      ],
+      "evidence": "manufacturer_typical",
+      "notes": "폴리아미드 완성 줄 2.10 g/m입니다. 섬유 밀도가 아닌 편조 제품의 길이당 질량입니다."
+    },
+    {
+      "id": "edelrid_multicord3",
+      "name": "Nylon 줄 · EDELRID Multicord SP 3 mm",
+      "density": 0.006,
+      "density_type": "line",
+      "group": "threads_lines",
+      "source_ids": [
+        "edelrid_multicord3"
+      ],
+      "evidence": "manufacturer_typical",
+      "notes": "폴리아미드 완성 줄 6 g/m입니다. 굵기·제품 버전을 확인하세요."
+    },
+    {
+      "id": "edelrid_pes4",
+      "name": "Polyester 줄 · EDELRID PES Cord 4 mm",
+      "density": 0.016,
+      "density_type": "line",
+      "group": "threads_lines",
+      "source_ids": [
+        "edelrid_pes4"
+      ],
+      "evidence": "manufacturer_typical",
+      "notes": "폴리에스터 완성 줄 16 g/m입니다. 같은 굵기의 나일론 줄과 혼용하지 않습니다."
+    },
+    {
+      "id": "edelrid_pes_webbing16",
+      "name": "Polyester 웨빙 · EDELRID PES 16 mm",
+      "density": 0.034,
+      "density_type": "line",
+      "group": "threads_lines",
+      "source_ids": [
+        "edelrid_pes_webbing16"
+      ],
+      "evidence": "manufacturer_typical",
+      "notes": "폭 16 mm 폴리에스터 웨빙의 선밀도 34 g/m입니다. 폭·직조·마모 표시 섬유를 포함한 제품값입니다."
+    },
+    {
+      "id": "edelrid_xtube25",
+      "name": "Nylon 튜블러 웨빙 · EDELRID X-Tube 25 mm",
+      "density": 0.043,
+      "density_type": "line",
+      "group": "threads_lines",
+      "source_ids": [
+        "edelrid_xtube25"
+      ],
+      "evidence": "manufacturer_typical",
+      "notes": "폭 25 mm 폴리아미드 튜블러 웨빙의 선밀도 43 g/m입니다. 평직 웨빙과 같은 값으로 취급하지 않습니다."
+    },
+    {
+      "id": "edelrid_helix050",
+      "name": "Aramid 줄 · EDELRID HELIX 050 (0.95 mm)",
+      "density": 0.00065,
+      "density_type": "line",
+      "group": "threads_lines",
+      "source_ids": [
+        "edelrid_helix2025"
+      ],
+      "evidence": "manufacturer_typical",
+      "notes": "Technora 아라미드 코어·폴리에스터 피복의 완성 줄입니다. 선밀도 0.65 ± 0.15 g/m; 굵기나 품번에서 밀도를 유추하지 않습니다."
+    },
+    {
+      "id": "edelrid_helix190",
+      "name": "Aramid 줄 · EDELRID HELIX 190 (1.5 mm)",
+      "density": 0.0018,
+      "density_type": "line",
+      "group": "threads_lines",
+      "source_ids": [
+        "edelrid_helix2025"
+      ],
+      "evidence": "manufacturer_typical",
+      "notes": "Technora 아라미드 코어·폴리에스터 피복의 완성 줄입니다. 선밀도 1.8 ± 0.2 g/m; 굵기나 품번에서 밀도를 유추하지 않습니다."
+    },
+    {
+      "id": "edelrid_helix340",
+      "name": "Aramid 줄 · EDELRID HELIX 340 (2.1 mm)",
+      "density": 0.0037,
+      "density_type": "line",
+      "group": "threads_lines",
+      "source_ids": [
+        "edelrid_helix2025"
+      ],
+      "evidence": "manufacturer_typical",
+      "notes": "Technora 아라미드 코어·폴리에스터 피복의 완성 줄입니다. 선밀도 3.7 ± 0.3 g/m; 굵기나 품번에서 밀도를 유추하지 않습니다."
+    },
+    {
+      "id": "marlow_shockcord3",
+      "name": "Elastic 줄 · Marlow Standard Shockcord 3 mm",
+      "density": 0.007,
+      "density_type": "line",
+      "group": "threads_lines",
+      "source_ids": [
+        "marlow_shockcord2024"
+      ],
+      "evidence": "manufacturer_typical",
+      "notes": "천연고무 코어·폴리에스터 피복, 무장력 기준 7 g/m입니다. 늘린 길이를 입력하면 질량이 잘못되므로 기준 길이를 사용하세요. 스프링/전개 충격 해석은 하지 않습니다."
+    },
+    {
+      "id": "marlow_shockcord6",
+      "name": "Elastic 줄 · Marlow Standard Shockcord 6 mm",
+      "density": 0.033,
+      "density_type": "line",
+      "group": "threads_lines",
+      "source_ids": [
+        "marlow_shockcord2024"
+      ],
+      "evidence": "manufacturer_typical",
+      "notes": "천연고무 코어·폴리에스터 피복, 무장력 기준 33 g/m입니다. 늘린 길이를 입력하면 질량이 잘못되므로 기준 길이를 사용하세요. 스프링/전개 충격 해석은 하지 않습니다."
+    },
+    {
+      "id": "gutermann_tera40",
+      "name": "Polyester 재봉실 · Gütermann Tera 40 (tex 75)",
+      "density": 7.5e-05,
+      "density_type": "line",
+      "group": "threads_lines",
+      "source_ids": [
+        "gutermann_tera"
+      ],
+      "evidence": "manufacturer_typical",
+      "notes": "폴리에스터 재봉실의 공칭 tex 75 = 75 g/1000 m입니다. 회수용 줄의 파단하중·전개 적합성을 의미하지 않습니다."
+    },
+    {
+      "id": "gutermann_tera20",
+      "name": "Polyester 재봉실 · Gütermann Tera 20 (tex 150)",
+      "density": 0.00015,
+      "density_type": "line",
+      "group": "threads_lines",
+      "source_ids": [
+        "gutermann_tera"
+      ],
+      "evidence": "manufacturer_typical",
+      "notes": "폴리에스터 재봉실의 공칭 tex 150 = 150 g/1000 m입니다. 회수용 줄의 파단하중·전개 적합성을 의미하지 않습니다."
+    },
+    {
+      "id": "cordek_filcor20",
+      "name": "EPS · 발포 폴리스티렌 · Cordek Filcor 20",
+      "density": 15,
+      "density_type": "bulk",
+      "group": "foams",
+      "source_ids": [
+        "cordek_filcor"
+      ],
+      "evidence": "manufacturer_typical",
+      "notes": "제품 공칭 밀도 15 kg/m³입니다. Filcor 20의 숫자 20은 밀도가 아닙니다. 도장·접착·외피·실측 완성품 질량을 확인하세요."
+    },
+    {
+      "id": "cordek_filcor70",
+      "name": "EPS · 발포 폴리스티렌 · Cordek Filcor 70",
+      "density": 25,
+      "density_type": "bulk",
+      "group": "foams",
+      "source_ids": [
+        "cordek_filcor"
+      ],
+      "evidence": "manufacturer_typical",
+      "notes": "제품 공칭 밀도 25 kg/m³입니다. 다른 EPS 발포 등급과 구분하세요."
+    },
+    {
+      "id": "rakhshani_depron3mm",
+      "name": "XPS · Depron 3 mm · 2025 연구시편",
+      "density": 40,
+      "density_type": "bulk",
+      "group": "foams",
+      "source_ids": [
+        "rakhshani_depron2025"
+      ],
+      "evidence": "literature_reference",
+      "notes": "논문 실험모형의 3 mm Depron 외피에 명시된 밀도 40 kg/m³입니다. 모든 Depron 색상·두께·등급에 적용되는 제조사 보증값이 아닙니다."
+    },
+    {
+      "id": "mylar_melinex238_bulk",
+      "name": "PET film · 폴리에스터 필름 · Melinex 238",
+      "density": 1400,
+      "density_type": "bulk",
+      "group": "plastics",
+      "source_ids": [
+        "mylar_melinex238"
+      ],
+      "evidence": "manufacturer_typical",
+      "notes": "Melinex 238 전기절연용 PET 필름의 밀도 1.4 g/cm³입니다. 초박막·알루미늄 증착 Mylar의 보편값이 아닙니다."
+    },
+    {
+      "id": "mylar_melinex238_75um",
+      "name": "PET film · Melinex 238 75 µm · 면밀도",
+      "density": 0.105,
+      "density_type": "surface",
+      "group": "plastics",
+      "source_ids": [
+        "mylar_melinex238"
+      ],
+      "evidence": "manufacturer_typical",
+      "notes": "TDS에 명시된 0.075 mm 두께 × 1400 kg/m³ = 0.105 kg/m²의 공칭 계산값입니다. 코팅·증착·공극·두께 변경 시 재계산하세요."
     }
   ],
   "surface_finishes": [],
   "reference_policy": {
-    "density": "Individual product property facts with unit conversion and source location; no simulator default table, document text, figure or complete manufacturer table is reproduced.",
+    "density": "Individual property facts and documented unit/condition conversions from manufacturer, industry, government and original research sources; no simulator table, document text, figure or complete manufacturer table is reproduced.",
     "surface": "No bundled roughness presets. Supply finished-part measurements or independent engineering references and keep Ra separate from ks.",
     "documents": "Source documents remain with their publishers and retain their own terms; document URLs are references, not a relicensing of those documents.",
     "existing_designs": "Embedded user material and surface snapshots are not overwritten by catalogue changes."
-  }
+  },
+  "research_gaps": [
+    {
+      "name": "기타 XPS·Depron 등급",
+      "reason": "등록된 Depron은 특정 3 mm 연구시편의 명시값입니다. 다른 제품에서 확인된 밀도 하한·범위만으로는 공칭값을 지정하지 않습니다.",
+      "source_ids": [
+        "rakhshani_depron2025"
+      ]
+    },
+    {
+      "name": "초박막·증착 Mylar·셀로판·크레이프지·실크",
+      "reason": "등록된 Melinex 238과 다른 제품입니다. 정확한 제품 등급·두께·가공 조건에 대응하는 면밀도 자료가 더 필요합니다.",
+      "source_ids": []
+    },
+    {
+      "name": "종이 튜브·Quantum tubing·Blue Tube 등 완성품",
+      "reason": "벽재·접착층·코팅·제품 치수 또는 실측 질량이 필요합니다. 재료명만으로 완성 튜브의 밀도를 지정하지 않습니다.",
+      "source_ids": []
+    },
+    {
+      "name": "표면 마감·공력 거칠기",
+      "reason": "재질별 보편 Ra/ks 값은 지정하지 않습니다. 완성품의 공정·측정 정의가 일치하는 값을 직접 입력하세요. 마감표나 다른 프로그램의 모델 계수는 포함하지 않습니다.",
+      "source_ids": [
+        "roughness_review"
+      ]
+    }
+  ]
 }

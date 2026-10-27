@@ -4,6 +4,7 @@ import json
 import tempfile
 import unittest
 import xml.etree.ElementTree as ET
+from collections import Counter
 from pathlib import Path
 from unittest.mock import patch
 from urllib.parse import urlsplit
@@ -22,12 +23,23 @@ from app.schemas import MaterialConfig, RocketDesign, SurfaceFinishConfig
 class MaterialTests(unittest.TestCase):
     def test_catalogue_contains_only_independent_product_facts_with_sources(self):
         catalog = material_catalog()
-        self.assertEqual(len(catalog["materials"]), 6)
-        self.assertEqual(len({m["id"] for m in catalog["materials"]}), 6)
+        self.assertEqual(len(catalog["materials"]), 56)
+        self.assertEqual(len({m["id"] for m in catalog["materials"]}), 56)
+        self.assertEqual(catalog["coverage"]["materials"], 56)
+        self.assertEqual(
+            Counter(item["density_type"] for item in catalog["materials"]),
+            {"bulk": 36, "surface": 5, "line": 15},
+        )
         self.assertEqual(catalog["surface_finishes"], [])
         sources = catalog["sources"]
         for item in catalog["materials"]:
-            self.assertEqual(item["evidence"], "manufacturer_typical")
+            source_kinds = {
+                "manufacturer_typical": {"manufacturer_tds", "manufacturer_reference"},
+                "publisher_typical": {"publisher_product_spec"},
+                "government_reference": {"government_handbook"},
+                "industry_reference": {"industry_reference"},
+                "literature_reference": {"journal"},
+            }[item["evidence"]]
             self.assertFalse(item["id"].startswith(("or_", "ras_")))
             MaterialConfig.model_validate(
                 {k: item[k] for k in ("name", "density", "density_type")}
@@ -37,10 +49,7 @@ class MaterialTests(unittest.TestCase):
             self.assertTrue(item["source_ids"])
             self.assertTrue(set(item["source_ids"]) <= sources.keys())
             self.assertTrue(
-                all(
-                    sources[key]["kind"] == "manufacturer_tds"
-                    for key in item["source_ids"]
-                )
+                all(sources[key]["kind"] in source_kinds for key in item["source_ids"])
             )
         for source in sources.values():
             self.assertEqual(urlsplit(source["url"]).scheme, "https")
@@ -48,9 +57,40 @@ class MaterialTests(unittest.TestCase):
             self.assertNotEqual(source["kind"], "software_reference")
         for group in catalog["groups"].values():
             self.assertTrue(set(group["source_ids"]) <= sources.keys())
+        for gap in catalog["research_gaps"]:
+            self.assertTrue(gap["reason"])
+            self.assertTrue(set(gap["source_ids"]) <= sources.keys())
         densities = {item["id"]: item["density"] for item in catalog["materials"]}
         self.assertEqual(densities["prusa_petg"], 1.27 * 1000)
         self.assertEqual(densities["hexcel_8552_as4"], 1.58 * 1000)
+
+    def test_independent_units_moisture_coatings_and_preset_mass(self):
+        materials = {item["id"]: item for item in material_catalog()["materials"]}
+        self.assertAlmostEqual(
+            materials["usda_basswood_mc12"]["density"], 0.37 * 1000 * 1.12
+        )
+        self.assertEqual(materials["rbtr_silnylon11_finished"]["density"], 0.042)
+        self.assertEqual(materials["samson_amsteel_3mm"]["density"], 0.74 / 100)
+        self.assertAlmostEqual(materials["gutermann_tera40"]["density"], 75 / 1_000_000)
+        self.assertAlmostEqual(
+            materials["billerud_xpression80_bulk"]["density"], 0.080 / 98e-6, places=6
+        )
+        self.assertAlmostEqual(
+            materials["mylar_melinex238_75um"]["density"], 1400 * 0.000075
+        )
+        payload = design_payload()
+        for key in ("rbtr_nylon11", "samson_amsteel_3mm"):
+            item = materials[key]
+            payload["materials"][key] = {
+                k: item[k] for k in ("name", "density", "density_type")
+            }
+        payload["components"][-1].update(
+            material="rbtr_nylon11", line_material="samson_amsteel_3mm", line_length=5
+        )
+        _, report = compile_payload(payload)
+        self.assertAlmostEqual(
+            report["components"][-1]["mass_kg"], 0.0373 * 0.3 + 0.0074 * 5
+        )
 
     def test_surface_and_line_density_compute_mass_without_volume_conversion(self):
         payload = design_payload()
@@ -179,7 +219,7 @@ class MaterialTests(unittest.TestCase):
         bridge = DesktopBridge()
         catalog = bridge.get_material_catalog()
         catalog["materials"].clear()
-        self.assertEqual(len(bridge.get_material_catalog()["materials"]), 6)
+        self.assertEqual(len(bridge.get_material_catalog()["materials"]), 56)
         with patch("webbrowser.open", return_value=True) as opened:
             self.assertTrue(bridge.open_material_reference("prusa_petg"))
             self.assertEqual(

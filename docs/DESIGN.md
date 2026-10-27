@@ -38,18 +38,37 @@ it is included in both Python packages and desktop bundles. No material lookup
 requires a network request. Source buttons open the registered document in the
 system browser only when selected.
 
-The catalogue contains six product-grade density facts independently checked
-against manufacturer technical data sheets. Simulator material/finish tables
-are not bundled. There is no claim to cover every material supported by other
-programs; use explicit measured inputs when no verified product preset exists.
+The catalogue contains **56 independently sourced density presets**: 36 bulk,
+5 surface and 15 line. Sources include manufacturer technical sheets and product
+specifications, industry references, USDA's Wood Handbook and original research.
+Each entry identifies its evidence type, source and grade/condition limitations.
+Simulator material/finish tables are not bundled. These presets do not overwrite
+existing designs or claim to cover every material supported by other programs.
 
-The six grade-specific presets cite manufacturer TDS values: Kaiser
-6061 (2700 kg/m³ at 20 °C), NatureWorks Ingeo 4043D (1240), Prusament PETG
-(1270), Ensinger TECAFORM AH natural POM-C (1410), TECAMID 66 natural PA66
-(1150), and cured HexPly 8552 AS4 UD laminate (1580). These do not overwrite
-existing designs. The file links USDA's Wood
-Handbook, DuPont's Kevlar guide, and the product sheets for moisture, grade,
-processing, fibre/laminate distinctions and other relevant limitations.
+| Family | Examples and scope |
+| --- | --- |
+| Metals | 6061 aluminum, steel reference, austenitic stainless product-group reference, C26000 brass, C11000 copper, Grade 2 titanium |
+| Plastics | PLA, PETG, POM-C, PA66, PMMA, PC, ABS, solid GPPS, PVC-U, HDPE, PP and Melinex 238 PET film |
+| Wood/cork | Balsaflex 150, five USDA species at 12% moisture, KoskiPly Standard birch plywood and an NL20 cork research specimen |
+| Composites/fibres | Cured HexPly 8552 AS4 UD, NP500A glass/epoxy G-10, NP629 paper/phenolic XX and raw Kevlar 29 filament |
+| Foams | Two ROHACELL IG-F grades, two Filcor EPS grades and a specified 3 mm Depron research specimen |
+| Paper/fabric/film | Xpression Bright kraft paper, DWR ripstop nylon, finished coated nylon/polyester and a specified PET film thickness |
+| Cord/webbing/thread | Selected HMPE, polyamide, polyester and aramid-core cords, elastic shockcord, tubular/flat webbing and sewing thread |
+
+Conversions retain the source's definitions. USDA Table 5-3a specific gravity
+uses oven-dry mass and volume at the stated moisture content: the 12% MC presets
+use `density = G12 × 1000 × 1.12`, including water mass. Paper's apparent bulk
+density is explicitly `grammage / thickness` for the same product column.
+Coated fabrics use finished coated weight. Rope values use kg/100 m or g/m;
+thread `tex` is g/1000 m. Shockcord length is its zero-tension reference length.
+Specific-gravity conversions use the conventional 1000 kg/m³ water reference.
+These are reference estimates, not batch certificates or structural allowables.
+
+The `research_gaps` list, also shown in the material editor, records unresolved
+thin/metallised films, cellulose/silk papers and fabrics, finished proprietary
+tubes, other foam grades and aerodynamic surface roughness. A lower bound or
+range without a representative nominal density is not silently used as a point
+value. Research-specimen values are labelled separately from product data.
 Only individual property facts, unit conversions and independently written
 notes are included; publisher documents, figures and complete tables are not
 redistributed. Source documents retain their own terms.
