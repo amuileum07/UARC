@@ -272,6 +272,7 @@ def _component_properties(component, design):
 def compile_design(design: RocketDesign) -> tuple[SimulationConfig, dict]:
     """Compute airframe properties; motor and propellant are added by RocketPy."""
     components, radii = [], []
+    drag_geometry = drag_report = None
     try:
         with np.errstate(over="raise", invalid="raise", divide="raise"):
             for component in design.components:
@@ -304,6 +305,12 @@ def compile_design(design: RocketDesign) -> tuple[SimulationConfig, dict]:
                 center = design.overrides.center_of_mass
             if design.overrides.inertia is not None:
                 inertia = np.array((*design.overrides.inertia, 0, 0, 0)[:6])
+            if design.automatic_drag is not None:
+                from app.aerodynamics import compile_drag
+
+                drag_geometry, drag_report = compile_drag(
+                    design, components, max(radii)
+                )
             config = SimulationConfig(
                 environment=design.environment,
                 flight=design.flight,
@@ -319,6 +326,7 @@ def compile_design(design: RocketDesign) -> tuple[SimulationConfig, dict]:
                     inertia=tuple(float(x) for x in inertia),
                     power_off_drag=design.power_off_drag,
                     power_on_drag=design.power_on_drag,
+                    automatic_drag=drag_geometry,
                     motor_position=design.motor_position,
                     rail_buttons=design.rail_buttons,
                     parachutes=[
@@ -358,8 +366,11 @@ def compile_design(design: RocketDesign) -> tuple[SimulationConfig, dict]:
             for key in ("mass", "center_of_mass", "inertia")
         },
         "components": components,
+        "aerodynamics": drag_report,
         "notes": [
-            "Drag curves are user inputs; geometry/material changes do not estimate drag.",
+            f"Automatic Cd0 ({drag_geometry.model}) uses geometry and local Reynolds number."
+            if drag_geometry is not None
+            else "Drag curves are user inputs; geometry/material changes do not estimate drag.",
             "Parachute attachment_position is design metadata; attachment torque is not modeled.",
             "A CG override shifts the effective CG without reconstructing component masses.",
         ],

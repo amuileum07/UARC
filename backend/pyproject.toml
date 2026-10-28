@@ -16,6 +16,7 @@ dependencies = [
     "pywebview[pyside6]>=6.2.1; sys_platform == 'linux'",
     "rasterio==1.4.4",
     "rocketpy>=1.13.0",
+    "scipy>=1.13.0",
 ]
 
 [project.scripts]

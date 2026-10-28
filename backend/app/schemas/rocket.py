@@ -1,9 +1,11 @@
 """Rocket runtime inputs, aerodynamic surfaces, and recovery hardware."""
 
+from math import isclose
 from typing import Annotated, Literal
 
 from pydantic import Field, field_validator, model_validator
 
+from .aerodynamics import DragGeometry
 from .common import (
     EngineConfig,
     Inertia,
@@ -48,6 +50,17 @@ class RocketConfig(EngineConfig):
     )
     parachutes: list[ParachuteConfig] = Field(default_factory=list)
     rail_buttons: RailButtonsConfig | None = None
+    automatic_drag: DragGeometry | None = None
+
+    @model_validator(mode="after")
+    def drag_reference(self):
+        if self.automatic_drag is not None and not isclose(
+            self.automatic_drag.reference_radius_m, self.radius, rel_tol=1e-7
+        ):
+            raise ValueError(
+                "Automatic drag reference radius must match rocket radius."
+            )
+        return self
 
     @field_validator("inertia")
     @classmethod

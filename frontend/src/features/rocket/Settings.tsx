@@ -4,6 +4,7 @@ import { createMotor, createTank, motorLabels } from "../../lib/templates";
 import type { MotorKind } from "../../lib/templates";
 import type { RocketDesign } from "../../lib/types";
 import { useWorkspace } from "../../workspace";
+import { DragEditor } from "./DragEditor";
 
 export function MotorEditor() {
   const w = useWorkspace();
@@ -165,17 +166,17 @@ export function AssemblyEditor() {
         schema={w.schema}
         object={w.design}
         path={[]}
-        only={[
-          "name",
-          "power_off_drag",
-          "power_on_drag",
-          "rail_buttons",
-          "overrides",
-        ]}
+        only={["name"]}
+      />
+      <DragEditor />
+      <ConfigFields
+        schema={w.schema}
+        object={w.design}
+        path={[]}
+        only={["rail_buttons", "overrides"]}
       />
       <p className="muted">
-        항력 표의 x축은 Mach입니다. 형상 변경으로 항력 곡선이 자동 계산되지는
-        않습니다. 실측 질량·CG·관성은 모터를 제외한 기체 전체 값입니다.
+        실측 질량·CG·관성은 모터를 제외한 기체 전체 값입니다.
       </p>
     </>
   );

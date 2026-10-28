@@ -25,8 +25,9 @@ position, drag curves, rail buttons, and optional assembly measurements.
 Changing a material's density updates every component referencing that material.
 Changing a part's position updates its contribution to assembly CG and transverse
 inertia. Fin/nose dimensions and positions also change the aerodynamic surfaces
-passed to RocketPy. Body drag remains an explicit input curve, not an automatic
-CFD result of changing geometry or material.
+passed to RocketPy. Body drag defaults to explicit inputs. Optional independent
+Cd0 estimates use geometry and measured equivalent sand-grain roughness;
+see [AERODYNAMICS.md](AERODYNAMICS.md) for equations and its restricted domain.
 
 ## Material library and surface data
 
@@ -109,7 +110,8 @@ External body/surface parts save an optional `surface_finish` with nonnegative
 sand-grain roughness `ks`, measured arithmetic roughness `Ra`, and legacy model
 heights remain distinct. No roughness presets or automatic conversions are
 provided. Enter a finished-part measurement or independently documented value.
-A missing finish is unknown, not a zero-roughness assumption. Existing design
+A missing finish is unknown; the optional automatic Cd0 model explicitly reports
+a smooth-surface assumption when no finish is supplied. Existing design
 snapshots, including legacy model-height tags, remain readable without a lookup
 table or replacing their stored values.
 
@@ -120,9 +122,14 @@ measured surface/process data for skin friction; Ra alone cannot establish ks
 porosity, elastic modulus or strength is invented. Source notes are explicitly
 scoped to their products, not every member of a material family.
 
-**Current solver use:** density affects mass, CG and inertia. Surface finish is
-preserved as input metadata for a future validated aerodynamic model; the
-explicit `power_on_drag`/`power_off_drag` curves remain authoritative. RocketPy
+**Current solver use:** density affects mass, CG and inertia. With
+`automatic_drag`, equivalent sand-grain roughness affects the preliminary Cd0
+model. `subsonic_v1` retains the Mach 0–0.7 calculation. `compressible_v1` adds
+Mach 0–3 for conical noses and thin sharp double-wedge trapezoidal fins within
+its documented limits. Positive Ra/legacy roughness, unsupported geometry, and
+flight outside the chosen model's speed envelope are rejected. Without it, explicit
+`power_on_drag`/`power_off_drag` curves remain authoritative. Those inputs are
+preserved while automatic mode is active. RocketPy
 surface lift/CP use shape and flow; material selection does not assign a new
 lift coefficient. No CFD or aeroelastic/flutter solver is introduced.
 

@@ -4,6 +4,7 @@ from typing import Annotated, Literal
 
 from pydantic import Field, field_validator, model_validator
 
+from .aerodynamics import AutomaticDrag, DragReport
 from .common import (
     EngineConfig,
     Inertia,
@@ -186,6 +187,7 @@ class RocketDesign(EngineConfig):
     tanks: list[MassBasedTankConfig] = Field(default_factory=list)
     power_off_drag: NonNegativeCurve
     power_on_drag: NonNegativeCurve
+    automatic_drag: AutomaticDrag | None = None
     rail_buttons: RailButtonsConfig | None = None
     overrides: MassOverrides = Field(default_factory=MassOverrides)
 
@@ -270,6 +272,7 @@ class DesignReport(EngineConfig):
     sources: MassPropertySources
     components: list[ComponentMassProperties]
     notes: list[str]
+    aerodynamics: DragReport | None = None
 
 
 class DesignPreview(EngineConfig):

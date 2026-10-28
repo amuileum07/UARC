@@ -20,7 +20,7 @@
   },
   "calculation_usage": {
     "density": "Used for component mass, mass-weighted CG and geometric inertia. Surface uses mass/area; line uses mass/length.",
-    "roughness_m": "Saved per external component for future validated skin-friction models; currently does not replace explicit drag inputs. Never assign from material identity alone.",
+    "roughness_m": "Equivalent sand-grain ks is used by the optional subsonic_v1 and compressible_v1 Cd0 estimates. Ra and legacy heights are not converted. Missing ks uses a disclosed smooth-surface assumption. Manual drag inputs remain unchanged. Never assign from material identity alone.",
     "roughness_type": "Equivalent sand-grain ks, measured Ra and legacy model heights are distinct conventions; no automatic conversion or bundled model-height lookup table.",
     "lift_cp": "Current RocketPy lift/normal-force and CP models use geometry and flow, not a material-specific lift coefficient.",
     "missing_properties": "A missing/unspecified surface roughness, porosity, coating or mechanical property is unknown, not zero. SDS physical properties do not establish finished-part aerodynamic roughness.",

@@ -50,6 +50,7 @@ dependencies = [
     { name = "pywebview", extra = ["pyside6"], marker = "sys_platform == 'linux'" },
     { name = "rasterio" },
     { name = "rocketpy" },
+    { name = "scipy" },
 ]
 
 [package.dev-dependencies]
@@ -67,6 +68,7 @@ requires-dist = [
     { name = "pywebview", extras = ["pyside6"], marker = "sys_platform == 'linux'", specifier = ">=6.2.1" },
     { name = "rasterio", specifier = "==1.4.4" },
     { name = "rocketpy", specifier = ">=1.13.0" },
+    { name = "scipy", specifier = ">=1.13.0" },
 ]
 
 [package.metadata.requires-dev]

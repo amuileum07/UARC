@@ -1,5 +1,12 @@
 """Public schema API; keep existing ``from app.schemas import ...`` imports stable."""
 
+from .aerodynamics import (
+    AutomaticDrag,
+    DragGeometry,
+    DragReport,
+    DragSample,
+    DragSurface,
+)
 from .common import (
     BurnTime,
     Curve,
@@ -92,6 +99,11 @@ from .weather import (
 )
 
 __all__ = [
+    "AutomaticDrag",
+    "DragGeometry",
+    "DragReport",
+    "DragSample",
+    "DragSurface",
     "BodyTubeDesign",
     "BurnTime",
     "ComponentDesign",

@@ -176,15 +176,20 @@ def build_rocket(
     frame; motor_position locates the motor frame origin. Additional native
     sensors/controllers/air brakes can be attached to the returned Rocket.
     """
-    rocket = Rocket(
-        **config.model_dump(
-            exclude={
-                "motor_position",
-                "parachutes",
-                "rail_buttons",
-            }
-        )
+    options = config.model_dump(
+        exclude={
+            "motor_position",
+            "parachutes",
+            "rail_buttons",
+            "automatic_drag",
+        }
     )
+    if config.automatic_drag is not None:
+        from app.aerodynamics import DragFunction
+
+        options["power_off_drag"] = DragFunction(config.automatic_drag, powered=False)
+        options["power_on_drag"] = DragFunction(config.automatic_drag, powered=True)
+    rocket = Rocket(**options)
     if motor is not None:
         rocket.add_motor(deepcopy(motor), position=config.motor_position)
     for surface, position in surfaces:

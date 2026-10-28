@@ -1,0 +1,65 @@
+{
+  "experimental_base_comparison": {
+    "source": "https://doi.org/10.2514/3.11953",
+    "quantity": "coasting closed-cylinder base Cd, not total Cd",
+    "mach": 2.46,
+    "reference": 0.102,
+    "calculated": 0.1016260162601626,
+    "difference_percent": -0.3666507253307749,
+    "prediction_at_mach_uncertainty_endpoints": [
+      0.10061981807936891,
+      0.10265254167693193
+    ],
+    "prediction_at_pressure_derived_mach_2_44": 0.10245901639344263,
+    "pressure_measurement_uncertainty": null,
+    "scope": "One base-flow condition; not general base or whole-rocket validation."
+  },
+  "numerical_sweep": {
+    "coefficient_evaluations": 67725,
+    "nose_fineness": [
+      3,
+      4,
+      6,
+      8,
+      10
+    ],
+    "fins": "none; 3 rectangular (5% thick); 4 trapezoidal (5% at tip)",
+    "mach": {
+      "min": 0,
+      "max": 3,
+      "step": 0.01
+    },
+    "diameter_reynolds": [
+      0,
+      1000.0,
+      100000.0,
+      10000000.0,
+      1000000000.0
+    ],
+    "sand_grain_roughness_m": [
+      0,
+      1e-06,
+      0.0001
+    ],
+    "nose_interpolation_max_sampled_error": {
+      "relative_percent": 0.1608452401488325,
+      "absolute_cd": 0.00021750157842365114,
+      "nose_fineness": 3,
+      "mach": 1.225
+    },
+    "fin_8_vs_64_strip_max_sampled_error": {
+      "relative_percent": 4.141987694453442,
+      "absolute_cd": 5.712184895565467e-06,
+      "taper": 0.01,
+      "mach": 1.2
+    },
+    "fin_64_vs_128_strip_max_sampled_difference": {
+      "relative_percent": 6.673872343654352e-07,
+      "absolute_cd": 9.203888465172255e-13,
+      "taper": 0.01,
+      "mach": 1.2
+    },
+    "scope": "Sampled numerical stress/convergence checks, not physical accuracy. Independent Mach/Re extremes include nonphysical combinations."
+  },
+  "whole_rocket_experimental_validation": false
+}

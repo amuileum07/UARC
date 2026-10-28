@@ -68,7 +68,7 @@ controls; Python remains responsible for physical validation.
 
 | Location | Editable settings |
 | --- | --- |
-| Project → **로켓 전체 · 항력 · 실측값** | Design name, Mach/Cd drag inputs, rail buttons, measured airframe mass/CG/inertia overrides |
+| Project → **로켓 전체 · 항력 · 실측값** | Design name, manual Mach/Cd inputs or independent Cd0 estimates (Mach ≤ 0.7 / Mach 0–3) with component breakdown, rail buttons, measured airframe mass/CG/inertia overrides |
 | Component properties | Material, measured mass, dimensions, intrinsic inertia, all four aerodynamic surface types and nose shapes |
 | Parachute → **낙하산 전개** | Apogee/descending AGL trigger, Cd·A override, sampling, lag, noise, canopy radius/height/porosity/Cd |
 | **모터 · 추진제** | No motor or generic/solid/liquid/hybrid; thrust, burn interval, reshape, dry mass/inertia, orientation, grains/chamber/nozzle/reference pressure |
@@ -95,8 +95,18 @@ finite density. Units are kg/m³, kg/m² or kg/m; changing type clears the draft
 value. User materials are stored with the design and included in `.uarc` files.
 Simulator material and surface-finish tables are not included.
 Body/surface properties accept measured or independently documented roughness,
-with its convention preserved. These values are saved for a future drag model;
-current drag curves remain explicit inputs. Existing designs retain their values.
+with its convention preserved. The optional automatic Cd0 mode uses only ks;
+positive Ra/legacy heights require manual drag inputs. Missing ks is explicitly
+reported as a smooth-surface assumption. Automatic estimates are limited to
+Mach ≤ 0.7 for the legacy model, or Mach 0–3 with `compressible_v1` for a conical
+nose (length/diameter 3–10) and 3/4 thin double-wedge trapezoidal fins. Positive
+tip chord, thickness/chord ≤ 5%, zero cant and midchord sweep within ±10° are
+required. Fin mass/rendering remain flat-plate approximations; supply measured
+fin mass when beveling matters. Transonic nose pressure scales a fineness-3
+NACA flight curve; other fineness ratios remain engineering estimates. The
+preview table uses a fixed reference atmosphere; actual flight uses weather-based
+Reynolds numbers. Manual input values remain saved when switching modes.
+See [the model documentation](../docs/AERODYNAMICS.md) for equations and limits.
 See [material units, sources and limits](../docs/DESIGN.md#material-library-and-surface-data).
 
 The canonical component design keeps axial positions and tail-to-nose coordinates;
