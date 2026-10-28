@@ -20,6 +20,7 @@ dependencies = [
     "rasterio==1.4.4",
     "rocketpy==1.13.0",
     "scipy>=1.13.0",
+    "tzdata>=2026.6",
 ]
 
 [project.scripts]

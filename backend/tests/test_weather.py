@@ -2,6 +2,9 @@
 
 import io
 import json
+import os
+import subprocess
+import sys
 import tempfile
 import unittest
 from contextlib import closing
@@ -171,6 +174,10 @@ class WeatherTests(unittest.TestCase):
 
     def test_time_zone_and_dst_validation(self):
         self.assertEqual(
+            launch_time((2026, 10, 26, 12), "UTC"),
+            datetime(2026, 10, 26, 12, tzinfo=UTC),
+        )
+        self.assertEqual(
             launch_time((2026, 10, 26, 12), "Asia/Seoul"),
             datetime(2026, 10, 26, 3, tzinfo=UTC),
         )
@@ -183,6 +190,23 @@ class WeatherTests(unittest.TestCase):
                 launch_time(date, zone)
         aware = datetime.fromisoformat("2026-11-01T01:30:00-04:00")
         self.assertEqual(launch_time(aware, "America/New_York"), aware.astimezone(UTC))
+
+    def test_time_zone_and_dst_validation_without_system_database(self):
+        # A fresh interpreter avoids an OS-backed ZoneInfo cache hiding missing data.
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "unittest",
+                "test_weather.WeatherTests.test_time_zone_and_dst_validation",
+            ],
+            cwd=Path(__file__).parent,
+            env=dict(os.environ, PYTHONTZPATH=""),
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_request_validation_and_time_window(self):
         for changes in (

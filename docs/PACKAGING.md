@@ -104,6 +104,12 @@ FFT/linear-algebra modules dynamically. Backend-only builds select Matplotlib's
 Agg backend both during analysis and in headless dispatch, avoiding a GUI backend
 dependency for numerical execution.
 
+`tzdata` is a runtime dependency for IANA timezone lookup when the OS has no
+database, including Windows. Every bundle explicitly includes the data package,
+its regional modules and license metadata. The source and installed-package
+checks cover UTC, Asia/Seoul and DST validation without OS timezone data; the
+bundle smoke check also disables OS timezone lookup for its weather flight.
+
 On macOS, netCDF4 and rasterio ship separate HDF5/netCDF dylibs with matching
 basenames but different build features. After PyInstaller collection, the builder
 restores both packages' original extension modules and private dylibs, retaining

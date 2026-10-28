@@ -18,6 +18,7 @@ from pathlib import Path
 import app
 from app.bridge import DesktopBridge
 from app.config import bundled_file, frontend_entrypoint
+from app.schemas import launch_time
 
 target = Path(sys.argv[1]).resolve()
 assert Path(app.__file__).resolve().is_relative_to(target), app.__file__
@@ -32,6 +33,8 @@ design = bundled_file('examples/design.json')
 assert design.is_relative_to(target) and design.is_file()
 assert DesktopBridge().get_example_design()['components']
 assert DesktopBridge().get_material_catalog()['materials']
+assert launch_time((2025, 1, 1, 0), 'UTC').isoformat() == '2025-01-01T00:00:00+00:00'
+assert launch_time((2025, 1, 1, 9), 'Asia/Seoul').isoformat() == '2025-01-01T00:00:00+00:00'
 print(json.dumps({'design': str(design)}))
 """
 
@@ -69,6 +72,7 @@ def main() -> None:
             os.environ,
             PYTHONPATH=str(target),
             PYTHONDONTWRITEBYTECODE="1",
+            PYTHONTZPATH="",
             MPLBACKEND="Agg",
         )
         environment.pop("PYTHONHOME", None)

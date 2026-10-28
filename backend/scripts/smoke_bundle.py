@@ -70,7 +70,9 @@ def main() -> None:
     executable = args.executable.resolve(strict=True)
     root = Path(__file__).resolve().parents[2]
     design = root / "examples" / "design.json"
-    environment = dict(os.environ, PYTHONPATH="", PYTHONDONTWRITEBYTECODE="1")
+    environment = dict(
+        os.environ, PYTHONPATH="", PYTHONDONTWRITEBYTECODE="1", PYTHONTZPATH=""
+    )
     environment.pop("PYTHONHOME", None)
     with tempfile.TemporaryDirectory(prefix="uarc-bundle-smoke-") as temporary:
         directory = Path(temporary)

@@ -253,6 +253,10 @@ class PackagingTests(unittest.TestCase):
                         patch("sys.platform", platform),
                     ):
                         arguments = build(root, frontend, directory / "output")
+                        self.assertIn(
+                            ("--hidden-import", "tzdata"),
+                            zip(arguments, arguments[1:], strict=False),
+                        )
                         self.assertEqual(
                             "tkinter" not in arguments,
                             platform == "win32" and frontend is not None,

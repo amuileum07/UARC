@@ -89,6 +89,11 @@ def build_arguments(root: Path, frontend: Path | None, output: Path) -> list[str
         str(root),
         "--collect-data",
         "rocketpy",
+        # zoneinfo loads its IANA fallback dynamically; its hook collects all zones.
+        "--hidden-import",
+        "tzdata",
+        "--copy-metadata",
+        "tzdata",
         "--add-data",
         f"{root / 'app' / 'materials.json'}:app",
         # SciPy's vendored NumPy namespace imports fft/linalg dynamically.
