@@ -55,9 +55,10 @@ prints stage changes to stderr and a run ID plus summary JSON to stdout.
 Ctrl+C cancels the worker and exits with status 130. Failed or timed-out runs
 exit with status 1. The same scheduler and storage serve the GUI bridge.
 
-Without options, the launcher looks for `frontend/dist/index.html` in this
-checkout. A missing build produces an explicit error rather than an empty
-window. Use `--frontend` to supply assets when running an installed wheel.
+Without options, the launcher uses `frontend/dist/index.html` in a source
+checkout or the included assets in an installed distribution. A missing build
+produces an explicit error rather than an empty window. `--frontend` overrides
+the default asset path when needed.
 Build scripts support Python distributions and PyInstaller folder bundles.
 See [packaging and platform verification](../docs/PACKAGING.md). Actual GUI
 rendering still requires frontend assets and a graphical session on each target OS.
@@ -590,8 +591,8 @@ node --experimental-strip-types --test frontend/src/lib/bridge.test.mjs
 
 Desktop tests exercise bridge validation and launcher wiring without opening a
 window. Frontend tests cover bridge readiness, JSON transport, Python errors,
-and use outside the desktop host. They do not replace a future TypeScript build
-or native GUI test.
+and use outside the desktop host. They complement TypeScript/build checks and
+native GUI tests.
 
 Tests use synthetic hardware and offline weather. They compare actual flight
 results with native RocketPy, exercise all four motor types, and check early

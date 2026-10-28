@@ -5,11 +5,13 @@ import json
 import os
 import runpy
 import stat
+import subprocess
 import tarfile
 import tempfile
 import unittest
 import zipfile
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts/release_desktop.py"
@@ -17,6 +19,66 @@ RELEASE = runpy.run_path(str(SCRIPT))
 
 
 class DesktopReleaseTests(unittest.TestCase):
+    def test_automatic_version_increments_use_numeric_releases_and_reset_lower_parts(
+        self,
+    ):
+        for current, tags, bump, expected in (
+            ("0.1.0", ["v0.1.0"], "patch", "0.1.1"),
+            ("0.1.9", ["v0.1.9"], "minor", "0.2.0"),
+            ("0.2.9", ["v0.2.9"], "major", "1.0.0"),
+            ("0.1.0", ["v0.9.0", "v0.10.0", "other", "v2.0.0-rc.1"], "patch", "0.10.1"),
+            ("0.11.0", ["v0.10.0"], "patch", "0.11.1"),
+        ):
+            with self.subTest(current=current, tags=tags, bump=bump):
+                self.assertEqual(RELEASE["next_version"](current, tags, bump), expected)
+        self.assertEqual(
+            RELEASE["next_version"]("0.1.0", [], "patch", "v0.1.0"), "0.1.0"
+        )
+        self.assertEqual(
+            RELEASE["next_version"]("0.1.0", ["v0.1.0"], "patch", "0.2.0"), "0.2.0"
+        )
+        for version in (
+            "0.0.9",
+            "0.1.0",
+            "01.2.0",
+            "0.2.0-rc.1",
+            "--help",
+            "$(whoami)",
+        ):
+            with self.subTest(version=version), self.assertRaises(ValueError):
+                RELEASE["next_version"]("0.1.0", ["v0.1.0"], "patch", version)
+        with self.assertRaises(ValueError):
+            RELEASE["next_version"]("0.1.0", [], "invalid")
+
+    def test_failed_version_update_restores_all_original_files(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "backend").mkdir()
+            (root / "frontend").mkdir()
+            originals = {
+                root / "backend/pyproject.toml": b'[project]\nversion = "0.1.0"\n',
+                root / "backend/uv.lock": b"original lockfile\n",
+                root
+                / "frontend/package.json": b'{ "version": "0.1.0", "private": true }\n',
+            }
+            for path, content in originals.items():
+                path.write_bytes(content)
+
+            def fail(command, **kwargs):
+                if command[0] == "git":
+                    return SimpleNamespace(stdout="v0.1.0\n")
+                (root / "backend/pyproject.toml").write_text("partial update")
+                (root / "backend/uv.lock").write_text("partial lock")
+                raise subprocess.CalledProcessError(1, command, stderr="lock failed")
+
+            with (
+                patch("subprocess.run", side_effect=fail),
+                self.assertRaises(subprocess.CalledProcessError),
+            ):
+                RELEASE["prepare_version"]("patch", root=root)
+            for path, content in originals.items():
+                self.assertEqual(path.read_bytes(), content)
+
     def test_version_requires_matching_manifests_and_rejects_unsafe_tag_text(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

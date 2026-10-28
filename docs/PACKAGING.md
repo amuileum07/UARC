@@ -8,7 +8,8 @@ Use Python 3.13 for the pinned PyInstaller 6.14.2 build tool (`>=3.8, <3.14`).
 
 The PyPI distribution name is **uarc-simulator**; the unrelated `uarc` project
 name is already registered. Executable commands remain **uarc / uarc-data**.
-After publication, use one of these methods with Python 3.13+:
+The project is published on [PyPI](https://pypi.org/project/uarc-simulator/).
+Use one of these methods with Python 3.13+:
 
 | Tool | Install/run |
 | --- | --- |
@@ -136,26 +137,43 @@ To release from the website:
 1. Commit and push the workflow, helper script, release notes and application
    changes to the repository's default branch. The workflow must be present on
    the default branch for GitHub to display its **Run workflow** button.
-2. Open **Actions → Release UARC → Run workflow** and select the source
-   branch. Enter a version such as **0.1.0** and choose whether to mark it as a
-   **pre-release** (enabled by default for the current development build).
+2. Open **Actions → Release UARC → Run workflow** and select the source branch.
+   Leave **version** empty and choose **bump**: `patch` (default), `minor` or
+   `major`. An explicit new X.Y.Z in **version** overrides **bump**. Choose whether
+   to mark the GitHub release as a **pre-release** (enabled by default).
    Enable **publish_pypi** only after registering the Trusted Publisher below.
-3. Click **Run workflow**. Source checks and all four native builds must succeed
-   before the publish job runs. It creates the tag/release for the **exact commit
-   selected when the run began**, even if the branch subsequently moves.
+3. Click **Run workflow**. The prepare job selects and stages the version, then
+   source checks and all four native builds must succeed before publication.
+   The publish job commits only the verified version files to the selected branch
+   and tags that commit. Application source is the dispatched commit plus those
+   version updates.
 
-The version must match both `backend/pyproject.toml` and
-`frontend/package.json`; `0.1.0` and `v0.1.0` both produce tag `v0.1.0`.
-For later releases, update both manifests, run `uv lock` from `backend/` and
-commit the resulting lockfile before dispatching. Existing tags/releases/assets
-are not overwritten. Concurrent release runs are serialized.
+The automatic base is the greater of the source version and existing numeric
+X.Y.Z release tags, compared numerically. For example, `0.1.0` becomes `0.1.1`
+with `patch`, `0.2.0` with `minor`, or `1.0.0` with `major`. Explicit versions
+cannot be older than the source version or reuse an existing numeric release.
+Both `0.2.0` and `v0.2.0` produce tag `v0.2.0`.
+
+`backend/pyproject.toml`, `backend/uv.lock` and `frontend/package.json` are updated
+together; uv maintains its own manifest/lock format without requesting dependency
+upgrades. The same three files are passed to every build job and the publish
+job. There is no need to edit version strings before a normal release. The README
+badge queries PyPI, so it follows PyPI publication rather than source commits or
+GitHub-only releases; badge caches may take a few minutes to refresh.
+
+The version commit is created only after all builds/checks pass. Its push uses an
+explicit lease requiring the branch to remain at the dispatched SHA; a changed
+or deleted branch stops publication without replacing intervening work. Start a
+new run from the updated branch in that case. Branch rules must allow this bot
+commit; the workflow does not bypass protections. Existing tags/releases/assets
+are not overwritten, and concurrent release runs are serialized.
 
 | Runner | Artifact |
 | --- | --- |
-| Windows Server 2022 x64 | `UARC-v0.1.0-windows-x86_64.zip` |
-| Ubuntu 22.04 x64 | `UARC-v0.1.0-linux-x86_64.tar.gz` |
-| macOS 15 Apple Silicon | `UARC-v0.1.0-macos-arm64.tar.gz` |
-| macOS 15 Intel | `UARC-v0.1.0-macos-x86_64.tar.gz` |
+| Windows Server 2022 x64 | `UARC-vX.Y.Z-windows-x86_64.zip` |
+| Ubuntu 22.04 x64 | `UARC-vX.Y.Z-linux-x86_64.tar.gz` |
+| macOS 15 Apple Silicon | `UARC-vX.Y.Z-macos-arm64.tar.gz` |
+| macOS 15 Intel | `UARC-vX.Y.Z-macos-x86_64.tar.gz` |
 
 All archives contain the complete `UARC/` folder and built frontend. Unix tar
 archives preserve executable permissions and PyInstaller symlinks. These are
@@ -175,13 +193,15 @@ or certify interactive webview/3D rendering on end-user desktops.
 
 The publish job requires four native archives, the verified wheel and sdist,
 and creates `SHA256SUMS.txt`. It uploads all assets into a draft and publishes only after
-upload succeeds. If publication fails after creating the draft, inspect the
-failed run and draft/tag manually; there is no automatic deletion or clobbering.
+upload succeeds. If publication fails after the version commit or draft is
+created, inspect the failed run and branch/draft/tag manually; there is no
+automatic deletion or clobbering.
 Earlier build failures create no release. Successful files remain downloadable
 from **Releases**; intermediate workflow artifacts are retained for seven days.
 
-Only the publish job requests `contents: write`; checkout/build jobs have read
-access and do not persist checkout credentials. Actions are pinned to verified
+Only the publish job requests `contents: write` for the version commit and release;
+checkout/build jobs have read access and do not persist checkout credentials.
+The publish job configures GitHub CLI as its Git credential helper. Actions are pinned to verified
 commit SHAs. The built-in `GITHUB_TOKEN` is sufficient; no personal token or
 signing secret is required. Repository/organization policy must allow Actions,
 the pinned actions and release creation. Builds have no developer signing
@@ -189,8 +209,8 @@ certificate or Apple notarization configured. Edit
 [RELEASE_NOTES.md](RELEASE_NOTES.md) before each release; it becomes the release
 body and records distribution/model limitations.
 
-The workflow has not been dispatched as part of local configuration. Local
-script/lint tests do not replace the first native GitHub-hosted build.
+Local script/lint tests do not replace the native GitHub-hosted build and target-OS
+GUI acceptance checks. Configuring the workflow does not publish a release.
 
 ### Optional PyPI publication
 
@@ -214,9 +234,9 @@ PyPI account (or an existing project's Publishing settings if you own it):
 | GitHub environment | `pypi` |
 
 Configure the matching GitHub environment if required by repository policy.
-No PyPI account/project/publisher has been created by the local build, and no
-package has been uploaded. The current name check found no published
-`uarc-simulator` project; PyPI validates name eligibility during registration.
+The existing [uarc-simulator project](https://pypi.org/project/uarc-simulator/)
+uses its project's Publishing settings for future publisher changes. The pending
+publisher form is only for a first publication under a new, eligible name.
 
 The GitHub pre-release checkbox labels the GitHub release only. PyPI uses the
 package's version: the current `0.1.0` is a normal Python package version even

@@ -1,6 +1,6 @@
 # UARC Coding Style & Architecture Guide
 
-This document defines the architectural principles, coding conventions, and implementation guidelines for the UARC backend (`backend/app/`, `backend/tests/`) and planned frontend (`frontend/src/`).
+This document defines the architectural principles, coding conventions, and implementation guidelines for the UARC backend (`backend/app/`, `backend/tests/`) and frontend (`frontend/src/`).
 
 All new contributions and refactorings must adhere to these standards.
 
@@ -9,7 +9,7 @@ All new contributions and refactorings must adhere to these standards.
 ## 1. Core Principles
 
 1. **Separation of Concerns**
-   * **Data Validation & DTOs**: Handled exclusively by `schemas.py` (Pydantic V2).
+   * **Data Validation & DTOs**: Handled exclusively by `app/schemas/` (Pydantic V2).
    * **Component Design & Mass Properties**: Handled by `design.py`; preserve editable designs separately from derived solver inputs. See [docs/DESIGN.md](./docs/DESIGN.md).
    * **Hardware Assembly & Numerical Solvers**: Handled exclusively by `engine.py` (RocketPy wrapper).
    * **Desktop Boundary & Lifecycle**: Handled by `bridge.py` and `main.py` (pywebview); `simulation/jobs.py` owns bounded scheduling and `simulation/worker.py` runs simulations in separate processes.
@@ -30,9 +30,9 @@ All new contributions and refactorings must adhere to these standards.
 
 ---
 
-## 2. Data Schemas & DTOs (`app/schemas.py`)
+## 2. Data Schemas & DTOs (`app/schemas/`)
 
-Models in `schemas.py` serve as the single source of truth for bridge serialization, input validation, and reproducibility snapshots (`input.json`). The bridge validates JSON text with `model_validate_json` or `TypeAdapter.validate_json`, so JavaScript arrays can populate tuple fields without weakening strict Python validation.
+Models in `app/schemas/` serve as the single source of truth for bridge serialization, input validation, and reproducibility snapshots (`input.json`). The bridge validates JSON text with `model_validate_json` or `TypeAdapter.validate_json`, so JavaScript arrays can populate tuple fields without weakening strict Python validation.
 
 ### 2.1 Pure Serializable DTO Rule
 

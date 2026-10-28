@@ -5,6 +5,7 @@ import hashlib
 import json
 import platform
 import re
+import subprocess
 import sys
 import tarfile
 import tomllib
@@ -20,11 +21,17 @@ TARGETS = {
 }
 
 
-def version_tag(version: str, root: Path = ROOT) -> str:
+def version_number(version: str) -> tuple[int, int, int]:
     if not re.fullmatch(
         r"v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", version
     ):
         raise ValueError("Use a version such as 0.1.0 or v0.1.0 (X.Y.Z).")
+    major, minor, patch = map(int, version.removeprefix("v").split("."))
+    return major, minor, patch
+
+
+def version_tag(version: str, root: Path = ROOT) -> str:
+    version_number(version)
     number = version.removeprefix("v")
     backend = tomllib.loads(
         (root / "backend/pyproject.toml").read_text(encoding="utf-8")
@@ -35,6 +42,69 @@ def version_tag(version: str, root: Path = ROOT) -> str:
             "Release version must match backend/pyproject.toml and frontend/package.json."
         )
     return f"v{number}"
+
+
+def next_version(current: str, tags: list[str], bump: str, requested: str = "") -> str:
+    current_number = version_number(current)
+    published = []
+    for tag in tags:
+        try:
+            published.append(version_number(tag))
+        except ValueError:
+            continue  # Other tag formats are not UARC X.Y.Z releases.
+    if bump not in {"patch", "minor", "major"}:
+        raise ValueError("Choose patch, minor or major.")
+    if requested:
+        target = version_number(requested)
+        if target < current_number or any(target <= number for number in published):
+            raise ValueError(
+                "The requested version must be new and cannot go backwards."
+            )
+    else:
+        numbers = list(max([current_number, *published]))
+        index = {"major": 0, "minor": 1, "patch": 2}[bump]
+        numbers[index] += 1
+        numbers[index + 1 :] = [0] * (2 - index)
+        target = numbers[0], numbers[1], numbers[2]
+    return ".".join(map(str, target))
+
+
+def prepare_version(bump: str, requested: str = "", root: Path = ROOT) -> str:
+    paths = [
+        root / "backend/pyproject.toml",
+        root / "backend/uv.lock",
+        root / "frontend/package.json",
+    ]
+    originals = {path: path.read_bytes() for path in paths}
+    current = tomllib.loads(originals[paths[0]].decode())["project"]["version"]
+    version_tag(current, root)
+    tags = subprocess.run(
+        ["git", "tag", "--list"], cwd=root, check=True, capture_output=True, text=True
+    ).stdout.splitlines()
+    number = next_version(current, tags, bump, requested)
+    frontend = originals[paths[2]].decode()
+    updated, count = re.subn(
+        r'("version"\s*:\s*")[^"]+("\s*[,}])',
+        lambda match: f"{match[1]}{number}{match[2]}",
+        frontend,
+    )
+    if count != 1:
+        raise ValueError("Expected exactly one frontend version field.")
+    try:
+        # Let uv update its own manifest/lock format, retaining locked dependencies.
+        subprocess.run(
+            ["uv", "version", "--no-sync", number],
+            cwd=root / "backend",
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        paths[2].write_bytes(updated.encode())
+        return version_tag(number, root)
+    except (OSError, ValueError, subprocess.SubprocessError):
+        for path, original in originals.items():
+            path.write_bytes(original)
+        raise
 
 
 def native_target() -> str:
@@ -120,6 +190,9 @@ def write_checksums(output: Path, tag: str) -> Path:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
+    prepare = commands.add_parser("prepare-version")
+    prepare.add_argument("--bump", choices=("patch", "minor", "major"), default="patch")
+    prepare.add_argument("--version", default="", help="Optional explicit new X.Y.Z")
     commands.add_parser("validate").add_argument("version")
     archive = commands.add_parser("archive")
     archive.add_argument("version")
@@ -131,6 +204,9 @@ def main() -> None:
     checksums.add_argument("--output", type=Path, default=ROOT / "dist/release")
     args = parser.parse_args()
     try:
+        if args.command == "prepare-version":
+            print(prepare_version(args.bump, args.version))
+            return
         tag = version_tag(args.version)
         if args.command == "validate":
             print(tag)
@@ -144,6 +220,8 @@ def main() -> None:
             print(write_checksums(args.output, tag))
     except (OSError, ValueError) as error:
         parser.exit(1, f"{error}\n")
+    except subprocess.CalledProcessError as error:
+        parser.exit(1, f"{error}\n{error.stderr or ''}")
 
 
 if __name__ == "__main__":
