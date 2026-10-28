@@ -6,6 +6,17 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 
+def bundled_file(relative: str) -> Path:
+    """Resolve shared read-only assets in frozen, checkout and wheel installs."""
+    if getattr(sys, "frozen", False):
+        return Path(sys._MEIPASS) / relative
+    roots = (Path(__file__).resolve().parents[2], Path(__file__).with_name("_assets"))
+    return next(
+        (root / relative for root in roots if (root / relative).is_file()),
+        roots[-1] / relative,
+    )
+
+
 def default_data_directory() -> Path:
     """Keep installed applications' writable data outside their package assets."""
     if sys.platform == "win32":
@@ -36,15 +47,8 @@ def frontend_entrypoint(
             raise ValueError("The development URL must be a local HTTP server.")
         return dev_url
 
-    asset_root = (
-        Path(sys._MEIPASS)
-        if getattr(sys, "frozen", False)
-        else Path(__file__).resolve().parents[2]
-    )
     entry = (
-        frontend
-        if frontend is not None
-        else (asset_root / "frontend" / "dist" / "index.html")
+        frontend if frontend is not None else bundled_file("frontend/dist/index.html")
     )
     entry = entry.expanduser().resolve()
     if not entry.is_file():

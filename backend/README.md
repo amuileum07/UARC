@@ -12,8 +12,15 @@ uv run uarc --help
 `uv sync` includes development dependencies such as Ruff and updates `uv.lock`
 when dependency declarations change. Commit the updated lockfile with dependency
 changes; use `uv sync --locked` when the lockfile must remain unchanged.
+When updating a checkout previously installed as `backend`, run
+`uv sync --locked --reinstall-package uarc-simulator` once to regenerate shared
+console scripts after the distribution rename.
 
-The project installs `app/` directly and exposes `uarc` through `app.main:main`.
+The distribution is named `uarc-simulator`, installs `app/` directly and exposes
+`uarc` through `app.__main__:main` (desktop plus headless argument dispatch).
+`uarc-data` remains available for file/history operations. Published distributions
+include the built frontend and starting designs; Node.js/pnpm are only needed
+when building from a source checkout. See [PyPI usage](PYPI.md).
 FastAPI/Uvicorn have been replaced with pywebview. Linux installs the PySide6
 renderer automatically. Before opening the Windows desktop, UARC checks for
 .NET Framework 4.6.2+ and the Evergreen WebView2 Runtime. Missing components appear
@@ -29,8 +36,8 @@ package manager does not change `pyproject.toml`, `.python-version`, or `uv.lock
 Use `uv sync --locked` to install the existing Python dependency graph and see
 [frontend setup](../frontend/README.md) for its install/build commands.
 
-The React/Vite application has not been implemented yet. Once a local Vite
-server or built frontend is available, launch it inside the desktop window:
+From a source checkout, launch a local Vite server or a built frontend inside
+the desktop window:
 
 ```bash
 uv run uarc --dev-url http://localhost:5173

@@ -110,6 +110,8 @@ class DesktopReleaseTests(unittest.TestCase):
                             bundle, root / "output", "v0.1.0", target
                         )
                     self.assertEqual(archive.read_bytes(), original)
+            for name in RELEASE["python_distribution_names"]("v0.1.0"):
+                (root / "output" / name).write_bytes(b"Python distribution fixture")
             manifest = RELEASE["write_checksums"](root / "output", "v0.1.0")
             for line in manifest.read_text(encoding="utf-8").splitlines():
                 digest, name = line.split("  ")
@@ -133,6 +135,8 @@ class DesktopReleaseTests(unittest.TestCase):
             for target, suffix in RELEASE["TARGETS"].items():
                 path = output / f"UARC-v0.1.0-{target}{suffix}"
                 path.write_bytes(b"archive fixture")
+            for name in RELEASE["python_distribution_names"]("v0.1.0"):
+                (output / name).write_bytes(b"Python distribution fixture")
             one = next(output.iterdir())
             one.write_bytes(b"")
             with self.assertRaises(ValueError):

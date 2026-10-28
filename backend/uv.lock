@@ -38,43 +38,6 @@ wheels = [
 ]
 
 [[package]]
-name = "backend"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "defusedxml" },
-    { name = "numpy" },
-    { name = "openpyxl" },
-    { name = "pydantic" },
-    { name = "pywebview" },
-    { name = "pywebview", extra = ["pyside6"], marker = "sys_platform == 'linux'" },
-    { name = "rasterio" },
-    { name = "rocketpy" },
-    { name = "scipy" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "ruff" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "defusedxml", specifier = ">=0.7.1" },
-    { name = "numpy", specifier = ">=2.5.3" },
-    { name = "openpyxl", specifier = ">=3.1.5" },
-    { name = "pydantic", specifier = ">=2.13.5" },
-    { name = "pywebview", marker = "sys_platform != 'linux'", specifier = ">=6.2.1" },
-    { name = "pywebview", extras = ["pyside6"], marker = "sys_platform == 'linux'", specifier = ">=6.2.1" },
-    { name = "rasterio", specifier = "==1.4.4" },
-    { name = "rocketpy", specifier = ">=1.13.0" },
-    { name = "scipy", specifier = ">=1.13.0" },
-]
-
-[package.metadata.requires-dev]
-dev = [{ name = "ruff" }]
-
-[[package]]
 name = "bottle"
 version = "0.13.4"
 source = { registry = "https://pypi.org/simple" }
@@ -1293,6 +1256,43 @@ sdist = { url = "https://files.pythonhosted.org/packages/a3/26/b09b8010994eccc3c
 wheels = [
     { url = "https://files.pythonhosted.org/packages/67/81/4add07e5172b7ac40d8ed5ff580409a7801a4fe26d529bdd915401dabfbe/typing_inspection-0.4.4-py3-none-any.whl", hash = "sha256:65b8397ba37ccbce054456aaccddfc91e6e3083c92824df348d96ca832f3f147", size = 14750, upload-time = "2026-08-12T12:37:24.648Z" },
 ]
+
+[[package]]
+name = "uarc-simulator"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "defusedxml" },
+    { name = "numpy" },
+    { name = "openpyxl" },
+    { name = "pydantic" },
+    { name = "pywebview" },
+    { name = "pywebview", extra = ["pyside6"], marker = "sys_platform == 'linux'" },
+    { name = "rasterio" },
+    { name = "rocketpy" },
+    { name = "scipy" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "defusedxml", specifier = ">=0.7.1" },
+    { name = "numpy", specifier = ">=2.5.3" },
+    { name = "openpyxl", specifier = ">=3.1.5" },
+    { name = "pydantic", specifier = ">=2.13.5" },
+    { name = "pywebview", marker = "sys_platform != 'linux'", specifier = ">=6.2.1" },
+    { name = "pywebview", extras = ["pyside6"], marker = "sys_platform == 'linux'", specifier = ">=6.2.1" },
+    { name = "rasterio", specifier = "==1.4.4" },
+    { name = "rocketpy", specifier = "==1.13.0" },
+    { name = "scipy", specifier = ">=1.13.0" },
+]
+
+[package.metadata.requires-dev]
+dev = [{ name = "ruff" }]
 
 [[package]]
 name = "urllib3"

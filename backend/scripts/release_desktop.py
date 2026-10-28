@@ -82,10 +82,19 @@ def archive_bundle(bundle: Path, output: Path, tag: str, target: str) -> Path:
     return destination
 
 
+def python_distribution_names(tag: str) -> set[str]:
+    number = tag.removeprefix("v")
+    return {
+        f"uarc_simulator-{number}-py3-none-any.whl",
+        f"uarc_simulator-{number}.tar.gz",
+    }
+
+
 def write_checksums(output: Path, tag: str) -> Path:
     if not re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+", tag):
         raise ValueError("Invalid release tag.")
     expected = {f"UARC-{tag}-{target}{suffix}" for target, suffix in TARGETS.items()}
+    expected.update(python_distribution_names(tag))
     actual = {path.name for path in output.iterdir()}
     if actual != expected or any(
         not (output / name).is_file()
@@ -94,7 +103,7 @@ def write_checksums(output: Path, tag: str) -> Path:
         for name in expected
     ):
         raise ValueError(
-            "Publication requires exactly four nonempty native release archives."
+            "Publication requires four native archives, one wheel and one sdist, all nonempty."
         )
     lines = []
     for name in sorted(expected):

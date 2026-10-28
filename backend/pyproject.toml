@@ -1,8 +1,11 @@
 [project]
-name = "backend"
+name = "uarc-simulator"
 version = "0.1.0"
 description = "UARC desktop host and RocketPy simulation engine"
-readme = "README.md"
+readme = "PYPI.md"
+license = "MIT"
+license-files = ["LICENSE"]
+keywords = ["rocket", "simulation", "rocketpy", "desktop"]
 authors = [
     { name = "Park Changyeong", email = "amuileum07@gmail.com" }
 ]
@@ -15,13 +18,18 @@ dependencies = [
     "pywebview>=6.2.1; sys_platform != 'linux'",
     "pywebview[pyside6]>=6.2.1; sys_platform == 'linux'",
     "rasterio==1.4.4",
-    "rocketpy>=1.13.0",
+    "rocketpy==1.13.0",
     "scipy>=1.13.0",
 ]
 
 [project.scripts]
-uarc = "app.main:main"
+uarc = "app.__main__:main"
 uarc-data = "app.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/amuileum07/UARC"
+Documentation = "https://github.com/amuileum07/UARC/blob/main/docs/PACKAGING.md"
+Issues = "https://github.com/amuileum07/UARC/issues"
 
 [build-system]
 requires = ["uv_build>=0.12.21,<0.13.0"]

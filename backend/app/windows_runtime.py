@@ -225,6 +225,8 @@ def _show_setup(dependencies: list[Dependency]) -> bool:
     except ImportError as error:
         raise RuntimeError(
             "설치 안내 창을 열 수 없습니다. 전체 UARC 배포 폴더를 다시 풀어 주세요."
+            if getattr(sys, "frozen", False)
+            else "설치 안내 창에 필요한 Tcl/Tk가 없습니다. Tcl/Tk를 포함한 Python 또는 실행 파일 배포판을 사용해 주세요."
         ) from error
     try:
         root = tk.Tk()

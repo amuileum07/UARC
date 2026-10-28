@@ -7,6 +7,7 @@ from typing import Literal
 
 from pydantic import TypeAdapter
 
+from app.config import bundled_file
 from app.design import compile_design
 from app.schemas import (
     DesignPreview,
@@ -126,15 +127,8 @@ class DesktopBridge:
 
     def get_example_design(self) -> dict:
         """Bundled starting design with terrain-following enabled for the editor."""
-        import sys
-
-        root = (
-            Path(sys._MEIPASS)
-            if getattr(sys, "frozen", False)
-            else Path(__file__).resolve().parents[2]
-        )
         design = RocketDesign.model_validate_json(
-            (root / "examples/design.json").read_text()
+            bundled_file("examples/design.json").read_text(encoding="utf-8")
         )
         design.environment.elevation_mode = "terrain"
         return design.model_dump(mode="json")
