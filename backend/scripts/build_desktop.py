@@ -42,8 +42,6 @@ def build_arguments(root: Path, frontend: Path | None, output: Path) -> list[str
         "--copy-metadata",
         "scipy",
         "--exclude-module",
-        "tkinter",
-        "--exclude-module",
         "PyQt5",
         "--exclude-module",
         "PyQt6",
@@ -58,6 +56,8 @@ def build_arguments(root: Path, frontend: Path | None, output: Path) -> list[str
         "--add-data",
         f"{root.parent / 'docs'}:docs",
     ]
+    if frontend is None or sys.platform != "win32":
+        arguments.extend(["--exclude-module", "tkinter"])
     if frontend is None:
         arguments.extend(
             [
@@ -77,6 +77,8 @@ def build_arguments(root: Path, frontend: Path | None, output: Path) -> list[str
             arguments.extend(["--hidden-import", "webview.platforms.qt"])
         elif sys.platform == "win32":
             arguments.extend(["--hidden-import", "webview.platforms.edgechromium"])
+        elif sys.platform == "darwin":
+            arguments.extend(["--hidden-import", "webview.platforms.cocoa"])
     arguments.append(str(root / "app" / "__main__.py"))
     return arguments
 
@@ -120,6 +122,20 @@ def main() -> None:
             raise RuntimeError(
                 "Install the build tool with: uv run --with 'pyinstaller==6.14.2' python scripts/build_desktop.py (plus your build options)."
             )
+        if not args.headless and sys.platform == "win32":
+            try:
+                import tkinter
+
+                tkinter.Tcl()  # Validate Tcl resources before freezing the setup UI.
+            except (ImportError, RuntimeError) as error:
+                raise RuntimeError(
+                    "Windows desktop builds need Python with Tcl/Tk support. "
+                    "Enable Tcl/Tk in the Python installer, then rebuild."
+                ) from error
+            except tkinter.TclError as error:
+                raise RuntimeError(
+                    "Cannot initialize Tcl/Tk for Windows setup."
+                ) from error
         import PyInstaller.__main__
 
         if args.headless:

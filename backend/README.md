@@ -15,8 +15,13 @@ changes; use `uv sync --locked` when the lockfile must remain unchanged.
 
 The project installs `app/` directly and exposes `uarc` through `app.main:main`.
 FastAPI/Uvicorn have been replaced with pywebview. Linux installs the PySide6
-renderer automatically; Windows and macOS use pywebview's platform dependencies.
-Windows also needs its WebView2 runtime; platform details are in the
+renderer automatically. Before opening the Windows desktop, UARC checks for
+.NET Framework 4.6.2+ and the Evergreen WebView2 Runtime. Missing components appear
+in a setup window with checkboxes. After consent, Microsoft-signed installers run
+and UARC starts only after a successful recheck. Cancel exits without installing;
+a required restart is reported without rebooting automatically. The standalone
+Windows bundle includes the setup UI, Python and its Python packages. macOS uses
+pywebview's platform dependencies. See [packaging](../docs/PACKAGING.md) and the
 [pywebview installation guide](https://pywebview.flowrl.com/guide/installation.html).
 
 Frontend packages are managed independently with pnpm; switching the frontend

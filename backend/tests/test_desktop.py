@@ -82,6 +82,44 @@ class DesktopBridgeTests(unittest.TestCase):
 
 
 class DesktopLauncherTests(unittest.TestCase):
+    def test_cancelled_setup_exits_before_creating_jobs_or_webview(self):
+        with (
+            patch("sys.argv", ["uarc", "--dev-url", "http://localhost:5173"]),
+            patch("app.main.ensure_windows_runtime", return_value=False),
+            patch("app.main.prepare_desktop_runtime") as prepare,
+            patch("webview.create_window") as create,
+            patch("app.simulation.jobs.JobManager") as jobs,
+        ):
+            main()
+            prepare.assert_not_called()
+            create.assert_not_called()
+            jobs.assert_not_called()
+
+    def test_windows_uses_checked_edge_renderer(self):
+        with (
+            patch("sys.argv", ["uarc", "--dev-url", "http://localhost:5173"]),
+            patch("app.main.sys.platform", "win32"),
+            patch("app.main.ensure_windows_runtime", return_value=True) as ensure,
+            patch("app.main.prepare_desktop_runtime"),
+            patch("app.simulation.jobs.JobManager"),
+            patch("webview.create_window"),
+            patch("webview.start") as start,
+        ):
+            main()
+            ensure.assert_called_once_with()
+            start.assert_called_once_with(gui="edgechromium")
+
+    def test_help_exits_without_runtime_checks(self):
+        with (
+            patch("sys.argv", ["uarc", "--help"]),
+            patch("app.main.ensure_windows_runtime") as ensure,
+            patch("sys.stdout"),
+        ):
+            with self.assertRaises(SystemExit) as result:
+                main()
+            self.assertEqual(result.exception.code, 0)
+            ensure.assert_not_called()
+
     def test_development_url_accepts_only_local_http(self):
         for url in (
             "http://localhost:5173",

@@ -7,6 +7,7 @@ from pathlib import Path
 
 from app.config import default_data_directory, frontend_entrypoint
 from app.desktop_runtime import prepare_desktop_runtime
+from app.windows_runtime import ensure_windows_runtime
 
 
 def main() -> None:
@@ -47,6 +48,8 @@ def main() -> None:
 
     # Delay GUI imports so --help and input checks also work without a display.
     try:
+        if not ensure_windows_runtime():
+            return
         prepare_desktop_runtime()
     except RuntimeError as error:
         parser.error(str(error))
@@ -70,7 +73,8 @@ def main() -> None:
         webview.create_window(
             "UARC", url=entry, js_api=DesktopBridge(jobs), width=1280, height=800
         )
-        webview.start(gui="qt" if sys.platform == "linux" else None)
+        renderer = {"linux": "qt", "win32": "edgechromium"}.get(sys.platform)
+        webview.start(gui=renderer)
     finally:
         jobs.close()
 

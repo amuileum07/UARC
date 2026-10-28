@@ -236,6 +236,32 @@ class FileWorkflowTests(unittest.TestCase):
 
 
 class PackagingTests(unittest.TestCase):
+    def test_only_windows_desktop_bundles_include_the_setup_ui(self):
+        import runpy
+
+        root = Path(__file__).resolve().parents[1]
+        build = runpy.run_path(str(root / "scripts" / "build_desktop.py"))[
+            "build_arguments"
+        ]
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            (directory / "index.html").write_text("<title>UARC</title>")
+            for platform in ("win32", "linux", "darwin"):
+                for frontend in (directory, None):
+                    with (
+                        self.subTest(platform=platform, frontend=frontend),
+                        patch("sys.platform", platform),
+                    ):
+                        arguments = build(root, frontend, directory / "output")
+                        self.assertEqual(
+                            "tkinter" not in arguments,
+                            platform == "win32" and frontend is not None,
+                        )
+                        if platform == "win32" and frontend is not None:
+                            self.assertIn("webview.platforms.edgechromium", arguments)
+                        if platform == "darwin" and frontend is not None:
+                            self.assertIn("webview.platforms.cocoa", arguments)
+
     def test_frozen_frontend_paths_and_build_plan(self):
         import runpy
 
