@@ -8,6 +8,7 @@ backend/.venv/
 *.egg-info/
 dist/
 build/
+backend/app/_assets/
 .pytest_cache/
 .ruff_cache/
 

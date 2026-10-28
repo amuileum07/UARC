@@ -19,14 +19,23 @@ overrides. Edit [examples/design.json](./examples/design.json); see
 ## Desktop workspace
 
 Native release builds are configured in
-[Release desktop](./.github/workflows/release.yml). From GitHub, choose
-**Actions → Release desktop → Run workflow**, enter the matching project version
+[Release UARC](./.github/workflows/release.yml). From GitHub, choose
+**Actions → Release UARC → Run workflow**, enter the matching project version
 (currently `0.1.0`) and optionally change the pre-release setting. The workflow
 runs only on manual dispatch; pushes, pull requests and tags do not trigger it.
 It builds Windows/Linux x64 and both Apple Silicon/Intel Mac archives, checks
 the frozen executables and publishes a GitHub Release with checksums after all
 targets succeed. Commit/push the workflow to the default branch before using
 the button. See [release instructions](./docs/PACKAGING.md#manual-github-actions-releases).
+
+The workflow also builds self-contained Python distributions named
+**uarc-simulator**, including the interface and starting designs. After PyPI
+Trusted Publisher setup, enable **publish_pypi** in the manual run to publish
+them. Users can then use `pip install uarc-simulator`, `pipx install uarc-simulator`,
+`uv tool install uarc-simulator`, or `uvx --from uarc-simulator uarc`.
+Python 3.13+ is required; the `uarc` / `uarc-data` command names are retained.
+The separate PyPI project named `uarc` is unrelated. See
+[Python distribution setup](./docs/PACKAGING.md#python-distribution).
 
 The first React/Dockview workspace is implemented: numeric editing, selectable SVG/Three.js previews, a Cesium site map, elevation checks, saved designs, jobs and result charts. See [frontend/README.md](./frontend/README.md) for launch commands and terrain-model limitations. Terrain contact uses a version-bound RocketPy 1.13.0 adapter; Automatic AWS public DEM acquisition, continuous surrounding terrain display, offline GeoTIFF/IMG import, and optional OpenTopography API acquisition feed the same frozen terrain used for rendering and contact. VWorld satellite imagery is optional.
 

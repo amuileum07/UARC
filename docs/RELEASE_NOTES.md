@@ -19,6 +19,13 @@ Release checks cover frozen numerical workers and file operations; native webvie
 3D rendering and real Windows prerequisite installation need desktop validation.
 `SHA256SUMS.txt` lists archive checksums.
 
+The `uarc_simulator-*.whl` and `.tar.gz` Python distributions include the interface
+and starting designs. They need Python 3.13+ and the platform webview dependencies.
+Install the downloaded wheel with pip, or after PyPI publication use
+`pipx install uarc-simulator`, `uv tool install uarc-simulator`, or
+`uvx --from uarc-simulator uarc`. PyPI publication is an optional manual workflow
+step, so GitHub assets may be available before the PyPI project is published.
+
 Aerodynamic coefficients are preliminary engineering estimates; the supported
 Mach range is not a claim of complete experimental validation. See the included
 `docs/AERODYNAMICS.md`, `docs/PACKAGING.md` and license notices for scope.

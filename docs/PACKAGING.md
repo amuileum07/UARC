@@ -6,15 +6,48 @@ Use Python 3.13 for the pinned PyInstaller 6.14.2 build tool (`>=3.8, <3.14`).
 
 ## Python distribution
 
+The PyPI distribution name is **uarc-simulator**; the unrelated `uarc` project
+name is already registered. Executable commands remain **uarc / uarc-data**.
+After publication, use one of these methods with Python 3.13+:
+
+| Tool | Install/run |
+| --- | --- |
+| pip, inside a virtual environment | `python -m pip install uarc-simulator`, then `uarc` |
+| pipx | `pipx install uarc-simulator`, then `uarc` |
+| uv, persistent | `uv tool install --python 3.13 uarc-simulator`, then `uarc` |
+| uvx, temporary | `uvx --python 3.13 --from uarc-simulator uarc` |
+
+For a one-off pipx run: `pipx run --spec uarc-simulator uarc`. Do not use
+`pip install uarc` or `uvx uarc`: those select the other PyPI project. Python
+installations used for the Windows prerequisite setup UI need Tcl/Tk support;
+the OS webview/graphics requirements still apply. The frozen executable archives
+remain the Python-free distribution path.
+
+Build the frontend first, then build from `backend/`:
+
 ```bash
-uv build --out-dir ../dist/python
+uv run python scripts/build_python.py
+uv run python scripts/smoke_python.py ../dist/python
 ```
 
-The wheel installs `app/`, including importers and headless commands. It provides
-`uarc` for the desktop host and `uarc-data` for files/history. Frontend assets and
-the source-tree build scripts are not part of the wheel. Supply an existing
-frontend with `uarc --frontend /path/to/dist/index.html` when using the desktop
-host from an installed wheel.
+The builder temporarily stages the frontend, examples, documentation and notices
+under `app/_assets`, then builds a universal wheel and a source distribution.
+It refuses to replace an existing staging directory or distribution, and removes
+only its own staged files on success/failure. Choose `--output` for a fresh output
+directory when needed. Keep `backend/LICENSE` identical to the root license;
+the package metadata includes MIT and the license file. The PyPI description is
+`backend/PYPI.md` with absolute documentation links.
+
+The wheel's data files work independently of the source checkout and current
+directory. The shared asset resolver preserves frozen paths and source frontend
+overrides. Node.js is not required to install the sdist either: it already contains
+the built assets. A plain `uv build` from an unstaged checkout is not the release
+recipe because it can omit those assets. The smoke script installs the wheel to
+a temporary target, asserts import/asset origins, runs a real spawned flight and
+history query, and rebuilds the sdist offline to compare wheel contents. It reuses
+the checked numerical dependencies rather than independently testing every
+possible fresh dependency resolution. PyPI tools use the dependency declarations,
+not `uv.lock`; RocketPy is pinned because the terrain adapter requires 1.13.0.
 
 ## Standalone backend bundle
 
@@ -71,13 +104,22 @@ FFT/linear-algebra modules dynamically. Backend-only builds select Matplotlib's
 Agg backend both during analysis and in headless dispatch, avoiding a GUI backend
 dependency for numerical execution.
 
+On macOS, netCDF4 and rasterio ship separate HDF5/netCDF dylibs with matching
+basenames but different build features. After PyInstaller collection, the builder
+restores both packages' original extension modules and private dylibs, retaining
+their wheel-relative load paths and distinct library IDs, then ad-hoc signs them.
+It requires self-contained wheels and rejects non-system dependencies outside
+each package instead of silently mixing Homebrew or other package libraries.
+The bundle smoke check also imports a synthetic compressed NetCDF4 weather file
+through the data CLI and runs a frozen-worker flight with it, without network access.
+
 Build on the target OS. A backend bundle passing headless checks does not verify
 actual Qt/WebView rendering, native dialogs, or another operating system's runtime.
 Full desktop acceptance requires the frontend assets and a graphical session.
 
 ## Manual GitHub Actions releases
 
-[Release desktop](../.github/workflows/release.yml) has **only** a
+[Release UARC](../.github/workflows/release.yml) has **only** a
 `workflow_dispatch` trigger. Pushes, pull requests, tag creation, schedules and
 other workflows do not start it. GitHub's manual-dispatch event can also be
 invoked by an authorized CLI/API caller; GitHub does not expose a reliable
@@ -88,9 +130,10 @@ To release from the website:
 1. Commit and push the workflow, helper script, release notes and application
    changes to the repository's default branch. The workflow must be present on
    the default branch for GitHub to display its **Run workflow** button.
-2. Open **Actions → Release desktop → Run workflow** and select the source
+2. Open **Actions → Release UARC → Run workflow** and select the source
    branch. Enter a version such as **0.1.0** and choose whether to mark it as a
    **pre-release** (enabled by default for the current development build).
+   Enable **publish_pypi** only after registering the Trusted Publisher below.
 3. Click **Run workflow**. Source checks and all four native builds must succeed
    before the publish job runs. It creates the tag/release for the **exact commit
    selected when the run began**, even if the branch subsequently moves.
@@ -124,8 +167,8 @@ a mocked installer. Each native executable runs the existing frozen-worker/file
 smoke checks before packaging. These checks do not install Microsoft runtimes
 or certify interactive webview/3D rendering on end-user desktops.
 
-The publish job requires exactly four nonempty archives and creates
-`SHA256SUMS.txt`. It uploads all assets into a draft and publishes only after
+The publish job requires four native archives, the verified wheel and sdist,
+and creates `SHA256SUMS.txt`. It uploads all assets into a draft and publishes only after
 upload succeeds. If publication fails after creating the draft, inspect the
 failed run and draft/tag manually; there is no automatic deletion or clobbering.
 Earlier build failures create no release. Successful files remain downloadable
@@ -142,6 +185,42 @@ body and records distribution/model limitations.
 
 The workflow has not been dispatched as part of local configuration. Local
 script/lint tests do not replace the first native GitHub-hosted build.
+
+### Optional PyPI publication
+
+The same manual workflow always builds/verifies the wheel and sdist and attaches
+them to GitHub Releases. **publish_pypi defaults to false.** When explicitly
+enabled, a separate job runs after the GitHub release succeeds. It downloads
+the already-verified artifacts and publishes them using PyPI Trusted Publishing
+(OIDC), without a persistent API-token secret. It is never triggered by a push,
+tag or `release.published` event. Only that job has `id-token: write`.
+
+Before the first PyPI upload, register a
+[pending Trusted Publisher](https://pypi.org/manage/account/publishing/) in your
+PyPI account (or an existing project's Publishing settings if you own it):
+
+| Setting | Value |
+| --- | --- |
+| PyPI project | `uarc-simulator` |
+| GitHub owner | `amuileum07` |
+| Repository | `UARC` |
+| Workflow filename | `release.yml` |
+| GitHub environment | `pypi` |
+
+Configure the matching GitHub environment if required by repository policy.
+No PyPI account/project/publisher has been created by the local build, and no
+package has been uploaded. The current name check found no published
+`uarc-simulator` project; PyPI validates name eligibility during registration.
+
+The GitHub pre-release checkbox labels the GitHub release only. PyPI uses the
+package's version: the current `0.1.0` is a normal Python package version even
+if GitHub calls it a pre-release. This workflow currently validates X.Y.Z versions;
+PEP 440 `rc` versions need a separate version-policy change. A failed PyPI job
+does not roll back the already-published GitHub release; inspect the upload result
+before retrying. Existing PyPI release files are never overwritten/skipped.
+
+See [PyPI Trusted Publishers](https://docs.pypi.org/trusted-publishers/adding-a-publisher/)
+and [creating a project via OIDC](https://docs.pypi.org/trusted-publishers/creating-a-project-through-oidc/).
 
 ## Windows first-run prerequisites
 

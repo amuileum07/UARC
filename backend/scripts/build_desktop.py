@@ -4,8 +4,67 @@ import argparse
 import importlib.util
 import json
 import os
+import shutil
+import subprocess
 import sys
 from pathlib import Path
+
+
+def preserve_macos_wheel_libraries(bundle: Path) -> None:
+    """Keep the wheels' private dylib paths and IDs instead of merging basenames."""
+    from PyInstaller.depend.bindepend import get_imports
+
+    copies = []
+    for package in ("netCDF4", "rasterio"):
+        spec = importlib.util.find_spec(package)
+        if spec is None or spec.origin is None:
+            raise RuntimeError(f"Cannot locate {package} for the macOS bundle.")
+        source = Path(spec.origin).parent
+        binaries = sorted(
+            path for path in source.rglob("*") if path.suffix in {".so", ".dylib"}
+        )
+        if not (source / ".dylibs").is_dir() or not binaries:
+            raise RuntimeError(
+                f"macOS builds require a self-contained {package} wheel."
+            )
+        private = {path.resolve() for path in binaries}
+        for path in binaries:
+            # Restoring unmodified wheel binaries is safe only when their complete
+            # non-system dependency closure lives in the same package. Reject
+            # source/Homebrew builds; support those with explicit relocation later.
+            for name, resolved in get_imports(str(path)):
+                if name.startswith(("/usr/lib/", "/System/Library/")):
+                    continue
+                if resolved is None or Path(resolved).resolve() not in private:
+                    raise RuntimeError(
+                        f"{package} has a non-private dependency: {path.name}: {name}"
+                    )
+            target = bundle / "_internal" / package / path.relative_to(source)
+            if not target.parent.resolve().is_relative_to(bundle.resolve()):
+                raise ValueError("macOS library destination escapes the bundle.")
+            copies.append((path, target))
+
+    # PyInstaller rewrites these wheels' @loader_path references and distinct
+    # /DLC/<package>/... IDs to shared @rpath basenames. Restore BOTH extensions
+    # and dylibs after collection, so GDAL and netCDF each retain their own HDF5.
+    for source, target in copies:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.unlink(missing_ok=True)  # Never follow a collected library symlink.
+        shutil.copy2(source, target)
+        result = subprocess.run(
+            [
+                "/usr/bin/codesign",
+                "--force",
+                "--sign",
+                "-",
+                "--timestamp=none",
+                str(target),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode:
+            raise RuntimeError(f"Cannot sign {target}: {result.stderr}")
 
 
 def build_arguments(root: Path, frontend: Path | None, output: Path) -> list[str]:
@@ -141,6 +200,8 @@ def main() -> None:
         if args.headless:
             os.environ["MPLBACKEND"] = "Agg"
         PyInstaller.__main__.run(arguments)
+        if sys.platform == "darwin":
+            preserve_macos_wheel_libraries(args.output.resolve() / "UARC")
     except (OSError, ValueError, RuntimeError) as error:
         parser.exit(1, f"{error}\n")
 

@@ -13,6 +13,56 @@ from pathlib import Path
 from time import monotonic, sleep
 
 
+def forecast_design(design: Path, source: Path) -> dict:
+    """Synthetic local NetCDF4/HDF5 weather; no network or live forecast changes."""
+    import numpy as np
+    from netCDF4 import Dataset
+
+    payload = json.loads(design.read_bytes())
+    environment = payload["environment"]
+    with Dataset(source, "w", format="NETCDF4") as dataset:
+        for name, values in (
+            ("time", [0, 6]),
+            ("lev", [1000, 800, 300, 50]),
+            ("lat", [environment["latitude"] - 0.25, environment["latitude"] + 0.25]),
+            ("lon", [environment["longitude"] - 0.25, environment["longitude"] + 0.25]),
+        ):
+            dataset.createDimension(name, len(values))
+            coordinate = dataset.createVariable(name, "f8", (name,))
+            coordinate[:] = values
+        dataset.variables["time"].units = "hours since 2025-01-01 00:00:00"
+        dataset.variables["lev"].units = "hPa"
+        for name, values in (
+            ("hgtprs", [0, 2000, 9000, 20000]),
+            ("tmpprs", [288, 275, 230, 220]),
+            ("ugrdprs", [5, 5, 5, 5]),
+            ("vgrdprs", [2, 2, 2, 2]),
+        ):
+            variable = dataset.createVariable(
+                name, "f8", ("time", "lev", "lat", "lon"), zlib=True
+            )
+            variable[:] = np.asarray(values)[None, :, None, None]
+    environment.update(
+        atmosphere_type="forecast",
+        atmosphere_file=str(source),
+        atmosphere_dictionary={
+            "time": "time",
+            "latitude": "lat",
+            "longitude": "lon",
+            "level": "lev",
+            "temperature": "tmpprs",
+            "geopotential_height": "hgtprs",
+            "geopotential": None,
+            "surface_geopotential_height": None,
+            "u_wind": "ugrdprs",
+            "v_wind": "vgrdprs",
+        },
+        pressure_conversion_factor="hPa",
+        date=[2025, 1, 1, 0],
+    )
+    return payload
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("executable", type=Path)
@@ -50,6 +100,18 @@ def main() -> None:
         history = run("--data", "--data-dir", data, "list-runs")
         assert history[0]["state"] == "succeeded"
         assert history[0]["worker_pid"] != os.getpid()
+        # Import through the public CLI, then read compressed HDF5 in a frozen
+        # worker. An import-only check can miss broken native I/O dependencies.
+        source = directory / "forecast.nc"
+        weather = forecast_design(design, source)
+        imported = run("--data", "--data-dir", data, "import-file", source)
+        weather["environment"]["atmosphere_file"] = str(
+            data / "inputs" / imported["path"]
+        )
+        forecast = directory / "forecast.json"
+        forecast.write_text(json.dumps(weather), encoding="utf-8")
+        weather_flight = run("--simulate", forecast, "--design", "--data-dir", data)
+        assert weather_flight["summary"]["landed"]
         exported = directory / "flight.csv"
         run("--data", "--data-dir", data, "export-csv", run_id, exported)
         with exported.open(newline="") as stream:
@@ -134,7 +196,7 @@ def main() -> None:
                     if process.poll() is None:
                         process.kill()
                         process.wait(timeout=10)
-        checks = "preview, spawned flights, history, saved designs, OpenRocket import, CSV export"
+        checks = "preview, spawned flights, compressed NetCDF4 weather, history, saved designs, OpenRocket import, CSV export"
         if sys.platform == "linux":
             checks += ", Linux cancellation/reaping"
         print(f"Bundle verified: {checks}.")
