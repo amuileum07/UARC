@@ -24,17 +24,18 @@ from app.bridge import DesktopBridge
 from app.config import bundled_file, frontend_entrypoint
 from app.schemas import launch_time
 
-target = Path(sys.argv[1]).resolve()
+target = Path(sys.argv[1]).resolve(strict=True)
 assert Path(app.__file__).resolve().is_relative_to(target), app.__file__
 dist = distribution('uarc-simulator')
 assert Path(dist.locate_file('app')).resolve().is_relative_to(target)
 commands = {entry.name: entry.value for entry in dist.entry_points}
 assert commands['uarc'] == 'app.__main__:main'
 assert commands['uarc-data'] == 'app.cli:main'
-frontend = Path(frontend_entrypoint())
-assert frontend.is_relative_to(target) and frontend.is_file()
-design = bundled_file('examples/design.json')
-assert design.is_relative_to(target) and design.is_file()
+frontend = Path(frontend_entrypoint()).resolve(strict=True)
+assert frontend.is_relative_to(target) and frontend.is_file(), (frontend, target)
+# Windows TEMP can use an 8.3 alias (RUNNER~1); compare canonical paths on both sides.
+design = bundled_file('examples/design.json').resolve(strict=True)
+assert design.is_relative_to(target) and design.is_file(), (design, target)
 assert DesktopBridge().get_example_design()['components']
 assert DesktopBridge().get_material_catalog()['materials']
 if sys.platform == 'darwin':
@@ -91,6 +92,7 @@ def main() -> None:
             PYTHONDONTWRITEBYTECODE="1",
             PYTHONTZPATH="",
             MPLBACKEND="Agg",
+            PYTHONUTF8="1",
         )
         environment.pop("PYTHONHOME", None)
         if args.fresh:
@@ -128,12 +130,13 @@ def main() -> None:
                 cwd=root,
                 env=environment,
                 capture_output=True,
-                text=True,
+                encoding="utf-8",
                 timeout=90,
             )
             if result.returncode:
                 raise RuntimeError(
-                    f"Installed package command failed: {arguments}\n{result.stderr}"
+                    f"Installed package command failed ({result.returncode}): "
+                    f"{arguments[0]}\n{result.stdout}\n{result.stderr}"
                 )
             return result.stdout
 

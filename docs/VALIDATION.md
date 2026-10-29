@@ -1,5 +1,37 @@
 # Backend verification — 2026-10-25
 
+## Native GUI CI failure follow-up (2026-10-29)
+
+The [failed 0.1.1 attempt](https://github.com/amuileum07/UARC/actions/runs/40876699094)
+at `d41b06eb3d155ac135a8943022af055692d777dc` installed the wheel successfully
+on all four runners, then failed verification. No release was published.
+
+- Linux had already installed `libxcb-cursor0`; the generic Qt warning did not
+  prove the cursor library was absent. The apt closure omitted the independent
+  Qt dependency `libxcb-shape.so.0`. CI now installs `libxcb-shape0` and checks
+  the platform plugin and WebEngine process with `ldd` before opening a window.
+  The failed runner did not record loader details, so shape being its precise
+  missing SONAME remains an inference pending a native rerun.
+- Windows compared an unresolved `RUNNER~1` asset path with a resolved target.
+  An actual installed-wheel probe through a symlink alias reproduced the same
+  assertion on Linux. The original probe failed; resolving both asset paths
+  passed while retaining file-existence and installation-origin checks.
+- The Mac harness could block its single-threaded report server on a browser's
+  preopened idle connection, including during shutdown. Four offline regression
+  tests now cover idle connections, incomplete request bodies, preflight/invalid
+  reports, and native failure-log preservation. Concurrent request handling and
+  finite socket timeouts remove that reproduced hang. The old Mac log did not
+  establish whether a separate renderer/JavaScript issue was also present; the
+  new stage diagnostics will show it on rerun.
+
+After the fixes, the full Linux backend suite passed 201 tests (four Windows UI
+tests skipped) in 92.651 s; Ruff lint/format and diff checks passed. A fresh wheel
+environment passed native I/O, spawned simulation/history, actual Qt GUI/bridge
+preview, and identical offline sdist rebuild. The exact Linux workflow preflight
+passed locally and correctly rejected simulated missing-library and `ldd` errors.
+Windows and Mac native CI reruns are still required; these local checks do not
+certify their GUI success.
+
 ## Cross-platform packaging follow-up (2026-10-29)
 
 The following checks cover the later packaging/runtime changes; the historical

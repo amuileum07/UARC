@@ -75,6 +75,20 @@ features and requests a design preview through the JavaScript/Python bridge.
 It closes only its own test process and submits no flight. A graphical session
 is required; Linux CI uses Xvfb with the required XCB/EGL system libraries.
 
+The Linux runner explicitly installs `libxcb-shape0` as well as the cursor/XKB
+libraries. Qt's cursor warning is generic and does not identify every missing
+XCB library. Before GUI checks, CI runs `ldd` on both the xcb platform plugin
+and `QtWebEngineProcess`, then loads the plugin to detect symbol/version errors.
+Missing native dependencies stop the job with the actual loader output.
+
+The GUI report server handles browser-preopened sockets concurrently with a
+three-second request timeout and bounded callback bodies. `page-loaded` and
+`bridge-ready` stages are flushed to the log, and native failure logs are printed
+before cleanup. The actual GUI deadline remains 60 seconds; the checks are not
+skipped and the outer deadline is not extended. Installed-asset assertions compare
+canonical paths on both sides, including Windows short TEMP paths such as
+`RUNNER~1`; files must still exist inside the installed package environment.
+
 HTTPS requests retain system/custom CA roots and explicitly load the bundled
 certifi roots. This avoids depending on the Python/OpenSSL certificate paths of
 the build machine, particularly the python.org framework paths on macOS.

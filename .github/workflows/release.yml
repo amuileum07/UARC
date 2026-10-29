@@ -188,7 +188,27 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends xvfb libegl1 libopengl0 libxcb-cursor0 libxkbcommon-x11-0 libxcb-icccm4 libxcb-keysyms1 libnss3 libasound2
+          # Qt's xcb plugin also links libxcb-shape.so.0; cursor/EGL do not pull it in.
+          sudo apt-get install --yes --no-install-recommends xvfb libegl1 libopengl0 libxcb-cursor0 libxkbcommon-x11-0 libxcb-icccm4 libxcb-keysyms1 libxcb-shape0 libnss3 libasound2
+      - name: Check Linux Qt native library dependencies
+        if: runner.os == 'Linux'
+        working-directory: backend
+        run: |
+          uv run --locked python - <<'PY'
+          import ctypes
+          import subprocess
+          from pathlib import Path
+          import PySide6
+
+          qt = Path(PySide6.__file__).parent / "Qt"
+          plugin = qt / "plugins/platforms/libqxcb.so"
+          for binary in (plugin, qt / "libexec/QtWebEngineProcess"):
+              result = subprocess.run(["ldd", str(binary)], capture_output=True, text=True)
+              print(f"Native dependencies: {binary}\n{result.stdout}{result.stderr}", flush=True)
+              if result.returncode or "not found" in result.stdout + result.stderr:
+                  raise SystemExit("Missing Linux Qt native library; see ldd output above.")
+          ctypes.CDLL(str(plugin))  # Detect symbol/version errors before GUI startup.
+          PY
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: python-dist
