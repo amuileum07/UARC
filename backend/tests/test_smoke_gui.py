@@ -3,8 +3,13 @@
 import http.client
 import io
 import json
+import os
 import runpy
+import shlex
 import socket
+import sys
+import tempfile
+import threading
 import unittest
 from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from pathlib import Path
@@ -110,8 +115,10 @@ class GUIReportTests(unittest.TestCase):
 
     def test_early_exit_keeps_native_logs_and_failure_stage(self):
         output = io.StringIO()
+        threads_before = set(threading.enumerate())
 
         def start(*args, **kwargs):
+            self.assertEqual(set(threading.enumerate()), threads_before)
             kwargs["stdout"].write("native loader failure marker\n")
             kwargs["stdout"].flush()
             process = launch.return_value
@@ -123,6 +130,8 @@ class GUIReportTests(unittest.TestCase):
         with (
             patch("sys.argv", ["smoke_gui.py", "fake-uarc"]),
             patch("subprocess.Popen", side_effect=start) as launch,
+            patch("faulthandler.dump_traceback_later") as watchdog,
+            patch("faulthandler.cancel_dump_traceback_later") as cancel_watchdog,
             redirect_stdout(output),
             redirect_stderr(output),
             self.assertRaisesRegex(RuntimeError, r"Webview exited \(17\)"),
@@ -130,9 +139,57 @@ class GUIReportTests(unittest.TestCase):
             SMOKE["main"]()
         self.assertIn("native loader failure marker", output.getvalue())
         self.assertIn("no JavaScript report", output.getvalue())
-        self.assertIn("GUI stopping callback server", output.getvalue())
+        self.assertIn("GUI closing callback server", output.getvalue())
+        watchdog.assert_called_once_with(20)
+        cancel_watchdog.assert_called_once_with()
         self.assertEqual(launch.call_args.kwargs["env"]["PYTHONUTF8"], "1")
         launch.return_value.terminate.assert_not_called()
+
+    @unittest.skipUnless(
+        hasattr(os, "posix_spawn"), "Requires a POSIX process launcher"
+    )
+    def test_darwin_launch_uses_real_posix_spawn_and_preserves_cwd_and_fds(self):
+        before = Path.cwd()
+        with tempfile.TemporaryDirectory(prefix="uarc spawn 한글 ") as temporary:
+            root = Path(temporary)
+            # Real executable-script launch, including a path with spaces/Unicode.
+            launcher = root / "installed uarc"
+            code = "import json, os; print(json.dumps({'cwd': os.getcwd()}))"
+            launcher.write_text(
+                f"#!/bin/sh\nexec {shlex.quote(sys.executable)} -c {shlex.quote(code)}\n",
+                encoding="utf-8",
+            )
+            launcher.chmod(0o755)
+            with (
+                SMOKE["report_server"]("/token", Queue()) as server,
+                (root / "child.log").open("w", encoding="utf-8") as log,
+                patch("sys.platform", "darwin"),
+                patch("os.posix_spawn", wraps=os.posix_spawn) as spawn,
+            ):
+                self.assertFalse(os.get_inheritable(server.fileno()))
+                self.assertFalse(os.get_inheritable(log.fileno()))
+                process = SMOKE["launch_desktop"](
+                    [str(launcher)], root, dict(os.environ), log
+                )
+                self.assertEqual(process.wait(timeout=5), 0)
+                spawn.assert_called_once()
+            self.assertEqual(Path.cwd(), before)
+            result = json.loads((root / "child.log").read_text(encoding="utf-8"))
+            self.assertEqual(Path(result["cwd"]).resolve(), root.resolve())
+
+    def test_darwin_failed_spawn_restores_the_parent_cwd(self):
+        before = Path.cwd()
+        with (
+            tempfile.TemporaryDirectory() as temporary,
+            (Path(temporary) / "child.log").open("w", encoding="utf-8") as log,
+            patch("sys.platform", "darwin"),
+            patch("subprocess.Popen", side_effect=OSError("launch failed")),
+            self.assertRaisesRegex(OSError, "launch failed"),
+        ):
+            SMOKE["launch_desktop"](
+                [sys.executable], Path(temporary), dict(os.environ), log
+            )
+        self.assertEqual(Path.cwd(), before)
 
 
 if __name__ == "__main__":

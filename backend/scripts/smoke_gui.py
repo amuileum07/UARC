@@ -1,16 +1,19 @@
 """Open a real native webview and verify browser features and the Python bridge."""
 
 import argparse
+import faulthandler
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
+from contextlib import chdir
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from queue import Empty, Queue
-from threading import Thread
 from time import monotonic
+from typing import TextIO
 from uuid import uuid4
 
 PAGE = """<!doctype html><html lang="ko"><meta charset="utf-8">
@@ -99,6 +102,25 @@ def report_server(token: str, reports: Queue) -> ThreadingHTTPServer:
     return ThreadingHTTPServer(("127.0.0.1", 0), ReportHandler)
 
 
+def launch_desktop(
+    command: list[str], root: Path, environment: dict[str, str], log: TextIO
+) -> subprocess.Popen:
+    if sys.platform == "darwin":
+        executable = shutil.which(command[0])
+        if executable is None:
+            raise FileNotFoundError(command[0])
+        # Keep virtualenv/symlink identity: resolve() could select the base Python.
+        command = [os.path.abspath(executable), *command[1:]]
+        # CPython 3.13 uses posix_spawn on macOS only without cwd/close_fds.
+        # Change the harness's cwd before servicing connections; the listener
+        # and log descriptors are non-inheritable, and only stdout/stderr are duped.
+        with chdir(root):
+            return subprocess.Popen(
+                command, env=environment, stdout=log, stderr=log, close_fds=False
+            )
+    return subprocess.Popen(command, cwd=root, env=environment, stdout=log, stderr=log)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -128,32 +150,41 @@ def main() -> None:
             PYTHONUNBUFFERED="1",
         )
         environment.pop("PYTHONHOME", None)
-        thread = Thread(
-            target=server.serve_forever, kwargs={"poll_interval": 0.1}, daemon=True
-        )
-        thread.start()
+        server.timeout = 0.2
         try:
             with (root / "desktop.log").open("w", encoding="utf-8") as log:
                 print(f"GUI launching: {args.command[0]}", flush=True)
-                process = subprocess.Popen(
-                    [
-                        *args.command,
-                        "--frontend",
-                        str(page),
-                        "--data-dir",
-                        str(root / "data"),
-                    ],
-                    cwd=root,
-                    env=environment,
-                    stdout=log,
-                    stderr=log,
-                )
+                if os.get_inheritable(server.fileno()) or os.get_inheritable(
+                    log.fileno()
+                ):
+                    raise RuntimeError("GUI harness descriptors must not be inherited.")
+                # Capture the exact parent stack if native process creation stalls.
+                faulthandler.dump_traceback_later(20)
+                try:
+                    process = launch_desktop(
+                        [
+                            *args.command,
+                            "--frontend",
+                            str(page),
+                            "--data-dir",
+                            str(root / "data"),
+                        ],
+                        root,
+                        environment,
+                        log,
+                    )
+                finally:
+                    faulthandler.cancel_dump_traceback_later()
+                print(f"GUI desktop started: PID {process.pid}", flush=True)
                 try:
                     deadline = monotonic() + 60
                     stage = "no JavaScript report"
                     while monotonic() < deadline:
+                        # Dispatch connections only after exec; request workers
+                        # still let idle browser sockets coexist with real reports.
+                        server.handle_request()
                         try:
-                            report = reports.get(timeout=0.2)
+                            report = reports.get_nowait()
                             if "ok" not in report:
                                 stage = report["stage"]
                                 print(f"GUI stage: {stage}", flush=True)
@@ -198,9 +229,7 @@ def main() -> None:
                 f"GUI verified: native webview, browser features, bridge preview; {report['userAgent']}"
             )
         finally:
-            print("GUI stopping callback server", flush=True)
-            server.shutdown()
-            thread.join(timeout=5)
+            print("GUI closing callback server", flush=True)
 
 
 if __name__ == "__main__":

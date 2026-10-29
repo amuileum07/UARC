@@ -1,5 +1,34 @@
 # Backend verification — 2026-10-25
 
+## Mac process-creation follow-up (2026-10-29)
+
+[Run 40880198457](https://github.com/amuileum07/UARC/actions/runs/40880198457)
+at `5b8fd19575f983c455ca9f5d23137c494d3c2fd7` passed the complete Windows and
+Linux native jobs. Both Mac jobs still stopped after `GUI launching`, without
+the inner 60-second loop's shutdown message, and hit the outer 90-second limit.
+Thus the previous callback-server fix did not resolve the Mac CI failure.
+
+The log localizes the new investigation to process creation before the GUI
+deadline begins. [CPython 3.13.5's spawn gate](https://github.com/python/cpython/blob/v3.13.5/Lib/subprocess.py#L1681)
+shows that the previous `cwd=root` option forced a fork/exec path on macOS after
+the report server thread started. A specific native deadlock is still an
+inference, since the old job did not capture a parent stack.
+
+The harness now uses the same absolute launcher through `posix_spawn` on Darwin,
+temporarily changes its own cwd before launch, and preserves non-inheritable
+listener/log descriptors. It services the threaded report server from the main
+poll loop after launch, removing the pre-launch server thread and shutdown wait.
+It prints a started PID and dumps the parent stack after 20 seconds if process
+creation stalls. The actual browser checks and 60/90-second deadlines remain.
+
+Validation: all six GUI-harness regression tests passed, including a real
+executable/shebang invocation that verifies the public `os.posix_spawn` call,
+cwd restoration on success/failure, and absence of a pre-launch server thread.
+Ruff lint/format and diff checks passed. Fresh Linux wheel GUI/native-I/O/flight
+and offline sdist-rebuild checks passed. The Darwin launch branch also opened a
+real Linux Qt executable and completed browser/bridge checks. That branch check
+ran on Linux, not macOS: a successful native Mac rerun is still required.
+
 ## Native GUI CI failure follow-up (2026-10-29)
 
 The [failed 0.1.1 attempt](https://github.com/amuileum07/UARC/actions/runs/40876699094)

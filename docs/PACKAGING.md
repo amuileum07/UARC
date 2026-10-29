@@ -89,6 +89,17 @@ skipped and the outer deadline is not extended. Installed-asset assertions compa
 canonical paths on both sides, including Windows short TEMP paths such as
 `RUNNER~1`; files must still exist inside the installed package environment.
 
+On macOS, the GUI harness launches the same installed/frozen executable through
+CPython 3.13's `posix_spawn` path: an absolute launcher, no subprocess `cwd`, and
+`close_fds=False`. It changes its own working directory temporarily before
+servicing requests, then restores it. Listener/log descriptors must be
+non-inheritable; only standard output/error are redirected. The report loop
+starts handling connections after launch instead of starting a server thread
+before `Popen`. This avoids the previous macOS fork path without changing the
+application's launcher or browser checks. A PID is printed when creation returns;
+if creation itself stalls, a 20-second diagnostic dumps the harness stack. The
+60-second GUI and 90-second caller deadlines remain unchanged.
+
 HTTPS requests retain system/custom CA roots and explicitly load the bundled
 certifi roots. This avoids depending on the Python/OpenSSL certificate paths of
 the build machine, particularly the python.org framework paths on macOS.
