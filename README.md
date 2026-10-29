@@ -36,7 +36,8 @@ These downloads include Python and the application dependencies.
 ### Python package
 
 The package is available on [PyPI](https://pypi.org/project/uarc-simulator/).
-Python **3.13+** is required; Python **3.13** is the recommended interpreter.
+Python **3.13.x** is required. Other Python minor versions are not yet supported
+by the tested native dependency/build combination.
 Published packages include the built interface and example designs, so Node.js
 and pnpm are only needed for source development.
 
@@ -60,12 +61,13 @@ Choose one installation method:
 If an installed command is missing from your shell, use `uv tool update-shell`
 or `pipx ensurepath`, then reopen the terminal.
 
-For pip, first create a virtual environment with a Python 3.13+ interpreter:
+For pip, first create a virtual environment with a Python 3.13 interpreter:
 
 ```bash
-python -m venv .venv
+python3.13 -m venv .venv
 ```
 
+On Windows, use `py -3.13 -m venv .venv` instead.
 Activate it with `source .venv/bin/activate` on Linux/macOS, or
 `.\.venv\Scripts\Activate.ps1` in Windows PowerShell, then use the pip commands
 above. The distribution name is **uarc-simulator** and the launcher is **uarc**;
@@ -78,7 +80,9 @@ the PyPI package named `uarc` belongs to another project.
   need an interpreter with Tcl/Tk for this setup window.
 - **Linux:** the Python package installs PySide6/Qt; a graphical session and
   compatible system graphics libraries are still required.
-- **macOS:** the desktop uses the native WebKit webview.
+- **macOS:** the desktop uses the native WebKit webview. Python-package installs
+  need macOS 14+ on Apple Silicon or 15+ on Intel for the pinned rasterio wheels.
+  Standalone downloads are built and checked on macOS 15 for both architectures.
 
 See [platform setup and packaging](./docs/PACKAGING.md) and
 [Linux/Conda graphics troubleshooting](./backend/README.md#linux--conda-graphics-runtime).

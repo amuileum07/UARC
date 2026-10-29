@@ -149,6 +149,7 @@ export function WorkspaceProvider({
   const fieldIssue = useCallback(
     (key: string, message: string) =>
       setProblems((old) => {
+        if ((old[key] || "") === message) return old;
         const next = { ...old };
         if (message) next[key] = message;
         else delete next[key];

@@ -20,11 +20,16 @@ Release checks cover frozen numerical workers and file operations; native webvie
 `SHA256SUMS.txt` lists archive checksums.
 
 The `uarc_simulator-*.whl` and `.tar.gz` Python distributions include the interface
-and starting designs. They need Python 3.13+ and the platform webview dependencies.
+and starting designs. They need Python 3.13.x and the platform webview dependencies.
+The Python package requires macOS 14+ on Apple Silicon or 15+ on Intel for its
+native rasterio wheel. Release checks also install the wheel in a fresh virtual
+environment on all four targets and exercise GDAL and compressed NetCDF4 I/O.
 Install the downloaded wheel with pip, or after PyPI publication use
-`pipx install uarc-simulator`, `uv tool install uarc-simulator`, or
-`uvx --from uarc-simulator uarc`. PyPI publication is an optional manual workflow
-step, so GitHub assets may be available before the PyPI project is published.
+`pipx install --python 3.13 uarc-simulator`,
+`uv tool install --python 3.13 uarc-simulator`, or
+`uvx --python 3.13 --from uarc-simulator uarc`. PyPI publication is an optional
+manual workflow step, so GitHub assets may be available before the PyPI project
+is published.
 
 Aerodynamic coefficients are preliminary engineering estimates; the supported
 Mach range is not a claim of complete experimental validation. See the included

@@ -208,7 +208,7 @@ Reject empty and time-reversed solutions as well as invalid shapes/non-finite da
 
 ## 5. Code Style & Tooling
 
-* **Runtime**: Python 3.13+
+* **Runtime**: Python 3.13.x
 * **Environment & Packaging**: `uv` (`pyproject.toml`, `uv.lock`)
 * **Linting & Formatting**: [Ruff](https://docs.astral.sh/ruff/), installed through the `uv` development dependency group and configured in `backend/pyproject.toml`.
   * Run `uv run ruff check .` and `uv run ruff format --check .` from `backend/` before submitting changes.

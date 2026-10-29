@@ -9,16 +9,19 @@ Use Python 3.13 for the pinned PyInstaller 6.14.2 build tool (`>=3.8, <3.14`).
 The PyPI distribution name is **uarc-simulator**; the unrelated `uarc` project
 name is already registered. Executable commands remain **uarc / uarc-data**.
 The project is published on [PyPI](https://pypi.org/project/uarc-simulator/).
-Use one of these methods with Python 3.13+:
+Use one of these methods with Python 3.13.x. The metadata deliberately excludes
+other Python minor versions until their native dependencies and build tool are
+verified together; an unrestricted `>=3.13` allowed Python 3.15 to fall back to a
+rasterio source build without GDAL on Windows.
 
 | Tool | Install/run |
 | --- | --- |
 | pip, inside a virtual environment | `python -m pip install uarc-simulator`, then `uarc` |
-| pipx | `pipx install uarc-simulator`, then `uarc` |
+| pipx | `pipx install --python 3.13 uarc-simulator`, then `uarc` |
 | uv, persistent | `uv tool install --python 3.13 uarc-simulator`, then `uarc` |
 | uvx, temporary | `uvx --python 3.13 --from uarc-simulator uarc` |
 
-For a one-off pipx run: `pipx run --spec uarc-simulator uarc`. Do not use
+For a one-off pipx run: `pipx run --python 3.13 --spec uarc-simulator uarc`. Do not use
 `pip install uarc` or `uvx uarc`: those select the other PyPI project. Python
 installations used for the Windows prerequisite setup UI need Tcl/Tk support;
 the OS webview/graphics requirements still apply. The frozen executable archives
@@ -29,6 +32,7 @@ Build the frontend first, then build from `backend/`:
 ```bash
 uv run python scripts/build_python.py
 uv run python scripts/smoke_python.py ../dist/python
+uv run python scripts/smoke_python.py ../dist/python --fresh
 ```
 
 The builder temporarily stages the frontend, examples, documentation and notices
@@ -46,9 +50,20 @@ the built assets. A plain `uv build` from an unstaged checkout is not the releas
 recipe because it can omit those assets. The smoke script installs the wheel to
 a temporary target, asserts import/asset origins, runs a real spawned flight and
 history query, and rebuilds the sdist offline to compare wheel contents. It reuses
-the checked numerical dependencies rather than independently testing every
-possible fresh dependency resolution. PyPI tools use the dependency declarations,
-not `uv.lock`; RocketPy is pinned because the terrain adapter requires 1.13.0.
+the checked numerical dependencies by default. With `--fresh`, it creates an
+isolated virtual environment, resolves the wheel's dependencies from PyPI, and
+checks real GeoTIFF/CRS and compressed NetCDF4 I/O in the same process before the
+flight, plus the PyObjC WebKit imports on macOS. It requires rasterio/netCDF4
+wheels so system GDAL/HDF5 cannot mask a missing binary distribution. The source
+uv configuration also forbids building
+those two packages from source. Pure-Python source dependencies remain allowed.
+PyPI tools use the dependency declarations, not `uv.lock`; RocketPy is pinned
+because the terrain adapter requires 1.13.0.
+
+The pinned rasterio 1.4.4 wheels require macOS 14+ on Apple Silicon and macOS 15+
+on Intel. On older macOS versions installers can otherwise attempt a source
+build requiring external GDAL. The standalone archives are built and checked on
+macOS 15 for both architectures; older versions need separate acceptance testing.
 
 ## Standalone backend bundle
 
@@ -187,9 +202,12 @@ lockfiles. GitHub `setup-python` supplies the interpreter, including Windows
 Tcl/Tk; uv is configured not to download a different interpreter. The frontend
 is checked/built once and shared with the native jobs. Full backend unit/lint
 checks run on Linux; Windows additionally exercises the real setup controls with
-a mocked installer. Each native executable runs the existing frozen-worker/file
-smoke checks before packaging. These checks do not install Microsoft runtimes
-or certify interactive webview/3D rendering on end-user desktops.
+a mocked installer. All four native jobs also install the built Python wheel
+and resolve its dependencies in a new virtual environment, independently of the
+locked source environment, before building the executable. Each native executable
+runs the existing frozen-worker/file smoke checks before packaging. These checks
+do not install Microsoft runtimes or certify interactive webview/3D rendering on
+end-user desktops.
 
 The publish job requires four native archives, the verified wheel and sdist,
 and creates `SHA256SUMS.txt`. It uploads all assets into a draft and publishes only after

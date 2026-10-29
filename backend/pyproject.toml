@@ -9,7 +9,7 @@ keywords = ["rocket", "simulation", "rocketpy", "desktop"]
 authors = [
     { name = "Park Changyeong", email = "amuileum07@gmail.com" }
 ]
-requires-python = ">=3.13"
+requires-python = ">=3.13,<3.14"
 dependencies = [
     "defusedxml>=0.7.1",
     "numpy>=2.5.3",
@@ -35,6 +35,10 @@ Issues = "https://github.com/amuileum07/UARC/issues"
 [build-system]
 requires = ["uv_build>=0.12.21,<0.13.0"]
 build-backend = "uv_build"
+
+[tool.uv]
+# These wheels include GDAL/HDF5; source builds need external native libraries.
+no-build-package = ["rasterio", "netcdf4"]
 
 [tool.uv.build-backend]
 module-name = "app"
