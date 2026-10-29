@@ -1,5 +1,25 @@
 # Backend verification — 2026-10-25
 
+## Mac test-fixture path follow-up (2026-10-30)
+
+[Run 40913631718](https://github.com/amuileum07/UARC/actions/runs/40913631718)
+at `2e1853c` completed the full Windows and Linux jobs successfully. Both Mac
+jobs failed in the focused unit checks before building or running the GUI.
+The deadline test mocked `Popen` but supplied a nonexistent `fake-uarc` command;
+Darwin's preceding `shutil.which()` check therefore raised `FileNotFoundError`.
+The early-exit/logging fixture had the same latent omission. Both were reproduced
+locally by selecting the Darwin code path.
+
+Both fixtures now supply the real `sys.executable` path while keeping process
+creation mocked. Each exercises the Linux, Windows and Darwin branches, requiring
+the intended timeout/early-exit result and an actual call to the mocked launcher.
+Application/runtime code and command validation are unchanged.
+
+The GUI portability, GUI-report and focused URL tests passed 14 cases locally;
+the native Windows file-lock case was skipped on Linux. Ruff lint/format and
+diff checks passed. These branch checks repair the Mac unit-test gate; native
+Mac GUI acceptance remains unverified until the next workflow run reaches it.
+
 ## Windows process tree and Cocoa URL follow-up (2026-10-30)
 
 [Run 40900576819](https://github.com/amuileum07/UARC/actions/runs/40900576819)

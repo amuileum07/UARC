@@ -70,25 +70,31 @@ class GUIPortabilityTests(unittest.TestCase):
                 SMOKE["saved_reports"](root, "token")
 
     def test_missing_report_cannot_override_gui_deadline(self):
-        process = Mock(pid=1234, returncode=None)
-        process.poll.return_value = None
-        process.wait.return_value = 0
-        output = io.StringIO()
-        stop = Mock()
-        started = monotonic()
-        with (
-            patch("sys.argv", ["smoke_gui.py", "fake-uarc"]),
-            patch.dict(SMOKE["main"].__globals__, {"GUI_TIMEOUT_SECONDS": 0.2}),
-            patch("subprocess.Popen", return_value=process),
-            patch.dict(SMOKE["main"].__globals__, {"stop_desktop": stop}),
-            redirect_stdout(output),
-            redirect_stderr(output),
-            self.assertRaisesRegex(RuntimeError, "No final bridge report"),
-        ):
-            SMOKE["main"]()
-        self.assertLess(monotonic() - started, 2)
-        self.assertIn("no committed bridge report", output.getvalue())
-        stop.assert_called_once_with(process)
+        for platform in ("linux", "win32", "darwin"):
+            process = Mock(pid=1234, returncode=None)
+            process.poll.return_value = None
+            process.wait.return_value = 0
+            output = io.StringIO()
+            stop = Mock()
+            started = monotonic()
+            with (
+                self.subTest(platform=platform),
+                patch("sys.platform", platform),
+                # Darwin resolves the command before Popen. Use a real path;
+                # Popen remains mocked, so no interpreter is actually launched.
+                patch("sys.argv", ["smoke_gui.py", sys.executable]),
+                patch.dict(SMOKE["main"].__globals__, {"GUI_TIMEOUT_SECONDS": 0.2}),
+                patch("subprocess.Popen", return_value=process) as launch,
+                patch.dict(SMOKE["main"].__globals__, {"stop_desktop": stop}),
+                redirect_stdout(output),
+                redirect_stderr(output),
+                self.assertRaisesRegex(RuntimeError, "No final bridge report"),
+            ):
+                SMOKE["main"]()
+            self.assertLess(monotonic() - started, 2)
+            self.assertIn("no committed bridge report", output.getvalue())
+            launch.assert_called_once()
+            stop.assert_called_once_with(process)
 
     def test_windows_stops_tree_before_killing_launcher(self):
         process = Mock(pid=1234)

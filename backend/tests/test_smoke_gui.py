@@ -46,7 +46,6 @@ class GUIReportTests(unittest.TestCase):
                 self.assertEqual(len(bridge.list_designs()), len(names))
 
     def test_early_exit_keeps_native_logs_and_failure_stage(self):
-        output = io.StringIO()
         threads_before = set(threading.enumerate())
 
         def start(*args, **kwargs):
@@ -59,19 +58,24 @@ class GUIReportTests(unittest.TestCase):
             process.wait.return_value = 17
             return process
 
-        with (
-            patch("sys.argv", ["smoke_gui.py", "fake-uarc"]),
-            patch("subprocess.Popen", side_effect=start) as launch,
-            redirect_stdout(output),
-            redirect_stderr(output),
-            self.assertRaisesRegex(RuntimeError, r"Webview exited \(17\)"),
-        ):
-            SMOKE["main"]()
-        self.assertIn("native loader failure marker", output.getvalue())
-        self.assertIn("no committed bridge report", output.getvalue())
-        self.assertIn("GUI stopping desktop process", output.getvalue())
-        self.assertEqual(launch.call_args.kwargs["env"]["PYTHONUTF8"], "1")
-        launch.return_value.terminate.assert_not_called()
+        for platform in ("linux", "win32", "darwin"):
+            output = io.StringIO()
+            with (
+                self.subTest(platform=platform),
+                patch("sys.platform", platform),
+                patch("sys.argv", ["smoke_gui.py", sys.executable]),
+                patch("subprocess.Popen", side_effect=start) as launch,
+                redirect_stdout(output),
+                redirect_stderr(output),
+                self.assertRaisesRegex(RuntimeError, r"Webview exited \(17\)"),
+            ):
+                SMOKE["main"]()
+            self.assertIn("native loader failure marker", output.getvalue())
+            self.assertIn("no committed bridge report", output.getvalue())
+            self.assertIn("GUI stopping desktop process", output.getvalue())
+            self.assertEqual(launch.call_args.kwargs["env"]["PYTHONUTF8"], "1")
+            launch.assert_called_once()
+            launch.return_value.terminate.assert_not_called()
 
     @unittest.skipUnless(
         hasattr(os, "posix_spawn"), "Requires a POSIX process launcher"
