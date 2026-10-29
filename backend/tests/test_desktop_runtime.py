@@ -7,10 +7,52 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from app.desktop_runtime import _glibcxx_version, prepare_desktop_runtime
+from app.desktop_runtime import (
+    _glibcxx_version,
+    open_external_url,
+    prepare_desktop_runtime,
+)
 
 
 class DesktopRuntimeTests(unittest.TestCase):
+    def test_frozen_browser_restores_original_library_path_without_changing_the_host(
+        self,
+    ):
+        for original in (None, "/system/custom/lib"):
+            environment = {"LD_LIBRARY_PATH": "/bundle/_internal"}
+            if original is not None:
+                environment["LD_LIBRARY_PATH_ORIG"] = original
+            with (
+                self.subTest(original=original),
+                patch("app.desktop_runtime.sys.platform", "linux"),
+                patch("app.desktop_runtime.sys.frozen", True, create=True),
+                patch.dict(os.environ, environment, clear=True),
+                patch("app.desktop_runtime.subprocess.Popen") as launch,
+            ):
+                launch.return_value.poll.return_value = None
+                self.assertTrue(open_external_url("https://example.com"))
+                child = launch.call_args.kwargs["env"]
+                self.assertEqual(child.get("LD_LIBRARY_PATH"), original)
+                self.assertEqual(os.environ["LD_LIBRARY_PATH"], "/bundle/_internal")
+                launch.assert_called_once()
+        with (
+            patch("app.desktop_runtime.sys.platform", "linux"),
+            patch("app.desktop_runtime.sys.frozen", True, create=True),
+            patch("app.desktop_runtime.subprocess.Popen", side_effect=OSError),
+        ):
+            self.assertFalse(open_external_url("https://example.com"))
+
+    def test_other_browser_launches_keep_the_native_webbrowser(self):
+        for platform, frozen in (("linux", False), ("win32", True), ("darwin", True)):
+            with (
+                self.subTest(platform=platform, frozen=frozen),
+                patch("app.desktop_runtime.sys.platform", platform),
+                patch("app.desktop_runtime.sys.frozen", frozen, create=True),
+                patch("webbrowser.open", return_value=True) as launch,
+            ):
+                self.assertTrue(open_external_url("https://example.com"))
+                launch.assert_called_once_with("https://example.com")
+
     def test_symbol_versions_compare_numerically(self):
         with tempfile.TemporaryDirectory() as directory:
             library = Path(directory) / "libstdc++.so.6"

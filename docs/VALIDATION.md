@@ -1,5 +1,37 @@
 # Backend verification — 2026-10-25
 
+## Cross-platform packaging follow-up (2026-10-29)
+
+The following checks cover the later packaging/runtime changes; the historical
+results below describe their own versions and scope.
+
+| Check | Result |
+| --- | --- |
+| Backend regression suite | 197 tests: 193 passed, four Windows-only Tk UI tests skipped on Linux; 111.918 s |
+| Ruff lint/format and `git diff --check` | Passed; 69 Python files formatted |
+| Fresh Linux wheel environment | Installed 47 packages, verified GDAL/CRS and compressed NetCDF4 I/O, actual spawned flight/history, and identical offline sdist rebuild |
+| Source and installed-wheel GUI | Actual QtWebEngine 6.11.2 / Chromium 140 window, required browser APIs and Python design preview passed from a path containing spaces/Korean characters |
+| Rebuilt Linux desktop executable | Full frontend bundle built with PyInstaller 6.14.2; real native GUI/bridge check passed |
+| Frozen backend operations | Preview, spawned flights, compressed NetCDF4 weather, history, saved designs, OpenRocket import, CSV export and cancellation/worker reaping passed |
+| Windows x64 dependency resolution | The built wheel resolved 46 packages with rasterio/netCDF4 source builds disabled; no Windows executable was run locally |
+| Mac arm64/x64 dependency resolution | The built wheel resolved 48 packages for macOS 14 arm64 and macOS 15 x64 with rasterio/netCDF4/PyObjC-core source builds disabled; no Mac executable was run locally |
+| HTTPS trust | Empty-system-root fallback, retained system roots, missing-bundle rejection and hostname/chain verification passed offline; `certifi/cacert.pem` is present in the frozen bundle |
+| Frozen Linux external browser | Mocked launch checks restore/remove `LD_LIBRARY_PATH` only in the external child; the host environment is preserved |
+
+The existing successful [0.1.0 release run](https://github.com/amuileum07/UARC/actions/runs/40712559165)
+completed Windows, Linux and both Mac builds and frozen backend checks at commit
+`990aa0003c38672b55a25453968fed25bd5a72bf`. It predates these follow-up changes.
+The workflow now additionally tests the real native GUI and bridge in fresh
+wheel installations and frozen executables on all four targets. Configuring
+those jobs is not evidence that the new Windows/Mac GUI checks have run.
+
+This follow-up uses an offline verification page, not a full editor/GPU
+acceptance run. Hardware 3D rendering, real Microsoft prerequisite installation,
+Apple quarantine/notarization policy and live weather/terrain service responses
+are not established by these checks. Bundles remain unsigned by a Developer ID
+and unnotarized; native filesystem links and the documented OS/Python/architecture
+requirements still apply. See [PACKAGING.md](PACKAGING.md).
+
 Verified on Linux with Python 3.13.5, RocketPy 1.13.0, NumPy 2.5.3,
 Pydantic 2.13.5, Ruff 0.17.2, and PyInstaller 6.14.2. The workload machine
 reports an AMD Ryzen 3 7330U and eight logical CPUs.

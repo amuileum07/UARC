@@ -232,7 +232,7 @@ class TerrainTests(unittest.TestCase):
         request = TerrainRequest(latitude=0, longitude=0, provider="opentopodata")
         points = []
 
-        def respond(req, timeout):
+        def respond(req, timeout, context):
             from urllib.parse import parse_qs, urlsplit
 
             locations = parse_qs(urlsplit(req.full_url).query)["locations"][0].split(

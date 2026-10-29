@@ -3,9 +3,34 @@
 import ctypes
 import os
 import re
+import subprocess
 import sys
 import sysconfig
+import webbrowser
 from pathlib import Path
+
+
+def open_external_url(url: str) -> bool:
+    """Keep frozen Linux libraries out of the system browser's environment."""
+    if sys.platform != "linux" or not getattr(sys, "frozen", False):
+        return webbrowser.open(url)
+    environment = dict(os.environ)
+    original = environment.get("LD_LIBRARY_PATH_ORIG")
+    if original is None:
+        environment.pop("LD_LIBRARY_PATH", None)
+    else:
+        environment["LD_LIBRARY_PATH"] = original
+    try:
+        process = subprocess.Popen(
+            ["xdg-open", url],
+            env=environment,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except OSError:
+        return False
+    return process.poll() in (None, 0)
 
 
 def _glibcxx_version(library: Path) -> tuple[int, ...]:

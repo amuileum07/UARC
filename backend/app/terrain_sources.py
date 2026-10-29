@@ -7,7 +7,7 @@ from math import asinh, ceil, cos, floor, log2, pi, radians, tan
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
-from urllib.request import HTTPRedirectHandler, Request, build_opener
+from urllib.request import HTTPRedirectHandler, HTTPSHandler, Request, build_opener
 
 import numpy as np
 import rasterio
@@ -18,6 +18,7 @@ from rasterio.transform import array_bounds, from_bounds
 from rasterio.vrt import WarpedVRT
 from rasterio.warp import transform
 
+from app.http import https_context
 from app.schemas import TerrainGrid, TerrainImportOptions, TerrainRequest
 from app.terrain import EARTH_RADIUS_M, coordinates
 
@@ -42,7 +43,7 @@ class _NoRedirect(HTTPRedirectHandler):
 def _download(url, *, limit=16 * 1024**2):
     """Provider-built HTTPS URLs only; credentials never enter diagnostic messages."""
     try:
-        with build_opener(_NoRedirect).open(
+        with build_opener(_NoRedirect, HTTPSHandler(context=https_context())).open(
             Request(url, headers={"User-Agent": "UARC/0.1 DEM"}), timeout=30
         ) as response:
             raw = response.read(limit + 1)

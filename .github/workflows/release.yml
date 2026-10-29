@@ -184,13 +184,24 @@ jobs:
       - name: Install locked backend dependencies
         working-directory: backend
         run: uv sync --locked
+      - name: Install Linux webview test libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends xvfb libegl1 libopengl0 libxcb-cursor0 libxkbcommon-x11-0 libxcb-icccm4 libxcb-keysyms1 libnss3 libasound2
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: python-dist
           path: dist/python
       - name: Verify fresh Python package installation and native libraries
         working-directory: backend
-        run: uv run --locked python scripts/smoke_python.py ../dist/python --fresh
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = Linux ]; then
+            xvfb-run --auto-servernum uv run --locked python scripts/smoke_python.py ../dist/python --fresh --gui
+          else
+            uv run --locked python scripts/smoke_python.py ../dist/python --fresh --gui
+          fi
       - name: Check Windows setup controls
         if: runner.os == 'Windows'
         working-directory: backend
@@ -201,6 +212,15 @@ jobs:
       - name: Verify frozen worker and file operations
         working-directory: backend
         run: uv run --locked python scripts/smoke_bundle.py ../dist/desktop/UARC/${{ matrix.executable }}
+      - name: Verify frozen native webview and Python bridge
+        working-directory: backend
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = Linux ]; then
+            xvfb-run --auto-servernum uv run --locked python scripts/smoke_gui.py "$GITHUB_WORKSPACE/dist/desktop/UARC/${{ matrix.executable }}"
+          else
+            uv run --locked python scripts/smoke_gui.py "$GITHUB_WORKSPACE/dist/desktop/UARC/${{ matrix.executable }}"
+          fi
       - name: Package complete application folder
         shell: bash
         env:

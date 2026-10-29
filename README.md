@@ -75,7 +75,7 @@ the PyPI package named `uarc` belongs to another project.
 
 ### Platform requirements
 
-- **Windows:** the desktop checks for .NET Framework and WebView2, and offers
+- **Windows:** the desktop checks for .NET Framework and WebView2 107+, and offers
   installation of missing prerequisites after consent. Python-package installs
   need an interpreter with Tcl/Tk for this setup window.
 - **Linux:** the Python package installs PySide6/Qt; a graphical session and

@@ -12,11 +12,12 @@ from time import monotonic, sleep
 from unicodedata import normalize
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
-from urllib.request import HTTPRedirectHandler, Request, build_opener
+from urllib.request import HTTPRedirectHandler, HTTPSHandler, Request, build_opener
 
 from rocketpy import Environment
 from rocketpy.tools import geopotential_height_to_geometric_height
 
+from app.http import https_context
 from app.schemas import (
     LocationResult,
     LocationSearch,
@@ -41,7 +42,7 @@ class _NoRedirect(HTTPRedirectHandler):
         raise ValueError("Data-service redirects are not permitted.")
 
 
-_OPENER = build_opener(_NoRedirect())
+_OPENER = build_opener(_NoRedirect(), HTTPSHandler(context=https_context()))
 
 
 def _read_bytes(endpoint, parameters):

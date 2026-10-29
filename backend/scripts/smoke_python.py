@@ -68,7 +68,12 @@ def main() -> None:
         action="store_true",
         help="Resolve wheel dependencies online in a new isolated virtual environment",
     )
+    parser.add_argument(
+        "--gui", action="store_true", help="Also open the installed desktop"
+    )
     args = parser.parse_args()
+    if args.gui and not args.fresh:
+        parser.error("--gui requires --fresh so the installed launcher is isolated.")
     wheels, sources = (
         list(args.directory.glob("*.whl")),
         list(args.directory.glob("*.tar.gz")),
@@ -151,6 +156,18 @@ def main() -> None:
             run("-m", "app", "--data", "--data-dir", root / "data", "list-runs")
         )
         assert history[0]["state"] == "succeeded"
+        if args.gui:
+            launcher = target / ("Scripts/uarc.exe" if os.name == "nt" else "bin/uarc")
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(Path(__file__).with_name("smoke_gui.py")),
+                    str(launcher),
+                ],
+                env=environment,
+                check=True,
+                timeout=90,
+            )
         unpacked = root / "sdist"
         with tarfile.open(source) as archive:
             archive.extractall(unpacked, filter="data")

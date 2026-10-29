@@ -27,12 +27,18 @@ installations used for the Windows prerequisite setup UI need Tcl/Tk support;
 the OS webview/graphics requirements still apply. The frozen executable archives
 remain the Python-free distribution path.
 
+The release matrix covers standard GIL-enabled 64-bit CPython 3.13: Windows/Linux
+x64 and macOS arm64/x64. PyPy, free-threaded Python, 32-bit Python, Windows ARM64
+and Linux ARM64 are outside this verified matrix. Linux executables target
+Ubuntu 22.04 or compatible newer desktop systems, not musl/Alpine environments.
+
 Build the frontend first, then build from `backend/`:
 
 ```bash
 uv run python scripts/build_python.py
 uv run python scripts/smoke_python.py ../dist/python
 uv run python scripts/smoke_python.py ../dist/python --fresh
+uv run python scripts/smoke_python.py ../dist/python --fresh --gui
 ```
 
 The builder temporarily stages the frontend, examples, documentation and notices
@@ -59,6 +65,25 @@ uv configuration also forbids building
 those two packages from source. Pure-Python source dependencies remain allowed.
 PyPI tools use the dependency declarations, not `uv.lock`; RocketPy is pinned
 because the terrain adapter requires 1.13.0.
+
+The GUI uses the same pywebview 6.2.1 / Linux PySide6 6.11.2 versions in the
+wheel and frozen builds. These are deliberate application compatibility pins;
+upgrade them with the native GUI checks rather than only import/headless tests.
+`--fresh --gui` also opens the installed `uarc` launcher, loads a local UTF-8 page
+from a path containing spaces/Korean characters, checks secure-context browser
+features and requests a design preview through the JavaScript/Python bridge.
+It closes only its own test process and submits no flight. A graphical session
+is required; Linux CI uses Xvfb with the required XCB/EGL system libraries.
+
+HTTPS requests retain system/custom CA roots and explicitly load the bundled
+certifi roots. This avoids depending on the Python/OpenSSL certificate paths of
+the build machine, particularly the python.org framework paths on macOS.
+Certificate-chain and hostname verification remain enabled. Offline tests cover
+an empty system trust store and missing bundled roots.
+
+Frozen Linux builds restore the original `LD_LIBRARY_PATH` only for the external
+`xdg-open` browser process. The host and simulation/Qt children keep their bundled
+libraries; changing the host environment while bridge threads run is avoided.
 
 The pinned rasterio 1.4.4 wheels require macOS 14+ on Apple Silicon and macOS 15+
 on Intel. On older macOS versions installers can otherwise attempt a source
@@ -195,6 +220,10 @@ archives preserve executable permissions and PyInstaller symlinks. These are
 portable executables; the Mac archives are not `.app` or `.dmg` installers.
 The recipient extracts the entire archive and opens `UARC.exe` (Windows) or
 `UARC` (Linux/Mac). Windows retains its consent-based prerequisite setup.
+Extract Unix bundles to a filesystem that preserves symlinks (for example ext4
+or APFS). The data directory and no-overwrite exports also need hard-link
+support; FAT/exFAT volumes are not supported for these operations. Failure leaves
+existing destination files intact; move the destination to a native filesystem.
 
 The workflow uses Python 3.13.5, Node 22.20.0, the manifest-pinned pnpm version,
 uv 0.12.21 and PyInstaller 6.14.2. JavaScript/Python dependencies use the committed
@@ -205,9 +234,10 @@ checks run on Linux; Windows additionally exercises the real setup controls with
 a mocked installer. All four native jobs also install the built Python wheel
 and resolve its dependencies in a new virtual environment, independently of the
 locked source environment, before building the executable. Each native executable
-runs the existing frozen-worker/file smoke checks before packaging. These checks
-do not install Microsoft runtimes or certify interactive webview/3D rendering on
-end-user desktops.
+runs the existing frozen-worker/file smoke checks and a real native-webview/
+JavaScript/bridge-preview check before packaging. These checks do not install
+Microsoft runtimes or certify 3D rendering on end-user GPUs. They run from fresh
+temporary data and frontend paths without modifying the user's designs.
 
 The publish job requires four native archives, the verified wheel and sdist,
 and creates `SHA256SUMS.txt`. It uploads all assets into a draft and publishes only after
@@ -274,12 +304,17 @@ installation prompt for already-present prerequisites. `--help`, the headless
 `--simulate` / `--data` entry points, and spawned simulation workers do not run
 the setup wizard. Linux and macOS keep their existing startup paths.
 
-The two prerequisites match the locked pywebview 6.2.1 WinForms implementation:
+The prerequisites cover pywebview 6.2.1 WinForms and UARC's browser feature needs:
 
 | Component | Detection | Installation after consent |
 | --- | --- | --- |
 | .NET Framework 4.6.2+ | HKLM `SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full`, `Release >= 394802`, checking both registry views | Microsoft's .NET Framework **4.8 web installer**, `/q /norestart /ChainingPackage UARC`; requests UAC elevation |
-| Evergreen WebView2 Runtime | HKCU and HKLM `SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}`, `pv >= 86.0.622.0`, checking both registry views | Microsoft's architecture-selecting Evergreen bootstrapper, `/silent /install`; normally per-user, or per-machine when already elevated / managed by the Microsoft updater |
+| Evergreen WebView2 Runtime | HKCU and HKLM `SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}`, major version >= 107, checking both registry views | Microsoft's architecture-selecting Evergreen bootstrapper, `/silent /install`; normally per-user, or per-machine when already elevated / managed by the Microsoft updater |
+
+The minimum follows Vite 7's Edge 107 target and the UI's `structuredClone`,
+`Object.hasOwn` and `crypto.randomUUID` use. pywebview's lower renderer minimum
+alone does not establish frontend compatibility; an older installed runtime is
+offered an upgrade through the same setup flow.
 
 An installed Edge browser alone is not treated as the Evergreen Runtime.
 Existing compatible .NET versions are retained; 4.8 is installed only if the

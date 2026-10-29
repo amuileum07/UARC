@@ -819,10 +819,12 @@ name = "uarc-simulator"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "certifi" },
     { name = "defusedxml" },
     { name = "numpy" },
     { name = "openpyxl" },
     { name = "pydantic" },
+    { name = "pyside6", marker = "sys_platform == 'linux'" },
     { name = "pywebview" },
     { name = "pywebview", extra = ["pyside6"], marker = "sys_platform == 'linux'" },
     { name = "rasterio" },
@@ -838,12 +840,14 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "certifi", specifier = ">=2026.7.22" },
     { name = "defusedxml", specifier = ">=0.7.1" },
     { name = "numpy", specifier = ">=2.5.3" },
     { name = "openpyxl", specifier = ">=3.1.5" },
     { name = "pydantic", specifier = ">=2.13.5" },
-    { name = "pywebview", marker = "sys_platform != 'linux'", specifier = ">=6.2.1" },
-    { name = "pywebview", extras = ["pyside6"], marker = "sys_platform == 'linux'", specifier = ">=6.2.1" },
+    { name = "pyside6", marker = "sys_platform == 'linux'", specifier = "==6.11.2" },
+    { name = "pywebview", marker = "sys_platform != 'linux'", specifier = "==6.2.1" },
+    { name = "pywebview", extras = ["pyside6"], marker = "sys_platform == 'linux'", specifier = "==6.2.1" },
     { name = "rasterio", specifier = "==1.4.4" },
     { name = "rocketpy", specifier = "==1.13.0" },
     { name = "scipy", specifier = ">=1.13.0" },

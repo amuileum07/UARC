@@ -9,6 +9,7 @@ from pydantic import TypeAdapter
 
 from app.config import bundled_file
 from app.design import compile_design
+from app.desktop_runtime import open_external_url
 from app.schemas import (
     DesignPreview,
     DesignReport,
@@ -139,14 +140,12 @@ class DesktopBridge:
         return material_catalog()
 
     def open_material_reference(self, reference_id: str) -> bool:
-        import webbrowser
-
         from app.materials import material_catalog
 
         sources = material_catalog()["sources"]
         if reference_id not in sources:
             raise ValueError("등록되지 않은 재질 자료입니다.")
-        if not webbrowser.open(sources[reference_id]["url"]):
+        if not open_external_url(sources[reference_id]["url"]):
             raise RuntimeError("기본 브라우저에서 자료를 열 수 없습니다.")
         return True
 
@@ -163,13 +162,11 @@ class DesktopBridge:
             self._site_slots.release()
 
     def open_terrain_portal(self, provider: str) -> bool:
-        import webbrowser
-
         from app.terrain_sources import PORTALS
 
         if provider not in PORTALS:
             raise ValueError("지원하지 않는 데이터 발급 사이트입니다.")
-        if not webbrowser.open(PORTALS[provider]):
+        if not open_external_url(PORTALS[provider]):
             raise RuntimeError(
                 "기본 브라우저를 열 수 없습니다. 표시된 사이트 주소를 직접 여세요."
             )

@@ -18,6 +18,8 @@ from threading import Thread
 from urllib.parse import urlsplit
 from urllib.request import urlopen
 
+from app.http import https_context
+
 
 @dataclass(frozen=True)
 class Dependency:
@@ -107,15 +109,16 @@ def missing_dependencies() -> list[Dependency]:
                 r"[0-9]{1,10}(?:\.[0-9]{1,10}){3}", value
             ):
                 versions.append(tuple(map(int, value.split("."))))
-    # Match the pinned pywebview WinForms backend's minimum, using tuple ordering.
-    if not any(version >= (86, 0, 622, 0) for version in versions):
+    # Vite 7 targets Edge 107; the UI also needs structuredClone/randomUUID.
+    # pywebview's lower renderer minimum is insufficient for this frontend.
+    if not any(version >= (107, 0, 0, 0) for version in versions):
         missing.append(WEBVIEW)
     return missing
 
 
 def _download(dependency: Dependency, destination: Path) -> None:
     with (
-        urlopen(dependency.url, timeout=30) as response,
+        urlopen(dependency.url, timeout=30, context=https_context()) as response,
         destination.open("wb") as stream,
     ):
         if urlsplit(response.geturl()).scheme != "https":

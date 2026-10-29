@@ -80,7 +80,9 @@ class WindowsRuntimeTests(unittest.TestCase):
             ),
             ([528040], ["85.9.999.0"], [], [runtime.WEBVIEW]),
             ([528040], ["86.0.621.999"], [], [runtime.WEBVIEW]),
-            ([528040], ["86.0.622.0"], [], []),
+            ([528040], ["86.0.622.0"], [], [runtime.WEBVIEW]),
+            ([528040], ["106.9.9999.99"], [], [runtime.WEBVIEW]),
+            ([528040], ["107.0.0.0"], [], []),
             (["528040", True], ["145.0.1.0"], [], [runtime.DOTNET]),
         ):
             with (
@@ -119,7 +121,10 @@ class WindowsRuntimeTests(unittest.TestCase):
                     else:
                         runtime._download(runtime.WEBVIEW, destination)
                         self.assertEqual(destination.read_bytes(), data)
-                    request.assert_called_once_with(runtime.WEBVIEW.url, timeout=30)
+                    request.assert_called_once()
+                    self.assertEqual(request.call_args.args, (runtime.WEBVIEW.url,))
+                    self.assertEqual(request.call_args.kwargs["timeout"], 30)
+                    self.assertTrue(request.call_args.kwargs["context"].check_hostname)
 
     def test_powershell_checks_authenticode_before_launch_and_keeps_paths_as_data(self):
         with (

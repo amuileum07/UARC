@@ -15,8 +15,12 @@ The Mac builds use macOS 15 runners and are portable executable folders, not
 `.app` installers. Other OS versions still need native acceptance testing.
 
 These builds have no developer code-signing certificate or Apple notarization.
-Release checks cover frozen numerical workers and file operations; native webview,
-3D rendering and real Windows prerequisite installation need desktop validation.
+Release checks cover frozen workers, file operations, and a native-webview/
+JavaScript/bridge-preview check for the installed wheel and frozen executable.
+3D rendering on end-user GPUs and real Windows prerequisite installation still
+need desktop validation. Windows requires WebView2 107+ for the UI's browser APIs.
+HTTPS requests use bundled CA roots alongside system/custom roots, avoiding
+build-machine certificate paths on macOS. Certificate verification remains on.
 `SHA256SUMS.txt` lists archive checksums.
 
 The `uarc_simulator-*.whl` and `.tar.gz` Python distributions include the interface

@@ -9,6 +9,7 @@ from time import monotonic
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
+from app.http import https_context
 from app.schemas import EnvironmentConfig, TerrainGrid, TerrainRequest
 
 _FETCH_LOCK = Lock()
@@ -136,7 +137,9 @@ def _fetch_opentopodata(request: TerrainRequest) -> TerrainGrid:
         )
         url = "https://api.opentopodata.org/v1/srtm90m?" + query
         with urlopen(
-            Request(url, headers={"User-Agent": "UARC/0.1 terrain preview"}), timeout=15
+            Request(url, headers={"User-Agent": "UARC/0.1 terrain preview"}),
+            timeout=15,
+            context=https_context(),
         ) as response:
             if (
                 response.geturl().split("?", 1)[0]

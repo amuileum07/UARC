@@ -23,7 +23,7 @@ include the built frontend and starting designs; Node.js/pnpm are only needed
 when building from a source checkout. See [PyPI usage](PYPI.md).
 FastAPI/Uvicorn have been replaced with pywebview. Linux installs the PySide6
 renderer automatically. Before opening the Windows desktop, UARC checks for
-.NET Framework 4.6.2+ and the Evergreen WebView2 Runtime. Missing components appear
+.NET Framework 4.6.2+ and Evergreen WebView2 107+. Missing/older components appear
 in a setup window with checkboxes. After consent, Microsoft-signed installers run
 and UARC starts only after a successful recheck. Cancel exits without installing;
 a required restart is reported without rebooting automatically. The standalone
