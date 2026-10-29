@@ -1,6 +1,6 @@
 [project]
 name = "uarc-simulator"
-version = "0.1.0"
+version = "0.1.1"
 description = "UARC desktop host and RocketPy simulation engine"
 readme = "PYPI.md"
 license = "MIT"
