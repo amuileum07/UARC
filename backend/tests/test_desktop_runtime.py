@@ -4,7 +4,9 @@ import ctypes
 import os
 import tempfile
 import unittest
+from http.client import HTTPConnection
 from pathlib import Path
+from queue import Queue
 from unittest.mock import patch
 
 from app.desktop_runtime import (
@@ -15,6 +17,54 @@ from app.desktop_runtime import (
 
 
 class DesktopRuntimeTests(unittest.TestCase):
+    def test_mac_webview_serves_utf8_assets_without_reverse_dns_in_both_builds(self):
+        from webview import http
+
+        make_server = http.make_server
+        servers = Queue()
+
+        def record_server(*args, **kwargs):
+            server = make_server(*args, **kwargs)
+            servers.put(server)
+            return server
+
+        for frozen in (False, True):
+            with (
+                self.subTest(frozen=frozen),
+                tempfile.TemporaryDirectory(prefix="uarc 한글 ") as temporary,
+                patch("app.desktop_runtime.sys.platform", "darwin"),
+                patch("app.desktop_runtime.sys.frozen", frozen, create=True),
+                patch.object(http, "WSGIServer", http.WSGIServer),
+                patch.object(http, "make_server", side_effect=record_server),
+                patch("socket.getfqdn", side_effect=AssertionError("Slow reverse DNS")),
+            ):
+                entry = Path(temporary) / "index.html"
+                content = "<!doctype html><meta charset=utf-8><p>로컬 웹뷰</p>"
+                entry.write_text(content, encoding="utf-8")
+                prepare_desktop_runtime()
+                _, _, web_server = http.BottleServer.start_server([str(entry)], None)
+                server = servers.get(timeout=2)
+                try:
+                    connection = HTTPConnection(*server.server_address, timeout=2)
+                    try:
+                        connection.request("GET", "/index.html")
+                        response = connection.getresponse()
+                        self.assertEqual(response.status, 200)
+                        self.assertEqual(response.read().decode("utf-8"), content)
+                        self.assertEqual(
+                            server.base_environ["SERVER_NAME"], "127.0.0.1"
+                        )
+                        self.assertEqual(
+                            server.base_environ["SERVER_PORT"], str(server.server_port)
+                        )
+                    finally:
+                        connection.close()
+                finally:
+                    server.shutdown()
+                    server.server_close()
+                    web_server.thread.join(timeout=2)
+                self.assertFalse(web_server.thread.is_alive())
+
     def test_frozen_browser_restores_original_library_path_without_changing_the_host(
         self,
     ):
@@ -85,8 +135,8 @@ class DesktopRuntimeTests(unittest.TestCase):
                 "/usr/lib/test-gnu/libstdc++.so.6 /custom/libtrace.so",
             )
 
-    def test_other_platforms_and_frozen_bundles_are_unchanged(self):
-        for platform, frozen in (("win32", False), ("darwin", False), ("linux", True)):
+    def test_windows_and_frozen_linux_skip_cpp_runtime_changes(self):
+        for platform, frozen in (("win32", False), ("linux", True)):
             with (
                 self.subTest(platform=platform, frozen=frozen),
                 patch("app.desktop_runtime.sys.platform", platform),

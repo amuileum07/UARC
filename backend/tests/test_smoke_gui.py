@@ -39,6 +39,21 @@ def running_server():
 
 
 class GUIReportTests(unittest.TestCase):
+    def test_report_server_never_resolves_its_numeric_loopback_address(self):
+        with (
+            patch("socket.getfqdn", side_effect=AssertionError("Slow reverse DNS")),
+            running_server() as (server, reports),
+        ):
+            connection = http.client.HTTPConnection(*server.server_address, timeout=1)
+            try:
+                connection.request("POST", "/test-token", '{"stage":"page-loaded"}')
+                response = connection.getresponse()
+                self.assertEqual(response.status, 204)
+                response.read()
+                self.assertEqual(reports.get(timeout=1), {"stage": "page-loaded"})
+            finally:
+                connection.close()
+
     def test_preopened_idle_socket_does_not_block_reports_or_shutdown(self):
         with running_server() as (server, reports):
             accepted = Event()

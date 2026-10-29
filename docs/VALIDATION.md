@@ -1,5 +1,46 @@
 # Backend verification — 2026-10-25
 
+## Mac loopback DNS startup follow-up (2026-10-29)
+
+The latest user-supplied arm64/x64 logs at `973a44e` show the report thread in
+`select()` and the main thread in `Queue.get()`. These are normal waiting frames,
+not evidence of the previously suspected callback deadlock. No JavaScript report
+arrived before the outer 90-second limit, which also hid the child's temporary
+log.
+
+Tracing both servers found a separate startup dependency on reverse DNS:
+`HTTPServer.server_bind()` calls `socket.getfqdn()` after binding but before
+listening. The harness did this before starting its inner 60-second deadline.
+pywebview 6.2.1's asynchronous WSGI server also takes this path, returning a URL
+before it is listening. A slow lookup can therefore both consume the caller's
+time budget and cause WKWebView's first navigation to fail. This matches a
+[reported macOS 15+ runner resolver problem](https://github.com/actions/setup-python/issues/1223),
+where loopback lookups take over 30 seconds. The supplied logs do not contain
+the actual Mac child stack, so this matching cause still requires a native Mac
+rerun for confirmation.
+
+The callback server now uses `ThreadingTCPServer` with the existing HTTP request
+handler, avoiding reverse DNS entirely. On Mac, `prepare_desktop_runtime()`
+substitutes a WSGI server that binds numeric loopback addresses without DNS and
+sets the same WSGI environment; non-loopback binds retain stdlib behavior.
+Bottle asset routing and bridge endpoints remain in place. This setup runs for
+both wheel and frozen launches. The harness's deadline now includes setup, and
+native child/debug output streams during the wait. The 60/90-second limits were
+not increased. CI builds and checks the native worker before GUI verification;
+both GUI checks remain mandatory for publication.
+
+Before the fix, forcing `getfqdn()` to raise reproduced failures in both server
+startup paths. The new regression tests keep that failure enabled and verify a
+real callback POST and real UTF-8 asset GET through pywebview's Bottle server,
+including both frozen/unfrozen Mac runtime branches. The Linux backend suite
+completed 208 tests in 91.817 s: 204 passed, four Windows Tk GUI tests skipped.
+Ruff lint/format and diff checks passed. A newly built wheel passed fresh Linux
+installation, native GeoTIFF/NetCDF4 I/O, spawned flight/history, real Qt GUI and
+Python bridge preview, and identical offline sdist rebuilding. A separate real
+Linux Qt launch also passed browser/bridge checks with the Mac server substitute
+installed and every Python `getfqdn()` call forced to fail. These checks do not
+constitute macOS Cocoa or Windows native execution.
+
 ## Socket-handle and supervision regression follow-up (2026-10-29)
 
 Subsequent user-supplied logs for the changes in `492c147` exposed a Windows

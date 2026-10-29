@@ -1,4 +1,4 @@
-"""Keep an older Conda C++ runtime from shadowing Linux graphics dependencies."""
+"""Prepare platform runtimes before starting the native webview."""
 
 import ctypes
 import os
@@ -8,6 +8,19 @@ import sys
 import sysconfig
 import webbrowser
 from pathlib import Path
+from socketserver import TCPServer
+from wsgiref.simple_server import WSGIServer
+
+
+class _LoopbackWSGIServer(WSGIServer):
+    def server_bind(self):
+        if self.server_address[0] not in {"127.0.0.1", "::1"}:
+            return super().server_bind()
+        # HTTPServer's getfqdn(loopback) can stall for 30+ s on macOS 15.
+        # Binding an explicit loopback IP needs no reverse DNS lookup.
+        TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address[:2]
+        self.setup_environ()
 
 
 def open_external_url(url: str) -> bool:
@@ -39,13 +52,23 @@ def _glibcxx_version(library: Path) -> tuple[int, ...]:
 
 
 def prepare_desktop_runtime() -> None:
-    """Select the newer system libstdc++ before importing Qt or numerical modules.
+    """Prepare the Mac loopback server or select the newer Linux libstdc++.
+
+    Mac's local HTTP server must not depend on reverse DNS before listening.
 
     Conda Python's ELF RPATH can select its old libstdc++ even with no
     LD_LIBRARY_PATH. Loading the system library first fixes host dlopen calls;
     LD_PRELOAD gives QtWebEngine's child processes the same library. This is
     scoped to this desktop process and its children, never the user's shell.
     """
+    if sys.platform == "darwin":
+        from webview import http
+
+        # pywebview 6.2.1 starts this server asynchronously, before listening.
+        # A slow DNS lookup otherwise makes WKWebView's first navigation fail.
+        # Replace only its WSGI class; retain Bottle routing and bridge endpoints.
+        http.WSGIServer = _LoopbackWSGIServer
+        return
     if sys.platform != "linux" or getattr(sys, "frozen", False):
         return
     base = Path(sys.base_prefix)

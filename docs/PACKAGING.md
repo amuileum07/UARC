@@ -81,11 +81,22 @@ XCB library. Before GUI checks, CI runs `ldd` on both the xcb platform plugin
 and `QtWebEngineProcess`, then loads the plugin to detect symbol/version errors.
 Missing native dependencies stop the job with the actual loader output.
 
+Both the GUI callback server and the Mac webview's local asset server bind a
+numeric loopback address without reverse DNS. macOS 15+ runners have a
+[known loopback resolver delay](https://github.com/actions/setup-python/issues/1223)
+of over 30 seconds. `HTTPServer.server_bind()` otherwise invokes `getfqdn()`
+during startup. In pywebview 6.2.1 its asynchronous asset server reports its URL
+before it listens, so this delay can also cause WKWebView's initial navigation
+to fail. The Mac runtime replaces only pywebview's WSGI server class, retaining
+its existing routing and bridge; explicit non-loopback binds retain the stdlib
+behavior. This applies to both installed wheels and frozen applications.
+
 The GUI report server handles browser-preopened sockets concurrently with a
 three-second request timeout and bounded callback bodies. `page-loaded` and
-`bridge-ready` stages are flushed to the log, and native failure logs are printed
-before cleanup. The actual GUI deadline remains 60 seconds; the checks are not
-skipped and the outer deadline is not extended. Installed-asset assertions compare
+`bridge-ready` stages are flushed to the log, and child diagnostics stream while
+the harness waits. The GUI deadline starts before server initialization and
+remains 60 seconds; the checks are not skipped and the outer deadline is not
+extended. Installed-asset assertions compare
 canonical paths on both sides, including Windows short TEMP paths such as
 `RUNNER~1`; files must still exist inside the installed package environment.
 
@@ -103,6 +114,10 @@ This avoids the previous macOS fork path without changing the application's
 launcher or browser checks. A PID is printed when creation returns; a repeating
 20-second diagnostic remains active through launch, monitoring and cleanup. The
 60-second GUI and 90-second caller deadlines remain unchanged.
+
+Release CI builds the native bundle and checks its worker/file operations before
+the GUI checks. Both installed-wheel and frozen GUI checks still must pass before
+packaging and publication.
 
 HTTPS requests retain system/custom CA roots and explicitly load the bundled
 certifi roots. This avoids depending on the Python/OpenSSL certificate paths of

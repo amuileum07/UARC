@@ -9,9 +9,10 @@ import subprocess
 import sys
 import tempfile
 from contextlib import chdir
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from queue import Empty, Queue
+from socketserver import ThreadingTCPServer
 from threading import Event, Thread
 from time import monotonic
 from typing import TextIO
@@ -57,7 +58,7 @@ if (window.pywebview?.api?.get_example_design) check();
 </script></html>"""
 
 
-def report_server(token: str, reports: Queue) -> ThreadingHTTPServer:
+def report_server(token: str, reports: Queue) -> ThreadingTCPServer:
     """Browser-preopened sockets must not block reports or server shutdown."""
 
     class ReportHandler(BaseHTTPRequestHandler):
@@ -102,7 +103,13 @@ def report_server(token: str, reports: Queue) -> ThreadingHTTPServer:
         def log_message(self, *args):
             pass
 
-    server = ThreadingHTTPServer(("127.0.0.1", 0), ReportHandler)
+    class ReportServer(ThreadingTCPServer):
+        allow_reuse_address = True
+        daemon_threads = True
+
+    # HTTPServer.server_bind can block on reverse DNS during initialization.
+    # This numeric loopback callback only needs TCP binding and HTTP handling.
+    server = ReportServer(("127.0.0.1", 0), ReportHandler)
     server.timeout = 0.2
     # Selector readiness can become stale before accept(); bound the listener too.
     server.socket.settimeout(0.2)
@@ -136,6 +143,7 @@ def main() -> None:
     args = parser.parse_args()
     if not args.command:
         parser.error("Pass a launcher, e.g. /path/to/UARC or python -m app.")
+    deadline = monotonic() + GUI_TIMEOUT_SECONDS
     reports = Queue()
     token = "/" + uuid4().hex
 
@@ -145,7 +153,7 @@ def main() -> None:
     ):
         root = Path(temporary)
         page = root / "검증 page.html"
-        callback = f"http://127.0.0.1:{server.server_port}{token}"
+        callback = f"http://127.0.0.1:{server.server_address[1]}{token}"
         page.write_text(
             PAGE.replace("CALLBACK", json.dumps(callback)), encoding="utf-8"
         )
@@ -155,6 +163,7 @@ def main() -> None:
             PYTHONDONTWRITEBYTECODE="1",
             PYTHONUTF8="1",
             PYTHONUNBUFFERED="1",
+            PYWEBVIEW_LOG="DEBUG",
         )
         environment.pop("PYTHONHOME", None)
         stop = Event()
@@ -186,7 +195,6 @@ def main() -> None:
                 )
                 print(f"GUI desktop started: PID {process.pid}", flush=True)
                 try:
-                    deadline = monotonic() + GUI_TIMEOUT_SECONDS
                     stage = "no JavaScript report"
                     # Start only after exec; HTTP dispatch cannot block supervision.
                     thread = Thread(
@@ -194,32 +202,36 @@ def main() -> None:
                     )
                     print("GUI starting callback server", flush=True)
                     thread.start()
-                    while monotonic() < deadline:
-                        try:
-                            report = reports.get(timeout=0.2)
-                            if "ok" not in report:
-                                stage = report["stage"]
-                                print(f"GUI stage: {stage}", flush=True)
-                                continue
-                        except Empty:
-                            if process.poll() is None:
-                                continue
+                    # Stream the child's diagnostics while waiting: an outer
+                    # timeout must not hide everything in a deleted temp file.
+                    with (root / "desktop.log").open(
+                        encoding="utf-8", errors="replace"
+                    ) as desktop_log:
+                        while monotonic() < deadline:
+                            details = desktop_log.read(12000)
+                            if details:
+                                print(details, file=sys.stderr, end="", flush=True)
+                            try:
+                                report = reports.get(timeout=0.2)
+                                if "ok" not in report:
+                                    stage = report["stage"]
+                                    print(f"GUI stage: {stage}", flush=True)
+                                    continue
+                            except Empty:
+                                if process.poll() is None:
+                                    continue
+                                report = {
+                                    "ok": False,
+                                    "error": f"Webview exited ({process.returncode})",
+                                    "stage": stage,
+                                }
+                            break
+                        else:
                             report = {
                                 "ok": False,
-                                "error": (
-                                    f"Webview exited ({process.returncode})"
-                                    if process.poll() is not None
-                                    else f"No final JavaScript report within {GUI_TIMEOUT_SECONDS} seconds"
-                                ),
+                                "error": f"No final JavaScript report within {GUI_TIMEOUT_SECONDS} seconds",
                                 "stage": stage,
                             }
-                        break
-                    else:
-                        report = {
-                            "ok": False,
-                            "error": f"No final JavaScript report within {GUI_TIMEOUT_SECONDS} seconds",
-                            "stage": stage,
-                        }
                 finally:
                     print("GUI stopping desktop process", flush=True)
                     # No flight is submitted; stop only this test's desktop process.

@@ -213,15 +213,6 @@ jobs:
         with:
           name: python-dist
           path: dist/python
-      - name: Verify fresh Python package installation and native libraries
-        working-directory: backend
-        shell: bash
-        run: |
-          if [ "$RUNNER_OS" = Linux ]; then
-            xvfb-run --auto-servernum uv run --locked python scripts/smoke_python.py ../dist/python --fresh --gui
-          else
-            uv run --locked python scripts/smoke_python.py ../dist/python --fresh --gui
-          fi
       - name: Check Windows setup controls
         if: runner.os == 'Windows'
         working-directory: backend
@@ -232,6 +223,15 @@ jobs:
       - name: Verify frozen worker and file operations
         working-directory: backend
         run: uv run --locked python scripts/smoke_bundle.py ../dist/desktop/UARC/${{ matrix.executable }}
+      - name: Verify fresh Python package installation and native libraries
+        working-directory: backend
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = Linux ]; then
+            xvfb-run --auto-servernum uv run --locked python scripts/smoke_python.py ../dist/python --fresh --gui
+          else
+            uv run --locked python scripts/smoke_python.py ../dist/python --fresh --gui
+          fi
       - name: Verify frozen native webview and Python bridge
         working-directory: backend
         shell: bash
