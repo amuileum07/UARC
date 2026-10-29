@@ -230,6 +230,58 @@ Build on the target OS. A backend bundle passing headless checks does not verify
 actual Qt/WebView rendering, native dialogs, or another operating system's runtime.
 Full desktop acceptance requires the frontend assets and a graphical session.
 
+## Final archive and actual UI acceptance
+
+[Desktop acceptance](../.github/workflows/desktop-acceptance.yml) is a separate,
+manually dispatched workflow with read-only repository permissions. It tests
+Windows x64, Ubuntu x64, macOS arm64 and macOS x64 without changing versions,
+creating tags or publishing releases. The existing release gates remain in
+place. Promote these additional checks into release gates only after native
+matrix results establish that the harness works on each platform.
+
+Each job builds and archives the application using the release scripts, then
+extracts the final archive into a new Korean/space-containing temporary path.
+The extracted executable must pass the existing worker/file smoke checks.
+The same executable then opens the shipping frontend, without replacing its
+HTML, and drives the actual controls to:
+
+1. Edit payload mass through the JSON editor and Python schema validation.
+2. Rename and save two designs, then load the first from the project explorer.
+3. Render the rocket in 3D and run the edited design through the simulate button.
+4. Display the resulting metrics, SVG chart and local-terrain 3D trajectory.
+5. Close through the native window API and wait for a successful process exit.
+6. Launch again with the same data directory, load the saved design and select
+   the original run from history, requiring identical results and no extra run.
+
+Rendered canvases must have a completed frame and a live WebGL context. This
+checks rendering availability, not pixel-perfect images or hardware GPU drivers.
+Both launches must exit normally; a timeout or forced cleanup fails the check.
+Only the startup design uses a deterministic local terrain fixture. UI edits,
+previews, simulations, storage and result retrieval use production paths.
+Online map/weather availability and native file-dialog interaction are outside
+this scenario.
+
+From `backend/`, after building and creating one native archive:
+
+```bash
+uv run --locked python scripts/smoke_desktop.py ../dist/release --output ../dist/desktop-checks
+```
+
+Use `xvfb-run --auto-servernum` before that command on headless Linux. The output
+directory must be new. CI uploads its per-launch JSON reports, logs, scripts and
+test data even after failure; it contains only synthetic inputs.
+
+The explicit `--check-ui DESIGN SCRIPT REPORT --data-dir DIR` launcher option
+runs a trusted local JavaScript diagnostic and closes the window after reporting.
+It refuses the default user-data directory and existing reports. It is inactive
+during normal use; do not pass scripts from untrusted sources.
+
+A clean-VM release check remains necessary for prerequisites that hosted runners
+already provide: Windows without WebView2, Ubuntu without Qt/XCB system libraries,
+and each supported Mac architecture/OS floor. Record the archive, OS version,
+architecture, prerequisites, install/first launch, normal close and relaunch.
+Gate these checks separately until repeatable VM images are available.
+
 ## Manual GitHub Actions releases
 
 [Release UARC](../.github/workflows/release.yml) has **only** a

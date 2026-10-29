@@ -62,8 +62,10 @@ export function Rocket3D({
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.target.set(0, 0.4, 0);
     const render = () => {
-      if (element.clientWidth && element.clientHeight)
+      if (element.clientWidth && element.clientHeight) {
         renderer.render(scene, camera);
+        renderer.domElement.dataset.rendered = "true";
+      }
     };
     controls.addEventListener("change", render);
     scene.add(new THREE.HemisphereLight(0xffffff, 0x777777, 2.5));

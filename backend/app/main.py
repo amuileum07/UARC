@@ -8,6 +8,7 @@ from pathlib import Path
 
 from app.config import default_data_directory, frontend_entrypoint
 from app.desktop_runtime import (
+    attach_ui_check,
     encode_webview_url,
     log_webview_document,
     prepare_desktop_runtime,
@@ -45,7 +46,40 @@ def main() -> None:
         default=1024 if sys.platform == "linux" else None,
         help="Per-worker RSS limit on Linux (MiB; 0 disables)",
     )
+    parser.add_argument(
+        "--check-ui",
+        nargs=3,
+        type=Path,
+        metavar=("DESIGN", "SCRIPT", "REPORT"),
+        help="Run a trusted UI acceptance script with a local design, report, and close",
+    )
     args = parser.parse_args()
+    initial_design = None
+    check_script = None
+    check_result = None
+    if args.check_ui:
+        if args.data_dir.resolve() == default_data_directory().resolve():
+            parser.error("--check-ui requires a separate --data-dir.")
+        from app.design_files import validate_design_file
+        from app.storage import MAX_PAYLOAD_BYTES
+
+        design, script, report = args.check_ui
+        try:
+            if report.exists() or report.is_symlink():
+                raise FileExistsError("UI-check report already exists.")
+            with design.open("rb") as stream:
+                initial_design = validate_design_file(
+                    stream.read(MAX_PAYLOAD_BYTES + 1)
+                )
+            with script.open("rb") as stream:
+                payload = stream.read(MAX_PAYLOAD_BYTES + 1)
+            if len(payload) > MAX_PAYLOAD_BYTES:
+                raise ValueError("UI-check script exceeds 2 MiB.")
+            check_script = payload.decode("utf-8")
+            if not check_script.strip():
+                raise ValueError("UI-check script is empty.")
+        except (OSError, ValueError, UnicodeError) as error:
+            parser.error(str(error))
     try:
         entry = frontend_entrypoint(dev_url=args.dev_url, frontend=args.frontend)
     except (ValueError, FileNotFoundError) as error:
@@ -76,15 +110,23 @@ def main() -> None:
         parser.error(str(error))
     try:
         window = webview.create_window(
-            "UARC", url=entry, js_api=DesktopBridge(jobs), width=1280, height=800
+            "UARC",
+            url=entry,
+            js_api=DesktopBridge(jobs, initial_design=initial_design),
+            width=1280,
+            height=800,
         )
         window.events.initialized += encode_webview_url
         if logging.getLogger("pywebview").isEnabledFor(logging.DEBUG):
             window.events.loaded += log_webview_document
+        if check_script is not None:
+            check_result = attach_ui_check(window, check_script, args.check_ui[2])
         renderer = {"linux": "qt", "win32": "edgechromium"}.get(sys.platform)
         webview.start(gui=renderer)
     finally:
         jobs.close()
+    if check_result is not None and check_result.get("ok") is not True:
+        parser.exit(1, f"UI acceptance failed: {check_result}\n")
 
 
 if __name__ == "__main__":

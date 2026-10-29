@@ -80,8 +80,14 @@ class DesktopBridge:
     Calls validate or submit work promptly; solvers run in disposable processes.
     """
 
-    def __init__(self, jobs: JobManager | None = None):
+    def __init__(
+        self,
+        jobs: JobManager | None = None,
+        *,
+        initial_design: RocketDesign | None = None,
+    ):
         self._jobs = jobs
+        self._initial_design = initial_design
         self._preview_slots = BoundedSemaphore(1)
         self._site_slots = BoundedSemaphore(2)
 
@@ -128,6 +134,8 @@ class DesktopBridge:
 
     def get_example_design(self) -> dict:
         """Bundled starting design with terrain-following enabled for the editor."""
+        if self._initial_design is not None:
+            return self._initial_design.model_dump(mode="json")
         design = RocketDesign.model_validate_json(
             bundled_file("examples/design.json").read_text(encoding="utf-8")
         )

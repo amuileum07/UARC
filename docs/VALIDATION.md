@@ -1,5 +1,43 @@
 # Backend verification — 2026-10-25
 
+## Final desktop archive and shipping UI acceptance (2026-10-30)
+
+The separate `Desktop acceptance` workflow builds all four native targets and
+checks the final extracted archive, production frontend, normal close and
+relaunch. It has read-only permissions and no release/version/publishing steps.
+The release workflow and its existing gates are unchanged.
+
+Locally, a fresh Linux PyInstaller bundle was archived with the release script,
+extracted under `UARC 설치 한글 .../압축 해제 폴더/UARC`, and executed outside the
+checkout. The relocated CLI passed preview, worker flights, compressed NetCDF4
+weather, history, CSV, saved designs, OpenRocket import, cancellation and reaping.
+The actual shipped frontend then passed both launches:
+
+- Change payload mass from 1.00 to 1.05 kg through the JSON editor and validator.
+- Rename/save two designs and load the first through the project explorer.
+- Render the rocket with a live WebGL 2 context, click simulate, and display
+  metrics, the result chart and a rendered local-terrain 3D trajectory.
+- Close through the native window API and exit successfully, then repeat startup
+  with the same data and load the original design and completed run through UI.
+
+Both reports were successful and had identical summaries for run
+`912ec15e2077423ebc2c703c2f1e14a5`. A read-only database inspection confirmed two
+designs and one run. No forced process cleanup was needed. The local machine
+lacked `xvfb`, so this run used its desktop display; the workflow installs `xvfb`
+on the Linux runner.
+
+Frontend lint/types, all 42 frontend tests and production build passed. The
+backend full suite passed 218 tests with five Windows-only cases skipped on
+Linux; the final acceptance harness tests are checked separately. Ruff and diff
+checks passed. Reports/logs are retained locally under
+`/tmp/uarc-acceptance-checks-20261030` and the workflow uploads per-target
+diagnostics even on failure.
+
+The new workflow has not yet run on GitHub Actions. This does not confirm the
+new GUI scenario on Windows, either Mac architecture, or the hosted Linux
+display. GPU image quality, online providers, native dialogs and missing-runtime
+behavior on clean VMs remain outside this automated scenario.
+
 ## Mac test-fixture path follow-up (2026-10-30)
 
 [Run 40913631718](https://github.com/amuileum07/UARC/actions/runs/40913631718)

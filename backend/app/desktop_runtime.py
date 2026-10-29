@@ -42,6 +42,45 @@ def log_webview_document(window) -> None:
     logging.getLogger("pywebview").debug("Loaded document: %s", details)
 
 
+def attach_ui_check(window, script: str, report: Path) -> dict:
+    """Run a trusted acceptance script in the actual UI, then close normally."""
+    from threading import Lock
+
+    from webview.errors import JavascriptException, WebViewException
+
+    from app.storage import atomic_json
+
+    result = {}
+    lock = Lock()
+    started = False
+
+    def finish(value):
+        if not isinstance(value, dict) or type(value.get("ok")) is not bool:
+            value = {"ok": False, "error": f"Invalid UI-check result: {value!r}"[:4000]}
+        try:
+            atomic_json(report, value, overwrite=False)
+            result.update(value)
+        except (OSError, ValueError, TypeError) as error:
+            result.update(ok=False, error=f"Cannot write UI-check report: {error}")
+            logging.exception("Cannot write UI-check report")
+        finally:
+            window.destroy()
+
+    def loaded():
+        nonlocal started
+        with lock:
+            if started:
+                return
+            started = True
+        try:
+            window.evaluate_js(script, callback=finish)
+        except (JavascriptException, WebViewException, OSError) as error:
+            finish({"ok": False, "error": str(error)})
+
+    window.events.loaded += loaded
+    return result
+
+
 def open_external_url(url: str) -> bool:
     """Keep frozen Linux libraries out of the system browser's environment."""
     if sys.platform != "linux" or not getattr(sys, "frozen", False):

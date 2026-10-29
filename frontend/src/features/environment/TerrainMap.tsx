@@ -158,6 +158,9 @@ export function TerrainMap() {
       (_scene: Cesium.Scene, reason: unknown) =>
         setRenderError(`지도 렌더링 실패: ${String(reason)}`),
     );
+    const removeRendered = current.scene.postRender.addEventListener(() => {
+      current.scene.canvas.dataset.rendered = "true";
+    });
     viewer.current = current;
     setReady(true);
     const observer = new ResizeObserver(() => {
@@ -181,6 +184,7 @@ export function TerrainMap() {
     return () => {
       observer.disconnect();
       removeError();
+      removeRendered();
       marker.current = null;
       viewer.current = null;
       current.destroy();
