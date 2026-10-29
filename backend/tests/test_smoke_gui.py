@@ -1,132 +1,49 @@
-"""Offline GUI-report regressions without opening a desktop window."""
+"""Committed bridge proof and launcher regressions without a native GUI."""
 
-import http.client
 import io
 import json
 import os
 import runpy
 import shlex
-import socket
 import sys
 import tempfile
 import threading
 import unittest
-from contextlib import contextmanager, redirect_stderr, redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
-from queue import Queue
-from threading import Event, Thread
 from unittest.mock import patch
+
+from app.bridge import DesktopBridge
+from app.simulation.jobs import JobManager
 
 SMOKE = runpy.run_path(
     str(Path(__file__).resolve().parents[1] / "scripts/smoke_gui.py")
 )
 
 
-@contextmanager
-def running_server():
-    reports = Queue()
-    server = SMOKE["report_server"]("/test-token", reports)
-    thread = Thread(
-        target=server.serve_forever, kwargs={"poll_interval": 0.02}, daemon=True
-    )
-    thread.start()
-    try:
-        yield server, reports
-    finally:
-        server.shutdown()
-        thread.join(timeout=1)
-        server.server_close()
-
-
 class GUIReportTests(unittest.TestCase):
-    def test_report_server_never_resolves_its_numeric_loopback_address(self):
-        with (
-            patch("socket.getfqdn", side_effect=AssertionError("Slow reverse DNS")),
-            running_server() as (server, reports),
-        ):
-            connection = http.client.HTTPConnection(*server.server_address, timeout=1)
-            try:
-                connection.request("POST", "/test-token", '{"stage":"page-loaded"}')
-                response = connection.getresponse()
-                self.assertEqual(response.status, 204)
-                response.read()
-                self.assertEqual(reports.get(timeout=1), {"stage": "page-loaded"})
-            finally:
-                connection.close()
-
-    def test_preopened_idle_socket_does_not_block_reports_or_shutdown(self):
-        with running_server() as (server, reports):
-            accepted = Event()
-            setup = server.RequestHandlerClass.setup
-
-            def record_setup(handler):
-                setup(handler)
-                accepted.set()
-
-            with (
-                patch.object(server.RequestHandlerClass, "setup", record_setup),
-                socket.create_connection(server.server_address, timeout=1),
-            ):
-                self.assertTrue(accepted.wait(timeout=1))
-                connection = http.client.HTTPConnection(
-                    *server.server_address, timeout=1
+    def test_real_bridge_save_proves_only_valid_reports_from_this_launch(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            with JobManager(root) as jobs:
+                bridge = DesktopBridge(jobs)
+                design = bridge.get_example_design()
+                design["environment"]["elevation_mode"] = "manual"
+                valid = [
+                    {"token": "this-launch", "stage": "bridge-ready"},
+                    {"token": "this-launch", "ok": True},
+                ]
+                names = ["ordinary design", "[]", '{"token":"another","ok":true}']
+                names += [json.dumps(value) for value in valid]
+                for name in names:
+                    design["name"] = name
+                    bridge.save_design(json.dumps(design))
+                before = (root / "uarc.sqlite3").stat().st_mtime_ns
+                self.assertCountEqual(
+                    SMOKE["saved_reports"](root, "this-launch"), valid
                 )
-                try:
-                    payload = {"ok": True, "userAgent": "offline-test"}
-                    connection.request("POST", "/test-token", json.dumps(payload))
-                    response = connection.getresponse()
-                    self.assertEqual(response.status, 204)
-                    self.assertEqual(response.read(), b"")
-                    self.assertEqual(reports.get(timeout=1), payload)
-                finally:
-                    connection.close()
-                stopped = Thread(target=server.shutdown, daemon=True)
-                stopped.start()
-                stopped.join(timeout=1)
-                self.assertFalse(
-                    stopped.is_alive(), "Idle browser socket blocked shutdown"
-                )
-
-    def test_partial_request_body_has_a_finite_read_timeout(self):
-        with running_server() as (server, reports):
-            server.RequestHandlerClass.timeout = 0.1
-            with socket.create_connection(server.server_address, timeout=2) as client:
-                client.sendall(
-                    b"POST /test-token HTTP/1.0\r\nContent-Length: 100\r\n\r\n{"
-                )
-                response = http.client.HTTPResponse(client)
-                response.begin()
-                self.assertEqual(response.status, 408)
-                self.assertEqual(response.read(), b"")
-            self.assertTrue(reports.empty())
-
-    def test_preflight_and_invalid_reports_never_count_as_success(self):
-        with running_server() as (server, reports):
-            connection = http.client.HTTPConnection(*server.server_address, timeout=1)
-            try:
-                connection.request("OPTIONS", "/test-token")
-                response = connection.getresponse()
-                self.assertEqual(response.status, 204)
-                self.assertEqual(response.getheader("Access-Control-Allow-Origin"), "*")
-                self.assertIn(
-                    "POST", response.getheader("Access-Control-Allow-Methods")
-                )
-                response.read()
-                for body, headers in (
-                    (b"{}", {"Content-Length": "not-an-integer"}),
-                    (b"{}", {"Content-Length": "4097"}),
-                    (b"broken", {}),
-                    (b"[]", {}),
-                    (b'{"stage": {}}', {}),
-                ):
-                    with self.subTest(body=body, headers=headers):
-                        connection.request("POST", "/test-token", body, headers)
-                        response = connection.getresponse()
-                        self.assertEqual(response.status, 400)
-                        response.read()
-                self.assertTrue(reports.empty())
-            finally:
-                connection.close()
+                self.assertEqual((root / "uarc.sqlite3").stat().st_mtime_ns, before)
+                self.assertEqual(len(bridge.list_designs()), len(names))
 
     def test_early_exit_keeps_native_logs_and_failure_stage(self):
         output = io.StringIO()
@@ -145,18 +62,14 @@ class GUIReportTests(unittest.TestCase):
         with (
             patch("sys.argv", ["smoke_gui.py", "fake-uarc"]),
             patch("subprocess.Popen", side_effect=start) as launch,
-            patch("faulthandler.dump_traceback_later") as watchdog,
-            patch("faulthandler.cancel_dump_traceback_later") as cancel_watchdog,
             redirect_stdout(output),
             redirect_stderr(output),
             self.assertRaisesRegex(RuntimeError, r"Webview exited \(17\)"),
         ):
             SMOKE["main"]()
         self.assertIn("native loader failure marker", output.getvalue())
-        self.assertIn("no JavaScript report", output.getvalue())
-        self.assertIn("GUI closing callback server", output.getvalue())
-        watchdog.assert_called_once_with(20, repeat=True)
-        cancel_watchdog.assert_called_once_with()
+        self.assertIn("no committed bridge report", output.getvalue())
+        self.assertIn("GUI stopping desktop process", output.getvalue())
         self.assertEqual(launch.call_args.kwargs["env"]["PYTHONUTF8"], "1")
         launch.return_value.terminate.assert_not_called()
 
@@ -167,7 +80,6 @@ class GUIReportTests(unittest.TestCase):
         before = Path.cwd()
         with tempfile.TemporaryDirectory(prefix="uarc spawn 한글 ") as temporary:
             root = Path(temporary)
-            # Real executable-script launch, including a path with spaces/Unicode.
             launcher = root / "installed uarc"
             code = "import json, os; print(json.dumps({'cwd': os.getcwd()}))"
             launcher.write_text(
@@ -176,12 +88,10 @@ class GUIReportTests(unittest.TestCase):
             )
             launcher.chmod(0o755)
             with (
-                SMOKE["report_server"]("/token", Queue()) as server,
                 (root / "child.log").open("w", encoding="utf-8") as log,
                 patch("sys.platform", "darwin"),
                 patch("os.posix_spawn", wraps=os.posix_spawn) as spawn,
             ):
-                self.assertFalse(os.get_inheritable(server.fileno()))
                 self.assertFalse(os.get_inheritable(log.fileno()))
                 process = SMOKE["launch_desktop"](
                     [str(launcher)], root, dict(os.environ), log

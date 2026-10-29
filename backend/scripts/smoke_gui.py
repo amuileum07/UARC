@@ -1,20 +1,16 @@
 """Open a real native webview and verify browser features and the Python bridge."""
 
 import argparse
-import faulthandler
 import json
 import os
 import shutil
+import sqlite3
 import subprocess
 import sys
 import tempfile
-from contextlib import chdir
-from http.server import BaseHTTPRequestHandler
+from contextlib import chdir, closing
 from pathlib import Path
-from queue import Empty, Queue
-from socketserver import ThreadingTCPServer
-from threading import Event, Thread
-from time import monotonic
+from time import monotonic, sleep
 from typing import TextIO
 from uuid import uuid4
 
@@ -23,97 +19,67 @@ GUI_TIMEOUT_SECONDS = 60
 PAGE = """<!doctype html><html lang="ko"><meta charset="utf-8">
 <title>UARC GUI verification</title><p>UARC 웹뷰 검증</p><script>
 let started = false;
-async function report(value) {
-  const response = await fetch(CALLBACK, {
-    method: 'POST', body: JSON.stringify(value),
-    headers: {'Content-Type': 'text/plain;charset=UTF-8'}
-  });
-  if (!response.ok) throw Error('GUI callback failed: HTTP ' + response.status);
-}
-report({stage: 'page-loaded'}).catch(error => console.error(String(error)));
 async function check() {
   if (started) return;
   started = true;
-  let result;
+  const api = window.pywebview.api;
+  const design = await api.get_example_design();
+  design.environment.elevation_mode = 'manual';
+  async function report(value) {
+    const proof = {token: TOKEN, ...value};
+    if (proof.error) proof.error = proof.error.slice(0, 64);
+    // A design name is limited to 128 characters, including JSON escaping.
+    while (JSON.stringify(proof).length > 128 && proof.error?.length)
+      proof.error = proof.error.slice(0, -1);
+    await api.save_design(JSON.stringify({...design, name: JSON.stringify(proof)}));
+  }
   try {
     await report({stage: 'bridge-ready'});
     if (!window.isSecureContext || typeof crypto.randomUUID !== 'function' ||
         typeof structuredClone !== 'function' || typeof Object.hasOwn !== 'function')
       throw Error('The webview lacks browser features required by the frontend');
-    const api = window.pywebview.api;
-    const design = structuredClone(await api.get_example_design());
-    if (!design.components.length || crypto.randomUUID().length !== 36)
-      throw Error('Invalid starting design or browser UUID');
-    design.environment.elevation_mode = 'manual';
-    const preview = await api.preview_design(JSON.stringify(design));
-    if (!(preview.simulation.rocket.radius > 0)) throw Error('Invalid bridge preview');
-    result = {ok: true, userAgent: navigator.userAgent};
+    const preview = await api.preview_design(JSON.stringify(structuredClone(design)));
+    if (!design.components.length || crypto.randomUUID().length !== 36 ||
+        !(preview.simulation.rocket.radius > 0)) throw Error('Invalid bridge preview');
+    await report({ok: true});
   } catch (error) {
-    result = {ok: false, error: String(error)};
+    await report({ok: false, error: String(error)});
   }
-  await report(result);
 }
-window.addEventListener('pywebviewready', check, {once: true});
-if (window.pywebview?.api?.get_example_design) check();
+window.addEventListener('pywebviewready', () => check().catch(console.error), {once: true});
+if (window.pywebview?.api?.get_example_design) check().catch(console.error);
 </script></html>"""
 
 
-def report_server(token: str, reports: Queue) -> ThreadingTCPServer:
-    """Browser-preopened sockets must not block reports or server shutdown."""
-
-    class ReportHandler(BaseHTTPRequestHandler):
-        timeout = 3
-
-        def reply(self, status):
-            self.send_response(status)
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
-            self.send_header("Access-Control-Allow-Headers", "Content-Type")
-            self.send_header("Content-Length", "0")
-            self.send_header("Connection", "close")
-            self.end_headers()
-            self.close_connection = True
-
-        def do_OPTIONS(self):
-            self.reply(204 if self.path == token else 404)
-
-        def do_POST(self):
-            if self.path != token:
-                self.reply(404)
-                return
-            try:
-                length = int(self.headers.get("Content-Length", "0"))
-                if not 0 < length <= 4096:
-                    raise ValueError("Invalid callback length")
-                report = json.loads(self.rfile.read(length))
-                if not isinstance(report, dict) or (
-                    type(report.get("ok")) is not bool
-                    and report.get("stage") not in ("page-loaded", "bridge-ready")
-                ):
-                    raise ValueError("Invalid callback report")
-            except TimeoutError:
-                self.reply(408)
-                return
-            except (ValueError, UnicodeError):
-                self.reply(400)
-                return
-            self.reply(204)
-            reports.put(report)
-
-        def log_message(self, *args):
-            pass
-
-    class ReportServer(ThreadingTCPServer):
-        allow_reuse_address = True
-        daemon_threads = True
-
-    # HTTPServer.server_bind can block on reverse DNS during initialization.
-    # This numeric loopback callback only needs TCP binding and HTTP handling.
-    server = ReportServer(("127.0.0.1", 0), ReportHandler)
-    server.timeout = 0.2
-    # Selector readiness can become stale before accept(); bound the listener too.
-    server.socket.settimeout(0.2)
-    return server
+def saved_reports(data: Path, token: str) -> list[dict]:
+    """Observe committed save_design calls, using only this test's application data."""
+    database = data / "uarc.sqlite3"
+    if not database.is_file():
+        return []
+    try:
+        with closing(
+            sqlite3.connect(database.as_uri() + "?mode=ro", uri=True, timeout=0.2)
+        ) as connection:
+            names = connection.execute("SELECT name FROM designs").fetchall()
+    except sqlite3.OperationalError as error:
+        if str(error) not in {"no such table: designs", "database is locked"}:
+            raise
+        return []  # Initialization or a write transaction is still in progress.
+    reports = []
+    for (name,) in names:
+        try:
+            report = json.loads(name)
+        except (ValueError, TypeError):
+            continue
+        if (
+            isinstance(report, dict)
+            and report.get("token") == token
+            and (
+                type(report.get("ok")) is bool or report.get("stage") == "bridge-ready"
+            )
+        ):
+            reports.append(report)
+    return reports
 
 
 def launch_desktop(
@@ -126,8 +92,7 @@ def launch_desktop(
         # Keep virtualenv/symlink identity: resolve() could select the base Python.
         command = [os.path.abspath(executable), *command[1:]]
         # CPython 3.13 uses posix_spawn on macOS only without cwd/close_fds.
-        # Change the harness's cwd before servicing connections; the listener
-        # and log descriptors are non-inheritable, and only stdout/stderr are duped.
+        # The log is non-inheritable; no harness worker threads precede launch.
         with chdir(root):
             return subprocess.Popen(
                 command, env=environment, stdout=log, stderr=log, close_fds=False
@@ -144,19 +109,12 @@ def main() -> None:
     if not args.command:
         parser.error("Pass a launcher, e.g. /path/to/UARC or python -m app.")
     deadline = monotonic() + GUI_TIMEOUT_SECONDS
-    reports = Queue()
-    token = "/" + uuid4().hex
-
-    with (
-        tempfile.TemporaryDirectory(prefix="uarc gui 한글 ") as temporary,
-        report_server(token, reports) as server,
-    ):
+    token = uuid4().hex
+    with tempfile.TemporaryDirectory(prefix="uarc gui 한글 ") as temporary:
         root = Path(temporary)
         page = root / "검증 page.html"
-        callback = f"http://127.0.0.1:{server.server_address[1]}{token}"
-        page.write_text(
-            PAGE.replace("CALLBACK", json.dumps(callback)), encoding="utf-8"
-        )
+        page.write_text(PAGE.replace("TOKEN", json.dumps(token)), encoding="utf-8")
+        data = root / "data"
         environment = dict(
             os.environ,
             PYTHONPATH="",
@@ -166,98 +124,69 @@ def main() -> None:
             PYWEBVIEW_LOG="DEBUG",
         )
         environment.pop("PYTHONHOME", None)
-        stop = Event()
-        thread = None
-
-        def serve_reports():
-            while not stop.is_set():
-                server.handle_request()
-
-        # Keep diagnostics armed through launch, callback waits and cleanup.
-        faulthandler.dump_traceback_later(20, repeat=True)
-        try:
-            with (root / "desktop.log").open("w", encoding="utf-8") as log:
-                print(f"GUI launching: {args.command[0]}", flush=True)
-                # A Windows SOCKET handle is not a CRT file descriptor.
-                if server.socket.get_inheritable() or os.get_inheritable(log.fileno()):
-                    raise RuntimeError("GUI harness descriptors must not be inherited.")
-                process = launch_desktop(
-                    [
-                        *args.command,
-                        "--frontend",
-                        str(page),
-                        "--data-dir",
-                        str(root / "data"),
-                    ],
-                    root,
-                    environment,
-                    log,
-                )
-                print(f"GUI desktop started: PID {process.pid}", flush=True)
-                try:
-                    stage = "no JavaScript report"
-                    # Start only after exec; HTTP dispatch cannot block supervision.
-                    thread = Thread(
-                        target=serve_reports, name="uarc-gui-reports", daemon=True
-                    )
-                    print("GUI starting callback server", flush=True)
-                    thread.start()
-                    # Stream the child's diagnostics while waiting: an outer
-                    # timeout must not hide everything in a deleted temp file.
-                    with (root / "desktop.log").open(
-                        encoding="utf-8", errors="replace"
-                    ) as desktop_log:
-                        while monotonic() < deadline:
-                            details = desktop_log.read(12000)
-                            if details:
-                                print(details, file=sys.stderr, end="", flush=True)
-                            try:
-                                report = reports.get(timeout=0.2)
-                                if "ok" not in report:
-                                    stage = report["stage"]
-                                    print(f"GUI stage: {stage}", flush=True)
-                                    continue
-                            except Empty:
-                                if process.poll() is None:
-                                    continue
-                                report = {
-                                    "ok": False,
-                                    "error": f"Webview exited ({process.returncode})",
-                                    "stage": stage,
-                                }
+        with (root / "desktop.log").open("w", encoding="utf-8") as log:
+            print(f"GUI launching: {args.command[0]}", flush=True)
+            if os.get_inheritable(log.fileno()):
+                raise RuntimeError("GUI harness log must not be inherited.")
+            process = launch_desktop(
+                [*args.command, "--frontend", str(page), "--data-dir", str(data)],
+                root,
+                environment,
+                log,
+            )
+            print(f"GUI desktop started: PID {process.pid}", flush=True)
+            stage = "no committed bridge report"
+            report = None
+            try:
+                with (root / "desktop.log").open(
+                    encoding="utf-8", errors="replace"
+                ) as desktop_log:
+                    while monotonic() < deadline:
+                        details = desktop_log.read(12000)
+                        if details:
+                            print(details, file=sys.stderr, end="", flush=True)
+                        for value in saved_reports(data, token):
+                            if "ok" in value:
+                                report = value
+                                break
+                            if stage != value["stage"]:
+                                stage = value["stage"]
+                                print(f"GUI stage: {stage}", flush=True)
+                        if report is not None:
                             break
-                        else:
+                        if process.poll() is not None:
                             report = {
                                 "ok": False,
-                                "error": f"No final JavaScript report within {GUI_TIMEOUT_SECONDS} seconds",
-                                "stage": stage,
+                                "error": f"Webview exited ({process.returncode})",
                             }
-                finally:
-                    print("GUI stopping desktop process", flush=True)
-                    # No flight is submitted; stop only this test's desktop process.
-                    if process.poll() is None:
-                        process.terminate()
-                    try:
-                        process.wait(timeout=10)
-                    except subprocess.TimeoutExpired:
-                        process.kill()
-                        process.wait(timeout=10)
-            if not isinstance(report, dict) or report.get("ok") is not True:
-                details = (root / "desktop.log").read_text(
-                    encoding="utf-8", errors="replace"
-                )
-                message = f"GUI verification failed: {report}\n{details[-12000:]}"
-                print(message, file=sys.stderr, flush=True)
-                raise RuntimeError(message)
-            print(
-                f"GUI verified: native webview, browser features, bridge preview; {report['userAgent']}"
+                            break
+                        sleep(0.2)
+                    else:
+                        report = {
+                            "ok": False,
+                            "error": f"No final bridge report within {GUI_TIMEOUT_SECONDS} seconds",
+                        }
+            finally:
+                print("GUI stopping desktop process", flush=True)
+                if process.poll() is None:
+                    process.terminate()
+                try:
+                    process.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait(timeout=10)
+        if report.get("ok") is not True:
+            details = (root / "desktop.log").read_text(
+                encoding="utf-8", errors="replace"
             )
-        finally:
-            stop.set()
-            if thread is not None and thread.ident is not None:
-                thread.join(timeout=1)
-            print("GUI closing callback server", flush=True)
-            faulthandler.cancel_dump_traceback_later()
+            message = (
+                f"GUI verification failed at {stage}: {report}\n{details[-12000:]}"
+            )
+            print(message, file=sys.stderr, flush=True)
+            raise RuntimeError(message)
+        print(
+            "GUI verified: native webview, browser features, bridge preview, saved design."
+        )
 
 
 if __name__ == "__main__":

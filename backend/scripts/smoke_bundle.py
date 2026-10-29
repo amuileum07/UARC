@@ -79,14 +79,36 @@ def main() -> None:
         data = directory / "data"
 
         def run(*arguments):
-            result = subprocess.run(
-                [str(executable), *map(str, arguments)],
-                cwd=directory,
-                env=environment,
-                capture_output=True,
-                text=True,
-                timeout=60,
-            )
+            print(f"Bundle running: {' '.join(map(str, arguments))}", flush=True)
+            try:
+                result = subprocess.run(
+                    [str(executable), *map(str, arguments)],
+                    cwd=directory,
+                    env=environment,
+                    capture_output=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    timeout=60,
+                )
+            except subprocess.TimeoutExpired as error:
+                details = []
+                for output in (error.stdout, error.stderr):
+                    if output:
+                        details.append(
+                            output.decode("utf-8", errors="replace")
+                            if isinstance(output, bytes)
+                            else output
+                        )
+                for name in ("progress", "runtime", "error"):
+                    for path in sorted(data.glob(f"runs/*/{name}.json")):
+                        details.append(
+                            f"{path.relative_to(data)}: "
+                            + path.read_text(encoding="utf-8", errors="replace")[-4000:]
+                        )
+                raise RuntimeError(
+                    f"Bundle command timed out after 60 seconds: {arguments}\n"
+                    + "\n".join(details)
+                ) from error
             if result.returncode:
                 raise RuntimeError(
                     f"Bundle command failed: {arguments}\n{result.stderr}"

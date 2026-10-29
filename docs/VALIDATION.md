@@ -1,5 +1,55 @@
 # Backend verification — 2026-10-25
 
+## Frozen startup and bridge-report follow-up (2026-10-30)
+
+The new user-supplied Intel Mac log reaches the built executable's first real
+`--simulate` run and exceeds the bundle smoke check's 60-second limit. The
+preview already passed. The arm64 attachment reaches Cocoa page load, bridge
+injection and `loaded`, but receives no HTTP callback. The earlier DNS change
+alone did not complete Mac GUI acceptance. The two failures occur in different
+checks; the supplied Intel traceback omits captured child stdout/stderr.
+
+Tracing frozen startup found that PyInstaller's Matplotlib runtime hook creates
+a fresh font-cache directory for every process. RocketPy eagerly imports plotting
+modules, and a cold Matplotlib font manager invokes `system_profiler` on Mac.
+The frozen entry point now defaults to Matplotlib 3.11's documented
+[`MPL_IGNORE_SYSTEM_FONTS`](https://matplotlib.org/stable/install/environment_variables_faq.html)
+before spawn dispatch and numerical imports. Hosts and workers use bundled fonts;
+UARC's frontend plots retain their browser fonts. An explicit existing setting is
+preserved. A cold-import regression forces system-font commands to fail: the old
+entry point fails and the updated entry point loads real bundled fonts. The
+precise blocked frame on the Intel runner remains unconfirmed.
+
+GUI verification now records its stage/result through the existing `save_design`
+bridge, with a per-launch token in a bounded design name. The harness reads
+committed names from its temporary database in read-only mode. Browser feature
+checks and the real design preview still precede success. The extra cross-origin
+HTTP callback server, sockets and report threads were removed. This eliminates
+that auxiliary reporting dependency; the attachment did not include a captured
+WebKit network error. Malformed, uncommitted or wrong-token records cannot pass,
+and database waits remain bounded. Obsolete HTTP-server tests were replaced by
+real bridge-save and SQLite isolation/timeout checks. Bundle command timeouts now
+retain partial output and existing progress/runtime/error metadata before cleanup.
+The 60-second checks and 90-second GUI caller limit remain unchanged.
+
+Validation on Linux:
+
+- Backend suite: 210 tests in 114.306 s; 206 passed and four Windows Tk GUI tests
+  skipped. Ruff lint/format and diff checks passed.
+- A newly built wheel passed fresh installation, native GeoTIFF/NetCDF4 I/O,
+  spawned flight/history, actual Qt browser/bridge/save verification, and an
+  identical offline sdist rebuild.
+- A newly built full Linux executable passed frozen preview/flights, compressed
+  NetCDF4 weather, history, saved designs, OpenRocket import, CSV export and
+  cancellation/reaping, followed by actual native GUI/browser/bridge/save checks.
+- The probe JavaScript passed Node VM assertions for success, a missing secure
+  context, and long errors containing JSON escape characters; all report names
+  remained within the 128-character schema limit.
+
+Actual macOS Cocoa/frozen-worker and Windows native reruns are still required.
+These local results do not certify their execution or establish the exact Intel
+Mac timeout cause.
+
 ## Mac loopback DNS startup follow-up (2026-10-29)
 
 The latest user-supplied arm64/x64 logs at `973a44e` show the report thread in

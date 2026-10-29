@@ -81,8 +81,8 @@ XCB library. Before GUI checks, CI runs `ldd` on both the xcb platform plugin
 and `QtWebEngineProcess`, then loads the plugin to detect symbol/version errors.
 Missing native dependencies stop the job with the actual loader output.
 
-Both the GUI callback server and the Mac webview's local asset server bind a
-numeric loopback address without reverse DNS. macOS 15+ runners have a
+The Mac webview's local asset server binds a numeric loopback address without
+reverse DNS. macOS 15+ runners have a
 [known loopback resolver delay](https://github.com/actions/setup-python/issues/1223)
 of over 30 seconds. `HTTPServer.server_bind()` otherwise invokes `getfqdn()`
 during startup. In pywebview 6.2.1 its asynchronous asset server reports its URL
@@ -91,29 +91,25 @@ to fail. The Mac runtime replaces only pywebview's WSGI server class, retaining
 its existing routing and bridge; explicit non-loopback binds retain the stdlib
 behavior. This applies to both installed wheels and frozen applications.
 
-The GUI report server handles browser-preopened sockets concurrently with a
-three-second request timeout and bounded callback bodies. `page-loaded` and
-`bridge-ready` stages are flushed to the log, and child diagnostics stream while
-the harness waits. The GUI deadline starts before server initialization and
-remains 60 seconds; the checks are not skipped and the outer deadline is not
-extended. Installed-asset assertions compare
+GUI verification uses the existing `save_design` bridge to save a probe design
+in its temporary application data. Its name contains a per-launch token and a
+bounded JSON stage/result. The harness observes committed design names through
+a read-only SQLite connection; unrelated, malformed, or uncommitted records
+cannot pass the check. It requires the same browser APIs and bridge preview as
+before, plus a successful bridge save. There is no separate callback HTTP
+server or cross-origin fetch. A busy database has a finite read timeout. Child
+diagnostics stream while waiting; the 60-second GUI deadline includes setup and
+the outer 90-second caller limit is unchanged. Installed-asset assertions compare
 canonical paths on both sides, including Windows short TEMP paths such as
 `RUNNER~1`; files must still exist inside the installed package environment.
 
 On macOS, the GUI harness launches the same installed/frozen executable through
 CPython 3.13's `posix_spawn` path: an absolute launcher, no subprocess `cwd`, and
 `close_fds=False`. It changes its own working directory temporarily before
-servicing requests, then restores it. Listener/log descriptors must be
-non-inheritable; the socket uses its socket-specific inheritance API because a
-Windows SOCKET is not a CRT file descriptor. Only standard output/error are
-redirected. A daemon report thread starts after `Popen` returns, while the main
-thread monitors the queue and deadline independently of HTTP dispatch. Both
-selector waits and listener `accept()` have finite timeouts. Cleanup uses a stop
-event and bounded join rather than waiting indefinitely for server shutdown.
-This avoids the previous macOS fork path without changing the application's
-launcher or browser checks. A PID is printed when creation returns; a repeating
-20-second diagnostic remains active through launch, monitoring and cleanup. The
-60-second GUI and 90-second caller deadlines remain unchanged.
+launch, then restores it. The log descriptor must be non-inheritable; only
+standard output/error are redirected. The harness starts no HTTP or worker
+threads and observes its probe records within the main deadline loop. Cleanup
+terminates only its desktop child, with bounded terminate/kill waits.
 
 Release CI builds the native bundle and checks its worker/file operations before
 the GUI checks. Both installed-wheel and frozen GUI checks still must pass before
@@ -188,6 +184,16 @@ The SciPy NumPy-compatibility namespace is collected explicitly because it loads
 FFT/linear-algebra modules dynamically. Backend-only builds select Matplotlib's
 Agg backend both during analysis and in headless dispatch, avoiding a GUI backend
 dependency for numerical execution.
+
+Frozen entry dispatch sets `MPL_IGNORE_SYSTEM_FONTS=1` before
+`multiprocessing.freeze_support()` and numerical imports, unless explicitly
+configured otherwise. The locked Matplotlib 3.11 supports this setting. UARC
+draws plots in the frontend, so numerical hosts/workers can use Matplotlib's
+bundled fonts and avoid `system_profiler`/`fc-list` discovery. This matters
+because PyInstaller creates a fresh Matplotlib cache for every process. Cold
+imports are tested with system-font subprocesses forced to fail. A bundle-smoke
+timeout includes captured stdout/stderr and existing worker progress/runtime/error
+metadata before temporary data is removed; its 60-second limit is unchanged.
 
 `tzdata` is a runtime dependency for IANA timezone lookup when the OS has no
 database, including Windows. Every bundle explicitly includes the data package,
@@ -277,7 +283,8 @@ is checked/built once and shared with the native jobs. Full backend unit/lint
 checks run on Linux; Windows additionally exercises the real setup controls with
 a mocked installer. All four native jobs also install the built Python wheel
 and resolve its dependencies in a new virtual environment, independently of the
-locked source environment, before building the executable. Each native executable
+locked source environment. Native build/worker checks precede these wheel checks.
+Each native executable
 runs the existing frozen-worker/file smoke checks and a real native-webview/
 JavaScript/bridge-preview check before packaging. These checks do not install
 Microsoft runtimes or certify 3D rendering on end-user GPUs. They run from fresh

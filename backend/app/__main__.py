@@ -4,10 +4,14 @@ from multiprocessing import freeze_support
 
 
 def main() -> None:
-    freeze_support()
     import os
     import sys
 
+    if getattr(sys, "frozen", False):
+        # PyInstaller creates a fresh font cache per process. UARC plots in the
+        # frontend; skip system_profiler/fc-list scans in hosts and spawn workers.
+        os.environ.setdefault("MPL_IGNORE_SYSTEM_FONTS", "1")
+    freeze_support()
     if len(sys.argv) > 1 and sys.argv[1] in {"--simulate", "--data"}:
         os.environ["MPLBACKEND"] = "Agg"
     if len(sys.argv) > 1 and sys.argv[1] == "--simulate":
