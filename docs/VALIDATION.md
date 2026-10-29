@@ -1,5 +1,33 @@
 # Backend verification — 2026-10-25
 
+## Socket-handle and supervision regression follow-up (2026-10-29)
+
+Subsequent user-supplied logs for the changes in `492c147` exposed a Windows
+regression: the harness passed a Windows SOCKET handle to CRT-fd-only
+`os.get_inheritable()`. The socket now uses `socket.get_inheritable()`; the log
+file retains the CRT descriptor check. A Windows-handle emulation regression
+ensures the socket is never passed to the CRT API and startup reaches `Popen`.
+
+Mac now printed a started PID, showing that process creation returned, but it
+still hit the outer 90-second timeout without the inner shutdown message.
+Investigation proved that `server.timeout` only bounds selector waits, leaving
+the listener's `accept()` unbounded after stale readiness. A deterministic test
+reproduces that gap; an actual listener timeout bounds it. HTTP dispatch now
+runs in a daemon thread started only after the desktop launch, so blocked
+callback handling cannot hold the main queue/deadline supervisor. Stop-event
+cleanup and a one-second join avoid unbounded server shutdown waits. The
+20-second stack watchdog stays armed throughout the run instead of being
+cancelled immediately after process creation. Actual Mac blocked frames have
+not yet been captured, so this is not a claim that its GUI failure is resolved.
+
+The six existing harness regressions and three new portability/fault-injection
+checks passed locally. New cases cover Windows socket-handle separation, stale
+selector readiness, and stuck callback handling that must still fail promptly
+and stop the desktop child. Fresh Linux wheel installation, native I/O, spawned
+flight/history, real GUI/bridge and offline sdist rebuild passed. The Darwin
+launch branch also passed with a real Linux Qt executable; it did not run on a
+Mac kernel. Windows/Mac native CI must be rerun before claiming success.
+
 ## Mac process-creation follow-up (2026-10-29)
 
 [Run 40880198457](https://github.com/amuileum07/UARC/actions/runs/40880198457)

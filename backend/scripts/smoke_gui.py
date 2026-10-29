@@ -12,9 +12,12 @@ from contextlib import chdir
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from queue import Empty, Queue
+from threading import Event, Thread
 from time import monotonic
 from typing import TextIO
 from uuid import uuid4
+
+GUI_TIMEOUT_SECONDS = 60
 
 PAGE = """<!doctype html><html lang="ko"><meta charset="utf-8">
 <title>UARC GUI verification</title><p>UARC 웹뷰 검증</p><script>
@@ -99,7 +102,11 @@ def report_server(token: str, reports: Queue) -> ThreadingHTTPServer:
         def log_message(self, *args):
             pass
 
-    return ThreadingHTTPServer(("127.0.0.1", 0), ReportHandler)
+    server = ThreadingHTTPServer(("127.0.0.1", 0), ReportHandler)
+    server.timeout = 0.2
+    # Selector readiness can become stale before accept(); bound the listener too.
+    server.socket.settimeout(0.2)
+    return server
 
 
 def launch_desktop(
@@ -150,41 +157,46 @@ def main() -> None:
             PYTHONUNBUFFERED="1",
         )
         environment.pop("PYTHONHOME", None)
-        server.timeout = 0.2
+        stop = Event()
+        thread = None
+
+        def serve_reports():
+            while not stop.is_set():
+                server.handle_request()
+
+        # Keep diagnostics armed through launch, callback waits and cleanup.
+        faulthandler.dump_traceback_later(20, repeat=True)
         try:
             with (root / "desktop.log").open("w", encoding="utf-8") as log:
                 print(f"GUI launching: {args.command[0]}", flush=True)
-                if os.get_inheritable(server.fileno()) or os.get_inheritable(
-                    log.fileno()
-                ):
+                # A Windows SOCKET handle is not a CRT file descriptor.
+                if server.socket.get_inheritable() or os.get_inheritable(log.fileno()):
                     raise RuntimeError("GUI harness descriptors must not be inherited.")
-                # Capture the exact parent stack if native process creation stalls.
-                faulthandler.dump_traceback_later(20)
-                try:
-                    process = launch_desktop(
-                        [
-                            *args.command,
-                            "--frontend",
-                            str(page),
-                            "--data-dir",
-                            str(root / "data"),
-                        ],
-                        root,
-                        environment,
-                        log,
-                    )
-                finally:
-                    faulthandler.cancel_dump_traceback_later()
+                process = launch_desktop(
+                    [
+                        *args.command,
+                        "--frontend",
+                        str(page),
+                        "--data-dir",
+                        str(root / "data"),
+                    ],
+                    root,
+                    environment,
+                    log,
+                )
                 print(f"GUI desktop started: PID {process.pid}", flush=True)
                 try:
-                    deadline = monotonic() + 60
+                    deadline = monotonic() + GUI_TIMEOUT_SECONDS
                     stage = "no JavaScript report"
+                    # Start only after exec; HTTP dispatch cannot block supervision.
+                    thread = Thread(
+                        target=serve_reports, name="uarc-gui-reports", daemon=True
+                    )
+                    print("GUI starting callback server", flush=True)
+                    thread.start()
                     while monotonic() < deadline:
-                        # Dispatch connections only after exec; request workers
-                        # still let idle browser sockets coexist with real reports.
-                        server.handle_request()
                         try:
-                            report = reports.get_nowait()
+                            report = reports.get(timeout=0.2)
                             if "ok" not in report:
                                 stage = report["stage"]
                                 print(f"GUI stage: {stage}", flush=True)
@@ -197,7 +209,7 @@ def main() -> None:
                                 "error": (
                                     f"Webview exited ({process.returncode})"
                                     if process.poll() is not None
-                                    else "No final JavaScript report within 60 seconds"
+                                    else f"No final JavaScript report within {GUI_TIMEOUT_SECONDS} seconds"
                                 ),
                                 "stage": stage,
                             }
@@ -205,7 +217,7 @@ def main() -> None:
                     else:
                         report = {
                             "ok": False,
-                            "error": "No final JavaScript report within 60 seconds",
+                            "error": f"No final JavaScript report within {GUI_TIMEOUT_SECONDS} seconds",
                             "stage": stage,
                         }
                 finally:
@@ -229,7 +241,11 @@ def main() -> None:
                 f"GUI verified: native webview, browser features, bridge preview; {report['userAgent']}"
             )
         finally:
+            stop.set()
+            if thread is not None and thread.ident is not None:
+                thread.join(timeout=1)
             print("GUI closing callback server", flush=True)
+            faulthandler.cancel_dump_traceback_later()
 
 
 if __name__ == "__main__":

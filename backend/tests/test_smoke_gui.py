@@ -140,7 +140,7 @@ class GUIReportTests(unittest.TestCase):
         self.assertIn("native loader failure marker", output.getvalue())
         self.assertIn("no JavaScript report", output.getvalue())
         self.assertIn("GUI closing callback server", output.getvalue())
-        watchdog.assert_called_once_with(20)
+        watchdog.assert_called_once_with(20, repeat=True)
         cancel_watchdog.assert_called_once_with()
         self.assertEqual(launch.call_args.kwargs["env"]["PYTHONUTF8"], "1")
         launch.return_value.terminate.assert_not_called()
