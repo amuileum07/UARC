@@ -1,6 +1,7 @@
 """Prepare platform runtimes before starting the native webview."""
 
 import ctypes
+import logging
 import os
 import re
 import subprocess
@@ -9,6 +10,7 @@ import sysconfig
 import webbrowser
 from pathlib import Path
 from socketserver import TCPServer
+from urllib.parse import quote
 from wsgiref.simple_server import WSGIServer
 
 
@@ -21,6 +23,23 @@ class _LoopbackWSGIServer(WSGIServer):
         TCPServer.server_bind(self)
         self.server_name, self.server_port = self.server_address[:2]
         self.setup_environ()
+
+
+def encode_webview_url(window, renderer: str) -> None:
+    """Cocoa's NSURL needs an encoded URL, including non-ASCII local filenames."""
+    if renderer == "wkwebview" and window.real_url:
+        # Keep RFC 3986 delimiters and existing escapes; encode Unicode/spaces.
+        window.real_url = quote(window.real_url, safe=":/?#[]@!$&'()*+,;=%")
+
+
+def log_webview_document(window) -> None:
+    """Debug the document actually loaded, including a failed navigation's page."""
+    details = window.evaluate_js(
+        "({url: location.href, title: document.title, ready: document.readyState, "
+        "bridge: typeof window.pywebview?.api?.get_example_design, "
+        "probe: window.__uarcGuiStage || null})"
+    )
+    logging.getLogger("pywebview").debug("Loaded document: %s", details)
 
 
 def open_external_url(url: str) -> bool:

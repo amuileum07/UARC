@@ -1,12 +1,17 @@
 """Desktop entry point; keep the GUI loop on the main thread."""
 
 import argparse
+import logging
 import sys
 from multiprocessing import freeze_support
 from pathlib import Path
 
 from app.config import default_data_directory, frontend_entrypoint
-from app.desktop_runtime import prepare_desktop_runtime
+from app.desktop_runtime import (
+    encode_webview_url,
+    log_webview_document,
+    prepare_desktop_runtime,
+)
 from app.windows_runtime import ensure_windows_runtime
 
 
@@ -70,9 +75,12 @@ def main() -> None:
     except (ValueError, OSError, RuntimeError) as error:
         parser.error(str(error))
     try:
-        webview.create_window(
+        window = webview.create_window(
             "UARC", url=entry, js_api=DesktopBridge(jobs), width=1280, height=800
         )
+        window.events.initialized += encode_webview_url
+        if logging.getLogger("pywebview").isEnabledFor(logging.DEBUG):
+            window.events.loaded += log_webview_document
         renderer = {"linux": "qt", "win32": "edgechromium"}.get(sys.platform)
         webview.start(gui=renderer)
     finally:

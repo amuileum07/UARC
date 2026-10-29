@@ -91,6 +91,14 @@ to fail. The Mac runtime replaces only pywebview's WSGI server class, retaining
 its existing routing and bridge; explicit non-loopback binds retain the stdlib
 behavior. This applies to both installed wheels and frozen applications.
 
+Before Cocoa navigation, the synchronous `initialized` event encodes Unicode and
+spaces in the resolved webview URL, preserving URI delimiters and existing
+percent escapes. pywebview 6.2.1's Cocoa quoting only replaces spaces; NSURL's
+handling of raw Unicode depends on the linked SDK. Filesystem paths stay intact.
+With `PYWEBVIEW_LOG=DEBUG`, the loaded document's URL, title, ready state and
+bridge/probe state are logged, so a finished navigation can be distinguished
+from loading the intended frontend document.
+
 GUI verification uses the existing `save_design` bridge to save a probe design
 in its temporary application data. Its name contains a per-launch token and a
 bounded JSON stage/result. The harness observes committed design names through
@@ -109,11 +117,19 @@ CPython 3.13's `posix_spawn` path: an absolute launcher, no subprocess `cwd`, an
 launch, then restores it. The log descriptor must be non-inheritable; only
 standard output/error are redirected. The harness starts no HTTP or worker
 threads and observes its probe records within the main deadline loop. Cleanup
-terminates only its desktop child, with bounded terminate/kill waits.
+terminates its own test process with bounded waits. On Windows, `taskkill /PID
+<pid> /T /F` stops the launcher and its descendants before deleting temporary
+data. Stopping only the installed `uarc.exe` wrapper can leave its Python child
+holding `.owner.lock`. Tree-termination failures are reported rather than ignored.
 
 Release CI builds the native bundle and checks its worker/file operations before
 the GUI checks. Both installed-wheel and frozen GUI checks still must pass before
 packaging and publication.
+
+Every native matrix job also runs the launcher-cleanup and URL regressions.
+The Windows runner exercises an actual launcher/child pair holding an open file;
+Mac URL checks additionally call Foundation's NSURL parser. Linux-only runtime
+tests are excluded from this focused matrix step by selecting `WebviewURLTests`.
 
 HTTPS requests retain system/custom CA roots and explicitly load the bundled
 certifi roots. This avoids depending on the Python/OpenSSL certificate paths of

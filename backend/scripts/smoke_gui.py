@@ -18,14 +18,17 @@ GUI_TIMEOUT_SECONDS = 60
 
 PAGE = """<!doctype html><html lang="ko"><meta charset="utf-8">
 <title>UARC GUI verification</title><p>UARC 웹뷰 검증</p><script>
+window.__uarcGuiStage = 'page-loaded';
 let started = false;
 async function check() {
   if (started) return;
   started = true;
   const api = window.pywebview.api;
+  window.__uarcGuiStage = 'getting-example';
   const design = await api.get_example_design();
   design.environment.elevation_mode = 'manual';
   async function report(value) {
+    window.__uarcGuiStage = value.stage || (value.ok ? 'passed' : 'failed');
     const proof = {token: TOKEN, ...value};
     if (proof.error) proof.error = proof.error.slice(0, 64);
     // A design name is limited to 128 characters, including JSON escaping.
@@ -100,6 +103,31 @@ def launch_desktop(
     return subprocess.Popen(command, cwd=root, env=environment, stdout=log, stderr=log)
 
 
+def stop_desktop(process: subprocess.Popen) -> None:
+    if process.poll() is None:
+        if sys.platform == "win32":
+            # Installed uarc.exe is a launcher with a Python child. Killing only
+            # the launcher leaves that child holding the application's owner lock.
+            result = subprocess.run(
+                ["taskkill", "/PID", str(process.pid), "/T", "/F"],
+                capture_output=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=5,
+            )
+            if result.returncode and process.poll() is None:
+                raise RuntimeError(
+                    f"Cannot stop GUI process tree: {result.stdout}\n{result.stderr}"
+                )
+        else:
+            process.terminate()
+    try:
+        process.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait(timeout=10)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -168,13 +196,7 @@ def main() -> None:
                         }
             finally:
                 print("GUI stopping desktop process", flush=True)
-                if process.poll() is None:
-                    process.terminate()
-                try:
-                    process.wait(timeout=10)
-                except subprocess.TimeoutExpired:
-                    process.kill()
-                    process.wait(timeout=10)
+                stop_desktop(process)
         if report.get("ok") is not True:
             details = (root / "desktop.log").read_text(
                 encoding="utf-8", errors="replace"

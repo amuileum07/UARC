@@ -2,15 +2,19 @@
 
 import ctypes
 import os
+import sys
 import tempfile
 import unittest
 from http.client import HTTPConnection
 from pathlib import Path
 from queue import Queue
-from unittest.mock import patch
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 from app.desktop_runtime import (
     _glibcxx_version,
+    encode_webview_url,
+    log_webview_document,
     open_external_url,
     prepare_desktop_runtime,
 )
@@ -38,7 +42,7 @@ class DesktopRuntimeTests(unittest.TestCase):
                 patch.object(http, "make_server", side_effect=record_server),
                 patch("socket.getfqdn", side_effect=AssertionError("Slow reverse DNS")),
             ):
-                entry = Path(temporary) / "index.html"
+                entry = Path(temporary) / "검증 page.html"
                 content = "<!doctype html><meta charset=utf-8><p>로컬 웹뷰</p>"
                 entry.write_text(content, encoding="utf-8")
                 prepare_desktop_runtime()
@@ -47,7 +51,7 @@ class DesktopRuntimeTests(unittest.TestCase):
                 try:
                     connection = HTTPConnection(*server.server_address, timeout=2)
                     try:
-                        connection.request("GET", "/index.html")
+                        connection.request("GET", "/%EA%B2%80%EC%A6%9D%20page.html")
                         response = connection.getresponse()
                         self.assertEqual(response.status, 200)
                         self.assertEqual(response.read().decode("utf-8"), content)
@@ -192,6 +196,64 @@ class DesktopRuntimeTests(unittest.TestCase):
                     prepare_desktop_runtime()
                     load.assert_not_called()
                 self.assertNotIn("LD_PRELOAD", os.environ)
+
+
+class WebviewURLTests(unittest.TestCase):
+    def test_real_initialization_encodes_korean_filename_before_cocoa_navigation(self):
+        import webview
+
+        with (
+            tempfile.TemporaryDirectory(prefix="uarc 한글 ") as temporary,
+            patch("webview.windows", []),
+        ):
+            root = Path(temporary)
+            entry = root / "검증 page.html"
+            entry.write_text("<title>UARC</title>", encoding="utf-8")
+            window = webview.create_window("probe", url=str(entry))
+            window.events.initialized += encode_webview_url
+            server = SimpleNamespace(
+                address="http://127.0.0.1:8123/", common_path=str(root)
+            )
+            self.assertTrue(
+                window._initialize(SimpleNamespace(renderer="wkwebview"), server=server)
+            )
+            self.assertEqual(
+                window.real_url,
+                "http://127.0.0.1:8123/%EA%B2%80%EC%A6%9D%20page.html",
+            )
+            self.assertTrue(window.real_url.isascii())
+            if sys.platform == "darwin":
+                from Foundation import NSURL
+
+                raw = "http://127.0.0.1:8123/검증%20page.html"
+                print(
+                    f"Cocoa accepts raw Unicode URL: {NSURL.URLWithString_(raw) is not None}"
+                )
+                self.assertIsNotNone(NSURL.URLWithString_(window.real_url))
+
+    def test_encoding_preserves_uri_structure_and_does_not_double_escape(self):
+        original = "http://[::1]:8123/a%20b?q=한글#fragment"
+        window = SimpleNamespace(real_url=original)
+        encode_webview_url(window, "qtwebengine")
+        self.assertEqual(window.real_url, original)
+        encode_webview_url(window, "wkwebview")
+        encoded = "http://[::1]:8123/a%20b?q=%ED%95%9C%EA%B8%80#fragment"
+        self.assertEqual(window.real_url, encoded)
+        encode_webview_url(window, "wkwebview")
+        self.assertEqual(window.real_url, encoded)
+        window.real_url = None
+        encode_webview_url(window, "wkwebview")
+        self.assertIsNone(window.real_url)
+
+    def test_debug_log_records_the_actual_document_and_bridge_state(self):
+        details = {"url": "http://127.0.0.1:8123/missing", "title": "Error: 404"}
+        window = Mock()
+        window.evaluate_js.return_value = details
+        with self.assertLogs("pywebview", level="DEBUG") as logs:
+            log_webview_document(window)
+        self.assertIn("Error: 404", logs.output[0])
+        self.assertIn("Loaded document", logs.output[0])
+        self.assertIn("window.__uarcGuiStage", window.evaluate_js.call_args.args[0])
 
 
 if __name__ == "__main__":

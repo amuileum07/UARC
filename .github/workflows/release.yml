@@ -184,6 +184,11 @@ jobs:
       - name: Install locked backend dependencies
         working-directory: backend
         run: uv sync --locked
+      - name: Check native launcher cleanup and URL handling
+        working-directory: backend
+        run: |
+          uv run --locked python -m unittest discover -s tests -p test_gui_portability.py -v
+          uv run --locked python -m unittest discover -s tests -p test_desktop_runtime.py -k WebviewURLTests -v
       - name: Install Linux webview test libraries
         if: runner.os == 'Linux'
         run: |

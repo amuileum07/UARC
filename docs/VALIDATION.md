@@ -1,5 +1,46 @@
 # Backend verification — 2026-10-25
 
+## Windows process tree and Cocoa URL follow-up (2026-10-30)
+
+[Run 40900576819](https://github.com/amuileum07/UARC/actions/runs/40900576819)
+at `18e9748` built all four executables and passed every frozen worker/file check,
+including both Mac architectures. Linux completed its whole job. Windows passed
+the installed GUI/browser/bridge/save checks, then failed temporary-directory
+cleanup with WinError 32 on `.owner.lock`. Both Mac jobs still received no
+committed GUI report, despite Cocoa's `loaded` message. Publication was skipped.
+
+The Windows harness terminated the installed console launcher instead of its
+complete process tree. A Python child can retain the application's owner lock.
+Cleanup now uses `taskkill /PID <this test's pid> /T /F` before waiting and deleting
+temporary data. It does not select unrelated processes by image name, and an
+unsuccessful tree termination remains a test failure. A native Windows regression
+starts a real Python launcher/child pair, proves the child has locked a file,
+then requires tree cleanup to release it. It is skipped on Linux and runs in
+the Windows matrix job.
+
+Tracing pywebview's actual window initialization reproduced a resolved Cocoa URL
+containing raw `검증 page.html`. The pinned Cocoa backend quotes only spaces before
+passing it to NSURL. A synchronous public `initialized` handler now percent-encodes
+Unicode/spaces before navigation, preserving IPv6/query/fragment delimiters and
+existing escapes. Tests exercise real Window initialization and real encoded
+Korean-file HTTP retrieval, including the Mac WSGI substitute. Mac matrix tests
+also log whether Foundation accepts the raw Unicode URL and assert that it
+accepts the encoded URL. The earlier logs did not identify the actual loaded
+document, so this remains a native acceptance issue pending another Mac run.
+Debug output now records the URL/title/document/bridge state and the probe's
+current JavaScript stage, allowing a navigation error page to be identified.
+
+The focused launcher/URL checks run on every native matrix OS before packaging.
+The full Linux suite completed 216 tests in 90.249 s: 211 passed and five
+Windows-only tests skipped (four Tk GUI tests plus the new native file-lock
+regression). Ruff lint/format, workflow parsing and diff checks passed. A new
+wheel passed fresh dependency installation, native I/O, spawned simulation/history,
+actual Qt GUI/bridge/save and an identical offline sdist rebuild. A newly rebuilt
+Linux executable passed all frozen worker/file/cancellation operations and the
+actual GUI/bridge/save check; its debug log identified the intended UTF-8 page.
+These checks do not confirm native Windows cleanup or Mac GUI success for this
+patch; the next matrix run must do that.
+
 ## Frozen startup and bridge-report follow-up (2026-10-30)
 
 The new user-supplied Intel Mac log reaches the built executable's first real
