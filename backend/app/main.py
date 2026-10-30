@@ -123,8 +123,11 @@ def main() -> None:
             check_result = attach_ui_check(window, check_script, args.check_ui[2])
         renderer = {"linux": "qt", "win32": "edgechromium"}.get(sys.platform)
         webview.start(gui=renderer)
+        logging.getLogger("pywebview").debug("Native webview event loop stopped")
     finally:
+        logging.getLogger("pywebview").debug("Closing simulation jobs")
         jobs.close()
+        logging.getLogger("pywebview").debug("Simulation jobs closed")
     if check_result is not None and check_result.get("ok") is not True:
         parser.exit(1, f"UI acceptance failed: {check_result}\n")
 

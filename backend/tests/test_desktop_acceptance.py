@@ -11,6 +11,7 @@ import tempfile
 import unittest
 import zipfile
 from pathlib import Path
+from threading import Event, get_ident
 from unittest.mock import MagicMock, Mock, patch
 
 from webview.errors import JavascriptException
@@ -113,11 +114,21 @@ class DesktopAcceptanceTests(unittest.TestCase):
             window.evaluate_js.side_effect = lambda script, callback: callback(
                 {"ok": True}
             )
-            window.destroy.side_effect = lambda: self.assertTrue(report.is_file())
+            closed = Event()
+            close_threads = []
+
+            def close():
+                self.assertTrue(report.is_file())
+                close_threads.append(get_ident())
+                closed.set()
+
+            window.destroy.side_effect = close
             result = attach_ui_check(window, "Promise.resolve({ok: true})", report)
             loaded = event.__iadd__.call_args.args[0]
             loaded()
             loaded()  # A second document event must not run the scenario twice.
+            self.assertTrue(closed.wait(1))
+            self.assertNotEqual(close_threads, [get_ident()])
             window.evaluate_js.assert_called_once()
             window.destroy.assert_called_once()
             self.assertEqual(result, {"ok": True})
@@ -128,6 +139,8 @@ class DesktopAcceptanceTests(unittest.TestCase):
             with self.subTest(value=value), tempfile.TemporaryDirectory() as temporary:
                 window = MagicMock()
                 event = window.events.loaded
+                closed = Event()
+                window.destroy.side_effect = closed.set
                 if isinstance(value, Exception):
                     window.evaluate_js.side_effect = value
                 else:
@@ -138,6 +151,7 @@ class DesktopAcceptanceTests(unittest.TestCase):
                     window, "script", Path(temporary) / "report.json"
                 )
                 event.__iadd__.call_args.args[0]()
+                self.assertTrue(closed.wait(1))
                 self.assertIs(result["ok"], False)
                 window.destroy.assert_called_once()
 

@@ -273,12 +273,16 @@ test data even after failure; it contains only synthetic inputs.
 
 On the Linux acceptance runner, Xvfb uses a 24-bit screen with
 `LIBGL_ALWAYS_SOFTWARE=true` and
-`QTWEBENGINE_CHROMIUM_FLAGS=--ignore-gpu-blocklist`. The runner's Mesa llvmpipe
+`QTWEBENGINE_CHROMIUM_FLAGS="--ignore-gpu-blocklist --disable-gpu-compositing"`. The runner's Mesa llvmpipe
 supports WebGL 2 but Chromium otherwise blocklists it. These settings apply only
 to this CI check; normal application startup keeps the platform defaults.
 Reports include the actual WebGL renderer, and a missing/failed 3D context still
 fails acceptance. See [Mesa's software-rendering setting](https://docs.mesa3d.org/envvars.html#libgl-always-software)
 and [Chromium's blocklist switch](https://chromium.googlesource.com/chromium/src/+/main/gpu/config/gpu_switches.cc).
+
+The compositor uses software bitmaps instead of Qt's unsupported DMA-BUF
+texture sharing with llvmpipe. WebGL stays enabled for both 3D engines; this is
+different from disabling the GPU process. See [ANGLE's compositor debugging flag](https://github.com/google/angle/blob/main/doc/DebuggingTips.md).
 
 UI actions wait for Dockview tabs to exist and become active. Before applying a
 JSON edit, the script also waits for React's controlled value to be committed;
@@ -287,6 +291,18 @@ actions yield through a rendered frame and subsequent task before continuing.
 The Windows harness prints launcher paths with ASCII escapes, so Korean paths
 also work when the parent runner's redirected stdout uses cp1252. The child
 application retains its existing UTF-8 environment.
+
+The UI-check Promise callback writes its report before requesting native close
+from a separate thread. Qt can then leave the WebChannel handler before its page
+is destroyed. Debug logs distinguish the close request, the webview loop ending,
+and simulation-job cleanup. Success still requires normal process exit.
+
+Rocket 3D initialization verifies a live WebGL 2 context and non-null vertex and
+fragment shader-precision results before constructing Three.js. If initial
+creation fails, it releases the candidate context and retries once without MSAA.
+Both attempts must use real driver capabilities. A second failure retains the
+existing 2D fallback and reports both causes; CI still fails if 3D cannot render.
+Unmounting the rocket view also explicitly releases its owned WebGL context.
 
 The explicit `--check-ui DESIGN SCRIPT REPORT --data-dir DIR` launcher option
 runs a trusted local JavaScript diagnostic and closes the window after reporting.

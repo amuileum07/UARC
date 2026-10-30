@@ -1,5 +1,49 @@
 # Backend verification — 2026-10-25
 
+## Desktop acceptance: remaining close and WebGL failures (2026-10-30)
+
+[Run 40994359625](https://github.com/amuileum07/UARC/actions/runs/40994359625)
+at `73b9a55` completed prepare and all four native builds/archives. Windows and
+Mac arm64 passed the entire archive/UI/normal-relaunch scenario. Their reports
+identified SwiftShader and Apple GPU respectively, with identical stored flight
+results after relaunch.
+
+Linux produced successful first and reopened UI reports, including both WebGL 2
+canvases, but the reopened process failed to exit within 180 seconds. The job
+correctly failed despite its successful report. Logs contained repeated
+DMA-BUF acquisition/null-texture failures and Qt's warning about Mesa software
+rasterization. The CI compositor now uses software bitmaps while preserving
+WebGL through llvmpipe. The Promise callback also requests native close from a
+separate thread, allowing Qt's WebChannel callback to return before page
+destruction. Debug logs now identify the native-loop and job-cleanup boundaries;
+the old report alone did not locate the operation that blocked.
+
+Mac Intel passed input edit/save/load and failed during Three.js initialization:
+WebKit returned null for `getShaderPrecisionFormat`, before the first rendered
+rocket canvas. Initialization now checks the actual context/shader capabilities,
+releases an unusable context, and retries once without MSAA. If both attempts
+fail, the app keeps its 2D fallback and the strict 3D acceptance check still
+fails. This is a bounded recovery attempt, not confirmation that the hosted
+Intel GPU supports the scenario. The next native run must establish that.
+
+Focused regressions cover closing outside the Promise callback thread, report
+publication before close, lost contexts, null precision results, failed retries
+and ordinary multisampled initialization. The full backend suite passed 222
+tests with five Windows-only tests skipped on Linux; frontend/driver tests
+passed all 48 cases. Ruff, Biome, TypeScript and the production frontend build
+passed.
+
+A fresh Linux bundle containing these application changes was built and
+archived as `UARC-v0.1.1-linux-x86_64.tar.gz`. The complete archive scenario
+passed on both the desktop display and Xvfb at 1280x1024x24, using the updated
+CI compositor flags. Xvfb was unpacked under `/tmp/uarc-xvfb-runtime`; no system
+package was installed. Both Xvfb launches reported real llvmpipe WebGL 2
+rendering, matching flight results for run `2aa50118d0f940678b07eca04f779a50`,
+and normal exit. Their logs reached both `Native webview event loop stopped`
+and `Simulation jobs closed`, without the earlier DMA-BUF/null-texture failures.
+Diagnostics are under `/tmp/uarc-run40994359625-xvfb`. Hosted native verification
+of the new code, especially the Intel Mac recovery path, remains pending.
+
 ## First desktop acceptance matrix failures (2026-10-30)
 
 [Run 40991469565](https://github.com/amuileum07/UARC/actions/runs/40991469565)

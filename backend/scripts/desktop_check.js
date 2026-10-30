@@ -99,6 +99,11 @@
       throw Error("UI edit/save/load did not preserve the design");
     await click("rocket view", ".app-nav > button", "설계");
     await click("rocket 3D view", 'fieldset[aria-label="로켓 보기"] button', "3D");
+    await wait("rocket 3D initialization", () => {
+      const error = document.querySelector('fieldset[aria-label="로켓 보기"]')?.closest("section")?.querySelector(".notice");
+      if (visible(error)) throw Error(text(error));
+      return document.querySelector('[aria-label="로켓 3D 형상"] canvas');
+    });
     const rocket = await canvas('[aria-label="로켓 3D 형상"] canvas');
     let run;
     if (scenario.phase === "first") {

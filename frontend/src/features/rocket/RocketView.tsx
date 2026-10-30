@@ -32,7 +32,10 @@ export function RocketView() {
               type="button"
               key={view}
               aria-pressed={mode === view}
-              onClick={() => setMode(view)}
+              onClick={() => {
+                setError("");
+                setMode(view);
+              }}
             >
               {view}
             </button>

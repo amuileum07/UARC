@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { previewParts } from "../../lib/geometry";
 import type { DesignReport, RocketDesign } from "../../lib/types";
+import { createWebGL2Canvas } from "../../lib/webgl";
 const colors = { body: "#bcbcbc", fin: "#888888", internal: "#dddddd" };
 function disposeGroup(group: THREE.Group) {
   group.traverse((object) => {
@@ -46,9 +47,17 @@ export function Rocket3D({
     const element = container.current;
     if (!element) return;
     let renderer: THREE.WebGLRenderer;
+    let context: WebGL2RenderingContext | undefined;
     try {
-      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      const gpu = createWebGL2Canvas();
+      context = gpu.context;
+      renderer = new THREE.WebGLRenderer({
+        canvas: gpu.canvas,
+        context,
+        alpha: true,
+      });
     } catch (error) {
+      context?.getExtension("WEBGL_lose_context")?.loseContext();
       callbacks.current.fallback(String(error));
       return;
     }
@@ -120,6 +129,7 @@ export function Rocket3D({
       renderer.domElement.removeEventListener("pointerup", pointerUp);
       renderer.domElement.removeEventListener("webglcontextlost", lost);
       renderer.dispose();
+      renderer.forceContextLoss();
       renderer.domElement.remove();
       engine.current = null;
     };

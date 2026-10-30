@@ -135,7 +135,8 @@ jobs:
           if [ "$RUNNER_OS" = Linux ]; then
             # Xvfb has no hardware GPU; Chromium blocklists the runner's llvmpipe.
             export LIBGL_ALWAYS_SOFTWARE=true
-            export QTWEBENGINE_CHROMIUM_FLAGS=--ignore-gpu-blocklist
+            # Keep WebGL on llvmpipe, but avoid Qt's unsupported DMA-BUF sharing.
+            export QTWEBENGINE_CHROMIUM_FLAGS="--ignore-gpu-blocklist --disable-gpu-compositing"
             xvfb-run --auto-servernum --server-args="-screen 0 1280x1024x24" uv run --locked python scripts/smoke_desktop.py ../dist/release --output ../dist/desktop-checks
           else
             uv run --locked python scripts/smoke_desktop.py ../dist/release --output ../dist/desktop-checks

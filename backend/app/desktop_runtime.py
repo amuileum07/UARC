@@ -44,7 +44,7 @@ def log_webview_document(window) -> None:
 
 def attach_ui_check(window, script: str, report: Path) -> dict:
     """Run a trusted acceptance script in the actual UI, then close normally."""
-    from threading import Lock
+    from threading import Lock, Thread
 
     from webview.errors import JavascriptException, WebViewException
 
@@ -64,7 +64,13 @@ def attach_ui_check(window, script: str, report: Path) -> dict:
             result.update(ok=False, error=f"Cannot write UI-check report: {error}")
             logging.exception("Cannot write UI-check report")
         finally:
-            window.destroy()
+            # Qt invokes this Promise callback inside its WebChannel handler.
+            # Emit the close request from another thread so the handler can return
+            # before Qt tears down the page that is delivering this callback.
+            logging.getLogger("pywebview").debug(
+                "UI check finished; requesting native close"
+            )
+            Thread(target=window.destroy, name="ui-check-close", daemon=True).start()
 
     def loaded():
         nonlocal started
