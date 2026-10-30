@@ -17,7 +17,6 @@ TARGETS = {
     "windows-x86_64": ".zip",
     "linux-x86_64": ".tar.gz",
     "macos-arm64": ".tar.gz",
-    "macos-x86_64": ".tar.gz",
 }
 
 
@@ -173,7 +172,7 @@ def write_checksums(output: Path, tag: str) -> Path:
         for name in expected
     ):
         raise ValueError(
-            "Publication requires four native archives, one wheel and one sdist, all nonempty."
+            "Publication requires three native archives, one wheel and one sdist, all nonempty."
         )
     lines = []
     for name in sorted(expected):

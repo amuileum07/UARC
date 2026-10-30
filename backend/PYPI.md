@@ -8,6 +8,8 @@ application.
 
 Python **3.13.x** and a graphical desktop are required. Other Python minor
 versions are not yet supported by the tested native dependency/build combination.
+Supported platforms are Windows x64, Linux x64 and macOS Apple Silicon.
+Intel Macs are not currently supported.
 The published wheel and source distribution include the built interface,
 starting designs, material
 catalogue and documentation. Node.js and pnpm are not needed to run an installed
@@ -44,7 +46,7 @@ and .NET prerequisites for installation after consent; its setup window needs
 Python's Tcl/Tk support. Linux uses PySide6/Qt and the system graphics libraries.
 WebView2 107+ is needed for the frontend's browser features.
 macOS uses the native WebKit webview; the pinned rasterio wheels require macOS
-14+ on Apple Silicon or 15+ on Intel. Python-free executable downloads are also
+14+ on Apple Silicon. Python-free executable downloads are also
 provided through [GitHub Releases](https://github.com/amuileum07/UARC/releases).
 
 PyPI installers resolve dependency declarations rather than `uv.lock`.

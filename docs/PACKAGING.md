@@ -28,8 +28,9 @@ the OS webview/graphics requirements still apply. The frozen executable archives
 remain the Python-free distribution path.
 
 The release matrix covers standard GIL-enabled 64-bit CPython 3.13: Windows/Linux
-x64 and macOS arm64/x64. PyPy, free-threaded Python, 32-bit Python, Windows ARM64
-and Linux ARM64 are outside this verified matrix. Linux executables target
+x64 and macOS arm64 (Apple Silicon). Intel Macs are not currently supported.
+PyPy, free-threaded Python, 32-bit Python, Windows ARM64 and Linux ARM64 are
+outside this verified matrix. Linux executables target
 Ubuntu 22.04 or compatible newer desktop systems, not musl/Alpine environments.
 
 Build the frontend first, then build from `backend/`:
@@ -141,10 +142,10 @@ Frozen Linux builds restore the original `LD_LIBRARY_PATH` only for the external
 `xdg-open` browser process. The host and simulation/Qt children keep their bundled
 libraries; changing the host environment while bridge threads run is avoided.
 
-The pinned rasterio 1.4.4 wheels require macOS 14+ on Apple Silicon and macOS 15+
-on Intel. On older macOS versions installers can otherwise attempt a source
+The pinned rasterio 1.4.4 wheels require macOS 14+ on Apple Silicon.
+On older macOS versions installers can otherwise attempt a source
 build requiring external GDAL. The standalone archives are built and checked on
-macOS 15 for both architectures; older versions need separate acceptance testing.
+macOS 15 Apple Silicon; older versions need separate acceptance testing.
 
 ## Standalone backend bundle
 
@@ -234,18 +235,15 @@ Full desktop acceptance requires the frontend assets and a graphical session.
 
 [Desktop acceptance](../.github/workflows/desktop-acceptance.yml) is a separate,
 manually dispatched workflow with read-only repository permissions. It tests
-Windows x64, Ubuntu x64, macOS arm64 and macOS x64 without changing versions,
+Windows x64, Ubuntu x64 and macOS arm64 without changing versions,
 creating tags or publishing releases. The existing release gates remain in
 place. Promote these additional checks into release gates only after native
 matrix results establish that the harness works on each platform.
 
-An additional Apple Silicon/Rosetta job downloads the same archive built by the
-native Intel job. It verifies the arm64 host, translated x64 execution and the
-archive launcher's `x86_64` architecture, then runs the full archive/UI checks
-without rebuilding the app. Its reports are under
-`acceptance-macos-x86_64-rosetta`. This tests x64 execution with the Apple GPU;
-it does not verify physical Intel GPUs. It runs after native-job failure too,
-while the original native Intel 3D failure still fails the workflow.
+Intel Mac and Rosetta jobs have been removed with Intel Mac's exclusion from
+official support. The independent WebGL probe and complete UI/3D/normal-relaunch
+checks remain required on all three supported platforms. Historical Intel and
+Rosetta results are recorded in [VALIDATION.md](VALIDATION.md).
 
 Each native job builds and archives the application using the release scripts, then
 extracts the final archive into a new Korean/space-containing temporary path.
@@ -316,7 +314,7 @@ and simulation-job cleanup. Success still requires normal process exit.
 Both 3D engines use single-sample rendering from their first context creation.
 The rocket canvas sets `antialias=false`; Cesium also sets `msaaSamples=1`, since
 its offscreen scene otherwise defaults to 4x MSAA independently of the canvas.
-The Intel Mac runner image has a [confirmed virtual-GPU MSAA fault](https://github.com/actions/runner-images/issues/14836):
+The former Intel Mac runner image has a [confirmed virtual-GPU MSAA fault](https://github.com/actions/runner-images/issues/14836):
 once triggered, later contexts may fail too, so disabling MSAA only on a retry
 is too late. This removes multisample edge smoothing, while preserving the
 geometry, simulation and real WebGL rendering.
@@ -326,13 +324,6 @@ and fragment shader-precision results before constructing Three.js. A failure
 releases the context and keeps the existing 2D fallback; CI still requires actual
 3D frames. The reports check both canvases' antialias attributes and Cesium's
 scene sample count. Unmounting the rocket view releases its owned context.
-
-Single-sample rendering does not resolve every hosted Intel WebKit limitation.
-[Run 41002063900](https://github.com/amuileum07/UARC/actions/runs/41002063900/job/123889108036)
-failed the independent WebGL probe on `Macmini6,2` with a 64 MB virtual GPU,
-before UARC's frontend loaded. The same model/graphics configuration appears in
-[WebKit bug 278277](https://bugs.webkit.org/show_bug.cgi?id=278277). The strict
-native Intel check stays enabled; Rosetta results must be reported separately.
 
 The explicit `--check-ui DESIGN SCRIPT REPORT --data-dir DIR` launcher option
 runs a trusted local JavaScript diagnostic and closes the window after reporting.
@@ -364,7 +355,7 @@ To release from the website:
    to mark the GitHub release as a **pre-release** (enabled by default).
    Enable **publish_pypi** only after registering the Trusted Publisher below.
 3. Click **Run workflow**. The prepare job selects and stages the version, then
-   source checks and all four native builds must succeed before publication.
+   source checks and all three native builds must succeed before publication.
    The publish job commits only the verified version files to the selected branch
    and tags that commit. Application source is the dispatched commit plus those
    version updates.
@@ -394,7 +385,6 @@ are not overwritten, and concurrent release runs are serialized.
 | Windows Server 2022 x64 | `UARC-vX.Y.Z-windows-x86_64.zip` |
 | Ubuntu 22.04 x64 | `UARC-vX.Y.Z-linux-x86_64.tar.gz` |
 | macOS 15 Apple Silicon | `UARC-vX.Y.Z-macos-arm64.tar.gz` |
-| macOS 15 Intel | `UARC-vX.Y.Z-macos-x86_64.tar.gz` |
 
 All archives contain the complete `UARC/` folder and built frontend. Unix tar
 archives preserve executable permissions and PyInstaller symlinks. These are
@@ -412,7 +402,7 @@ lockfiles. GitHub `setup-python` supplies the interpreter, including Windows
 Tcl/Tk; uv is configured not to download a different interpreter. The frontend
 is checked/built once and shared with the native jobs. Full backend unit/lint
 checks run on Linux; Windows additionally exercises the real setup controls with
-a mocked installer. All four native jobs also install the built Python wheel
+a mocked installer. All three native jobs also install the built Python wheel
 and resolve its dependencies in a new virtual environment, independently of the
 locked source environment. Native build/worker checks precede these wheel checks.
 Each native executable
@@ -421,7 +411,7 @@ JavaScript/bridge-preview check before packaging. These checks do not install
 Microsoft runtimes or certify 3D rendering on end-user GPUs. They run from fresh
 temporary data and frontend paths without modifying the user's designs.
 
-The publish job requires four native archives, the verified wheel and sdist,
+The publish job requires three native archives, the verified wheel and sdist,
 and creates `SHA256SUMS.txt`. It uploads all assets into a draft and publishes only after
 upload succeeds. If publication fails after the version commit or draft is
 created, inspect the failed run and branch/draft/tag manually; there is no

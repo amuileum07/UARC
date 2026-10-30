@@ -112,7 +112,7 @@ class DesktopReleaseTests(unittest.TestCase):
             ("win32", "AMD64", "windows-x86_64"),
             ("linux", "x86_64", "linux-x86_64"),
             ("darwin", "arm64", "macos-arm64"),
-            ("darwin", "x86_64", "macos-x86_64"),
+            ("darwin", "x86_64", None),
             ("linux", "aarch64", None),
         ):
             with (
@@ -175,12 +175,43 @@ class DesktopReleaseTests(unittest.TestCase):
             for name in RELEASE["python_distribution_names"]("v0.1.0"):
                 (root / "output" / name).write_bytes(b"Python distribution fixture")
             manifest = RELEASE["write_checksums"](root / "output", "v0.1.0")
+            self.assertEqual(
+                {line.split("  ")[1] for line in manifest.read_text().splitlines()},
+                {
+                    "UARC-v0.1.0-windows-x86_64.zip",
+                    "UARC-v0.1.0-linux-x86_64.tar.gz",
+                    "UARC-v0.1.0-macos-arm64.tar.gz",
+                    "uarc_simulator-0.1.0-py3-none-any.whl",
+                    "uarc_simulator-0.1.0.tar.gz",
+                },
+            )
             for line in manifest.read_text(encoding="utf-8").splitlines():
                 digest, name = line.split("  ")
                 self.assertEqual(
                     digest,
                     hashlib.sha256((root / "output" / name).read_bytes()).hexdigest(),
                 )
+
+    def test_retired_intel_mac_archives_cannot_be_built_or_published(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            output = root / "output"
+            with self.assertRaisesRegex(ValueError, "target"):
+                RELEASE["archive_bundle"](
+                    root / "UARC", output, "v0.1.0", "macos-x86_64"
+                )
+            self.assertFalse(output.exists())
+            output.mkdir()
+            for target, suffix in RELEASE["TARGETS"].items():
+                (output / f"UARC-v0.1.0-{target}{suffix}").write_bytes(b"archive")
+            for name in RELEASE["python_distribution_names"]("v0.1.0"):
+                (output / name).write_bytes(b"Python distribution")
+            retired = output / "UARC-v0.1.0-macos-x86_64.tar.gz"
+            retired.write_bytes(b"old Intel archive")
+            with self.assertRaisesRegex(ValueError, "three native archives"):
+                RELEASE["write_checksums"](output, "v0.1.0")
+            self.assertFalse((output / "SHA256SUMS.txt").exists())
+            self.assertEqual(retired.read_bytes(), b"old Intel archive")
 
     def test_missing_desktop_assets_and_partial_release_sets_are_rejected(self):
         with tempfile.TemporaryDirectory() as temporary:

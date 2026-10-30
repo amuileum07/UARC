@@ -29,7 +29,7 @@ PyPI; it updates after publication without editing this README.
 ### Desktop downloads
 
 Download an archive from [GitHub Releases](https://github.com/amuileum07/UARC/releases).
-Choose Windows x64, Linux x64, macOS Apple Silicon or macOS Intel. Extract the
+Choose Windows x64, Linux x64 or macOS Apple Silicon. Extract the
 **entire `UARC/` folder**, then open `UARC.exe` on Windows or `UARC` on Linux/macOS.
 These downloads include Python and the application dependencies.
 
@@ -80,9 +80,10 @@ the PyPI package named `uarc` belongs to another project.
   need an interpreter with Tcl/Tk for this setup window.
 - **Linux:** the Python package installs PySide6/Qt; a graphical session and
   compatible system graphics libraries are still required.
-- **macOS:** the desktop uses the native WebKit webview. Python-package installs
-  need macOS 14+ on Apple Silicon or 15+ on Intel for the pinned rasterio wheels.
-  Standalone downloads are built and checked on macOS 15 for both architectures.
+- **macOS Apple Silicon:** the desktop uses the native WebKit webview.
+  Python-package installs need macOS 14+ for the pinned rasterio wheels.
+  Standalone downloads are built and checked on macOS 15. Intel Macs are not
+  currently supported.
 
 See [platform setup and packaging](./docs/PACKAGING.md) and
 [Linux/Conda graphics troubleshooting](./backend/README.md#linux--conda-graphics-runtime).

@@ -155,10 +155,6 @@ jobs:
             architecture: arm64
             target: macos-arm64
             executable: UARC
-          - os: macos-15-intel
-            architecture: x64
-            target: macos-x86_64
-            executable: UARC
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

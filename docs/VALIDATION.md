@@ -1,5 +1,73 @@
 # Backend verification — 2026-10-25
 
+## Supported desktop matrix reduced to three platforms (2026-10-30)
+
+The user chose to exclude Intel Mac from official support after the native
+WebGL failures below and the lack of a capable Intel verification environment.
+This supersedes the earlier decision to retain native Intel 3D as a required
+target. Supported platforms are now Windows x64, Linux x64 and macOS Apple
+Silicon (arm64).
+
+Both acceptance and release matrices remove Intel Mac; the Rosetta job and
+Intel-only diagnostics/archive transfer are removed as well. The original
+WebGL pixel-readback, shipping UI, 3D, normal-exit and persistence checks remain
+required on every supported acceptance target. Release wheel/native GUI and
+worker/file checks also remain required for all three targets.
+
+The shared release target list contains only the three supported platforms.
+Publication requires those three native archives, the wheel and the sdist;
+unexpected files, including a retired Intel archive, are rejected. Documentation
+and the PyPI/release descriptions state the new support scope. No version bump,
+release publication or deletion of existing release assets is part of this change.
+Earlier Intel/Rosetta records below remain historical evidence for their commits.
+
+All eight release regressions passed locally, including exact five-distribution
+checksum contents, rejection of Intel platform/archive publication, partial and
+empty release-set rejection, archive permissions/links and no-overwrite behavior.
+Ruff lint/format, Biome and TypeScript passed. Both workflow YAML matrices match
+the shared release target list; comparison with the previous YAML confirms that
+all remaining checks are unchanged. Bash syntax, workflow Prettier and whitespace
+checks passed. Changed documentation lines satisfy Prettier; unrelated existing
+table formatting is preserved. The updated three-platform workflow has not yet
+run on GitHub Actions.
+
+## Intel archive passes Rosetta; native Intel 3D remains required (2026-10-30)
+
+[Run 41005476809](https://github.com/amuileum07/UARC/actions/runs/41005476809)
+at `eee10ed` passed prepare, Windows, Linux, Mac arm64 and the added Rosetta job.
+The [Rosetta job](https://github.com/amuileum07/UARC/actions/runs/41005476809/job/123901361247)
+downloaded the archive built by the native Intel job and verified its exclusively
+`x86_64` launcher, the arm64 host and translated execution. It did not rebuild
+the application. The independent WebGL 2 probe read back `[255, 0, 0, 255]`.
+Both actual UI launches rendered the rocket and terrain through `Apple GPU`,
+with antialiasing disabled and Cesium samples equal to one. Their run ID
+`08cd477906f64e0b8ef68460da81ec30` and complete result summaries matched.
+All three UI processes closed normally and completed simulation-job cleanup.
+
+The [native Intel job](https://github.com/amuileum07/UARC/actions/runs/41005476809/job/123899781734)
+again built the archive and passed the relocated CLI checks, then failed before
+the shipping UI loaded: the independent context was lost with error `37442`.
+Its model and graphics diagnostics again showed `Macmini6,2` and a 64 MB Apple
+Paravirtualized Graphics Device. This comparison confirms x64 archive execution
+and rendering on the Apple GPU stack; it does not establish physical Intel GPU
+compatibility or locate the failing native driver operation.
+
+The user explicitly retained the native Intel 3D requirement. No check was
+skipped, made optional or reclassified as success. The overall run therefore
+remains failed, and native Intel UI/3D acceptance remains unmet. A capable Intel
+graphics environment is needed to complete that requirement. An OS-label change
+alone is not a verified fix: maintainers also reproduced the related virtual-GPU
+fault on `macos-26-intel` in
+[runner-images issue 14836](https://github.com/actions/runner-images/issues/14836).
+The native WebKit limitation is separately documented in
+[WebKit bug 278277](https://bugs.webkit.org/show_bug.cgi?id=278277).
+
+Downloaded reports/logs are under `/tmp/uarc-run41005476809`. Direct assertions
+confirmed the real pixel, both 3D reports, identical saved results and normal
+shutdown, and the native Intel pre-frontend failure. This turn changes only
+verification documentation; the workflow, application and release remain
+unchanged.
+
 ## Native Intel WebKit fails before the application UI (2026-10-30)
 
 [Run 41002063900](https://github.com/amuileum07/UARC/actions/runs/41002063900)
