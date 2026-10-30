@@ -1,5 +1,46 @@
 # Backend verification — 2026-10-25
 
+## Native Intel WebKit fails before the application UI (2026-10-30)
+
+[Run 41002063900](https://github.com/amuileum07/UARC/actions/runs/41002063900)
+at `f2358a5` passed prepare and the complete Windows, Linux and Mac arm64 jobs.
+The [Intel job](https://github.com/amuileum07/UARC/actions/runs/41002063900/job/123889108036)
+built its archive and passed the relocated CLI/worker/file checks. Its independent
+WebGL 2 probe then failed with `context_lost=true` and error `37442`
+(`0x9242`, `CONTEXT_LOST_WEBGL`), before the shipping frontend, Three.js or Cesium
+loaded. Single-sample rendering did not resolve this native graphics failure.
+The process closed normally and completed simulation-job cleanup.
+
+Read-only diagnostics identified `Macmini6,2`, an Apple Paravirtualized Graphics
+Device with 64 MB VRAM, image `20260824.0482.1` and macOS 15.7.9. The model and
+virtual GPU match the environment in
+[WebKit bug 278277](https://bugs.webkit.org/show_bug.cgi?id=278277), which
+documents an Intel hosted-runner WebGL limitation and is closed as WONTFIX.
+This supports changing the graphics verification environment; it does not show
+that every physical Intel Mac has the same limitation.
+
+The user has no Intel Mac available for a physical-GPU check. The workflow now
+uploads the native Intel archive before its GUI check and adds a separate
+Apple Silicon/Rosetta job using that exact archive, without rebuilding it.
+The job requires an arm64 host, a translated x64 process and an exclusively
+`x86_64` launcher identified by `lipo`. It reuses the complete archive, WebGL
+pixel-readback, shipping UI, 3D, normal-close and saved-result/relaunch checks.
+It runs even if the native Intel job fails, and uploads separate diagnostics.
+
+The original Intel 3D check remains required and still fails the workflow when
+its context is unusable. Rosetta checks x64 code against the Apple GPU stack;
+it cannot establish compatibility with physical Intel GPUs. This new job has
+not yet run on GitHub Actions. No release, version bump or publishing is part
+of this change.
+
+Local verification passed all 12 desktop-acceptance unit tests, Ruff lint/format,
+Biome and TypeScript. YAML parsing, Bash syntax, artifact handoff and five
+mocked Rosetta-prerequisite cases passed, including rejection of the wrong host,
+untranslated execution and non-x64 launchers, with temporary-file cleanup.
+The workflow passed Prettier and the diff passed whitespace checks. Changed
+documentation lines need no Prettier fixes; existing table-alignment warnings
+were left untouched. These checks validate wiring, not native Rosetta execution.
+
 ## Intel Mac: avoid MSAA before the first GPU fault (2026-10-30)
 
 [Run 40997785694](https://github.com/amuileum07/UARC/actions/runs/40997785694)

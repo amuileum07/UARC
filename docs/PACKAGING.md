@@ -239,7 +239,15 @@ creating tags or publishing releases. The existing release gates remain in
 place. Promote these additional checks into release gates only after native
 matrix results establish that the harness works on each platform.
 
-Each job builds and archives the application using the release scripts, then
+An additional Apple Silicon/Rosetta job downloads the same archive built by the
+native Intel job. It verifies the arm64 host, translated x64 execution and the
+archive launcher's `x86_64` architecture, then runs the full archive/UI checks
+without rebuilding the app. Its reports are under
+`acceptance-macos-x86_64-rosetta`. This tests x64 execution with the Apple GPU;
+it does not verify physical Intel GPUs. It runs after native-job failure too,
+while the original native Intel 3D failure still fails the workflow.
+
+Each native job builds and archives the application using the release scripts, then
 extracts the final archive into a new Korean/space-containing temporary path.
 The extracted executable must pass the existing worker/file smoke checks.
 The same executable then opens the shipping frontend, without replacing its
@@ -318,6 +326,13 @@ and fragment shader-precision results before constructing Three.js. A failure
 releases the context and keeps the existing 2D fallback; CI still requires actual
 3D frames. The reports check both canvases' antialias attributes and Cesium's
 scene sample count. Unmounting the rocket view releases its owned context.
+
+Single-sample rendering does not resolve every hosted Intel WebKit limitation.
+[Run 41002063900](https://github.com/amuileum07/UARC/actions/runs/41002063900/job/123889108036)
+failed the independent WebGL probe on `Macmini6,2` with a 64 MB virtual GPU,
+before UARC's frontend loaded. The same model/graphics configuration appears in
+[WebKit bug 278277](https://bugs.webkit.org/show_bug.cgi?id=278277). The strict
+native Intel check stays enabled; Rosetta results must be reported separately.
 
 The explicit `--check-ui DESIGN SCRIPT REPORT --data-dir DIR` launcher option
 runs a trusted local JavaScript diagnostic and closes the window after reporting.
