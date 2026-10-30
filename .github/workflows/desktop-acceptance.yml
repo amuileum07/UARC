@@ -133,7 +133,10 @@ jobs:
         shell: bash
         run: |
           if [ "$RUNNER_OS" = Linux ]; then
-            xvfb-run --auto-servernum uv run --locked python scripts/smoke_desktop.py ../dist/release --output ../dist/desktop-checks
+            # Xvfb has no hardware GPU; Chromium blocklists the runner's llvmpipe.
+            export LIBGL_ALWAYS_SOFTWARE=true
+            export QTWEBENGINE_CHROMIUM_FLAGS=--ignore-gpu-blocklist
+            xvfb-run --auto-servernum --server-args="-screen 0 1280x1024x24" uv run --locked python scripts/smoke_desktop.py ../dist/release --output ../dist/desktop-checks
           else
             uv run --locked python scripts/smoke_desktop.py ../dist/release --output ../dist/desktop-checks
           fi

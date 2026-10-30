@@ -1,5 +1,5 @@
 (async () => {
-  const scenario = /* SCENARIO */;
+  const scenario = /* SCENARIO */ {};
   let stage = "frontend startup";
   const errors = [];
   window.addEventListener("error", (event) => errors.push(event.message));
@@ -17,15 +17,27 @@
     }
     throw Error(`Timed out: ${label}`);
   }
+  async function painted() {
+    // React may commit synthetic input/click updates on a later browser task.
+    // Wait through a frame and the following task before the next user action.
+    await new Promise(requestAnimationFrame);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
   async function click(label, selector, value) {
     const button = await wait(label, () => [...document.querySelectorAll(selector)]
       .find((node) => visible(node) && !node.disabled && text(node) === value));
     button.click();
+    await painted();
   }
   async function openPanel(title) {
+    // The app header mounts before Dockview's onReady initializes its API.
+    const tab = await wait(`dock tab ${title}`, () => [...document.querySelectorAll('[role="tab"]')]
+      .find((node) => node.getAttribute("aria-label") === title));
     document.querySelector(".view-menu").open = true;
     await click(`open ${title}`, ".view-menu button", title);
     document.querySelector(".view-menu").open = false;
+    await wait(`active panel ${title}`, () => tab.getAttribute("aria-selected") === "true");
+    await painted();
   }
   async function rename(name) {
     (await wait("project name button", () => document.querySelector(".app-header .project-name-button"))).click();
@@ -51,7 +63,9 @@
       .find((element) => visible(element) && element.dataset.rendered === "true" && element.width > 0 && element.height > 0));
     const gl = node.getContext("webgl2") || node.getContext("webgl");
     if (!gl || gl.isContextLost()) throw Error("WebGL context is unavailable or lost");
-    return {width: node.width, height: node.height, version: gl.getParameter(gl.VERSION)};
+    const info = gl.getExtension("WEBGL_debug_renderer_info");
+    return {width: node.width, height: node.height, version: gl.getParameter(gl.VERSION),
+      renderer: gl.getParameter(info ? info.UNMASKED_RENDERER_WEBGL : gl.RENDERER)};
   }
   let api;
   try {
@@ -64,8 +78,12 @@
       const editor = await wait("design JSON editor", () => document.querySelector("#design-json"));
       const design = JSON.parse(editor.value);
       design.components.find((component) => component.id === "payload").mass = 1.05;
-      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set.call(editor, JSON.stringify(design));
+      const payload = JSON.stringify(design);
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set.call(editor, payload);
       editor.dispatchEvent(new Event("input", {bubbles: true}));
+      // React 19.2 mirrors its committed controlled value to defaultValue.
+      // The imperative .value assignment alone cannot prove state was updated.
+      await wait("JSON input committed", () => editor.defaultValue === payload);
       await click("validate changed mass", ".json-panel button", "검증 후 적용");
       await wait("edited mass", () => JSON.parse(document.querySelector("#design-json").value).components.find((component) => component.id === "payload").mass === 1.05);
       await rename(scenario.name);
@@ -114,6 +132,8 @@
     return {ok: true, phase: scenario.phase, name: scenario.name, run_id: run.run_id, summary, rocket, terrain};
   } catch (error) {
     return {ok: false, phase: scenario.phase, stage, error: String(error), errors,
-      url: location.href, body: document.body?.innerText.slice(-12000)};
+      url: location.href, body: document.body?.innerText.slice(-12000),
+      active_tabs: [...document.querySelectorAll('[role="tab"][aria-selected="true"]')].map((node) => node.getAttribute("aria-label")),
+      editor: document.querySelector("#design-json")?.value.slice(0, 2000)};
   }
 })()

@@ -82,7 +82,7 @@ def run_ui(executable: Path, output: Path, scenario: dict) -> dict:
     report = output / f"{phase}.json"
     source = Path(__file__).with_name("desktop_check.js").read_text(encoding="utf-8")
     script.write_text(
-        source.replace("/* SCENARIO */", json.dumps(scenario)), encoding="utf-8"
+        source.replace("/* SCENARIO */ {}", json.dumps(scenario)), encoding="utf-8"
     )
     environment = dict(
         os.environ,
@@ -94,7 +94,8 @@ def run_ui(executable: Path, output: Path, scenario: dict) -> dict:
     )
     environment.pop("PYTHONHOME", None)
     with (output / f"{phase}.log").open("w", encoding="utf-8") as log:
-        print(f"Desktop UI: {phase}, launcher={executable}", flush=True)
+        # Windows CI's parent stdout can be cp1252 even when the child is UTF-8.
+        print(f"Desktop UI: {phase}, launcher={str(executable)!a}", flush=True)
         process = launch_desktop(
             [
                 str(executable),

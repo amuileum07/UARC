@@ -1,5 +1,44 @@
 # Backend verification — 2026-10-25
 
+## First desktop acceptance matrix failures (2026-10-30)
+
+[Run 40991469565](https://github.com/amuileum07/UARC/actions/runs/40991469565)
+at `32211e9` passed prepare, all four native builds, final archive creation and
+the relocated CLI worker/file checks. All four jobs then failed the new UI
+acceptance step:
+
+- Windows stopped before launching the GUI: printing the Korean extraction path
+  raised `UnicodeEncodeError` on the parent runner's cp1252 stdout. The child
+  UTF-8 setting does not change its parent's stream. Launcher logs now use ASCII
+  path escapes; a regression runs `run_ui` with a strict cp1252 output stream.
+- Ubuntu reached design edit/save/load but failed to create WebGL 2 contexts.
+  Chromium reported `WebGL2 blocklisted` for Mesa llvmpipe. The Xvfb CI step now
+  explicitly selects Mesa software rendering and ignores that GPU blocklist;
+  both rendered 3D canvases and a live context remain required.
+- Mac arm64 timed out waiting for the JSON editor; Intel timed out waiting for
+  the edited mass. The app header can mount before Dockview initializes, and
+  synthetic DOM input can precede React's state commit. The script now waits for
+  an existing/selected dock tab and React's committed textarea value, and yields
+  browser action tasks. These races are covered by focused JavaScript tests.
+
+The native reports confirm that both Mac frontends loaded with a working bridge.
+They no longer reproduce the earlier missing-document/startup timeout. Native
+acceptance of these changes still needs a new workflow run; a repaired test
+harness is not evidence that later steps passed on Windows or either Mac.
+
+Locally, the final script passed the complete existing Linux archive check with
+the same software-rendering settings: both canvases reported
+`ANGLE (Mesa, llvmpipe (LLVM 15.0.7 256 bits), OpenGL 4.5)`. Both normal GUI
+launches succeeded and loaded the identical result for run
+`b78bb1d4ab7e495ba5984154e8069744`. This included the explicit React input-commit
+wait. The archive's application code/assets were unchanged; this follow-up only
+changes the external acceptance harness, tests and CI environment.
+
+All 11 focused Python acceptance tests and all 44 frontend/driver tests passed.
+Ruff lint/format, Biome (including the full UI-check JavaScript), TypeScript,
+the new test's Prettier check and YAML/diff checks passed. A new manual dispatch
+on the updated commit is required; rerunning the old run retains its old SHA.
+
 ## Final desktop archive and shipping UI acceptance (2026-10-30)
 
 The separate `Desktop acceptance` workflow builds all four native targets and

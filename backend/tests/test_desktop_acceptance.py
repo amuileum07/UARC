@@ -207,6 +207,31 @@ class DesktopAcceptanceTests(unittest.TestCase):
                         )
                 stop.assert_not_called()
 
+    def test_korean_launcher_path_logs_on_strict_windows_stdout(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary)
+            (output / "first.json").write_text('{"ok":true,"phase":"first"}')
+            process = Mock()
+            process.wait.return_value = 0
+            captured = io.BytesIO()
+            with (
+                io.TextIOWrapper(
+                    captured, encoding="cp1252", errors="strict"
+                ) as stdout,
+                patch("sys.stdout", stdout),
+                patch.dict(
+                    SMOKE["run_ui"].__globals__,
+                    launch_desktop=Mock(return_value=process),
+                ),
+            ):
+                proof = SMOKE["run_ui"](
+                    output / "한글 경로/UARC.exe", output, {"phase": "first"}
+                )
+                stdout.flush()
+                self.assertIn(b"Desktop UI: first", captured.getvalue())
+                self.assertIn(b"UARC.exe", captured.getvalue())
+                self.assertIs(proof["ok"], True)
+
     def test_launcher_checks_json_fixture_and_requires_success_after_jobs_close(self):
         for ok in (True, False):
             with self.subTest(ok=ok), tempfile.TemporaryDirectory() as temporary:
