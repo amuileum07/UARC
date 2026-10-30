@@ -4,6 +4,10 @@ Run commands from `backend/`. Runtime dependencies remain managed by `uv.lock`;
 PyInstaller is a separate build tool, not an application dependency.
 Use Python 3.13 for the pinned PyInstaller 6.14.2 build tool (`>=3.8, <3.14`).
 
+The [CI and release guide](CI_RELEASE_GUIDE.md) defines checks to extend for each
+kind of change, evidence requirements, and the release procedure. It separates
+current workflow behavior from checks still to be added.
+
 ## Python distribution
 
 The PyPI distribution name is **uarc-simulator**; the unrelated `uarc` project

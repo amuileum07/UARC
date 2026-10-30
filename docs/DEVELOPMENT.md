@@ -66,6 +66,10 @@ it and TypeScript checks types. Native GUI, graphics and installer acceptance
 still require the target OS. See [validation](VALIDATION.md) and
 [packaging checks](PACKAGING.md) for what automated tests establish.
 
+Use [the CI and release guide](CI_RELEASE_GUIDE.md) to choose regression and
+native checks for a feature change, record evidence, and distinguish the current
+workflows from planned release gates.
+
 ## Architecture
 
 The React/Dockview workspace calls the desktop host through

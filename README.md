@@ -132,6 +132,7 @@ affect flight and landing predictions. See the
 | Drag equations and verification limits                   | [Aerodynamics](./docs/AERODYNAMICS.md)    |
 | Supported `.ork` conversion                              | [OpenRocket import](./docs/OPENROCKET.md) |
 | Executable/PyPI builds and manual releases               | [Packaging](./docs/PACKAGING.md)          |
+| Feature verification, CI extension and release evidence  | [CI and release guide](./docs/CI_RELEASE_GUIDE.md) |
 | Contribution conventions                                 | [Coding style](./CODING_STYLE.md)         |
 
 Maintainers publish from **Actions → Release UARC → Run workflow**. The default
