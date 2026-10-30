@@ -45,42 +45,32 @@ function install(contexts) {
   return attempts;
 }
 
-test("usable WebGL 2 keeps multisampling and returns the original context", () => {
+test("usable WebGL 2 never requests MSAA and returns the original context", () => {
   const context = gpu();
   const attempts = install([context]);
   assert.equal(createWebGL2Canvas().context, context);
-  assert.deepEqual(attempts, [{ antialias: true, alpha: true }]);
+  assert.deepEqual(attempts, [{ antialias: false, alpha: true }]);
   assert.equal(context.released, false);
 });
 
-test("null shader precision and lost contexts retry once without MSAA", () => {
-  for (const options of [{ invalidPrecision: true }, { lost: true }]) {
-    const failed = gpu(options);
-    const usable = gpu();
-    const attempts = install([failed, usable]);
-    assert.equal(createWebGL2Canvas().context, usable);
-    assert.deepEqual(
-      attempts.map((value) => value.antialias),
-      [true, false],
-    );
-    assert.equal(failed.released, true);
-    assert.equal(usable.released, false);
-  }
+test("null shader precision fails and releases the unusable context", () => {
+  const failed = gpu({ invalidPrecision: true });
+  const attempts = install([failed]);
+  assert.throws(createWebGL2Canvas, /Shader precision unavailable/);
+  assert.deepEqual(attempts, [{ antialias: false, alpha: true }]);
+  assert.equal(failed.released, true);
 });
 
-test("two unusable contexts fail explicitly instead of inventing precision", () => {
-  const failed = [gpu({ invalidPrecision: true }), gpu({ lost: true })];
-  const attempts = install([...failed]);
-  assert.throws(
-    createWebGL2Canvas,
-    /antialias=true:.*Shader precision unavailable.*antialias=false:.*lost/,
-  );
-  assert.equal(attempts.length, 2);
-  assert.ok(failed.every((context) => context.released));
+test("lost contexts fail without retrying a faulted GPU", () => {
+  const failed = gpu({ lost: true });
+  const attempts = install([failed]);
+  assert.throws(createWebGL2Canvas, /context was lost during creation/);
+  assert.equal(attempts.length, 1);
+  assert.equal(failed.released, true);
 });
 
-test("absent WebGL 2 fails after the same bounded attempts", () => {
-  const attempts = install([null, null]);
+test("absent WebGL 2 fails explicitly without requesting MSAA", () => {
+  const attempts = install([null]);
   assert.throws(createWebGL2Canvas, /WebGL 2 is unavailable/);
-  assert.equal(attempts.length, 2);
+  assert.deepEqual(attempts, [{ antialias: false, alpha: true }]);
 });

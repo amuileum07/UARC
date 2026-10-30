@@ -80,7 +80,11 @@ def run_ui(executable: Path, output: Path, scenario: dict) -> dict:
     phase = scenario["phase"]
     script = output / f"{phase}.js"
     report = output / f"{phase}.json"
-    source = Path(__file__).with_name("desktop_check.js").read_text(encoding="utf-8")
+    source = (
+        Path(__file__)
+        .with_name("probe_webgl.js" if phase == "graphics" else "desktop_check.js")
+        .read_text(encoding="utf-8")
+    )
     script.write_text(
         source.replace("/* SCENARIO */ {}", json.dumps(scenario)), encoding="utf-8"
     )
@@ -93,19 +97,27 @@ def run_ui(executable: Path, output: Path, scenario: dict) -> dict:
         PYWEBVIEW_LOG="DEBUG",
     )
     environment.pop("PYTHONHOME", None)
+    command = [
+        str(executable),
+        "--data-dir",
+        str(output / ("graphics-data" if phase == "graphics" else "사용자 데이터")),
+        "--check-ui",
+        str(output / "design.json"),
+        str(script),
+        str(report),
+    ]
+    if phase == "graphics":
+        page = output / "graphics.html"
+        page.write_text(
+            '<!doctype html><meta charset="utf-8"><title>Native WebGL check</title>',
+            encoding="utf-8",
+        )
+        command.extend(["--frontend", str(page)])
     with (output / f"{phase}.log").open("w", encoding="utf-8") as log:
         # Windows CI's parent stdout can be cp1252 even when the child is UTF-8.
         print(f"Desktop UI: {phase}, launcher={str(executable)!a}", flush=True)
         process = launch_desktop(
-            [
-                str(executable),
-                "--data-dir",
-                str(output / "사용자 데이터"),
-                "--check-ui",
-                str(output / "design.json"),
-                str(script),
-                str(report),
-            ],
+            command,
             output,
             environment,
             log,
@@ -160,6 +172,7 @@ def main() -> None:
             )
         design = local_design(executable.parent)
         (output / "design.json").write_text(json.dumps(design), encoding="utf-8")
+        run_ui(executable, output, {"phase": "graphics"})
         name = f"CI 한글 설계 {uuid4().hex[:12]}"
         first = run_ui(executable, output, {"phase": "first", "name": name})
         reopened = run_ui(

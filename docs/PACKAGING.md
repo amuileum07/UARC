@@ -253,6 +253,14 @@ HTML, and drives the actual controls to:
 6. Launch again with the same data directory, load the saved design and select
    the original run from history, requiring identical results and no extra run.
 
+Before the shipping-UI flows, a separate native window loads a tiny local page
+with no React, Three.js or Cesium. It compiles WebGL 2 shaders, draws a red
+triangle without MSAA, and checks a real pixel readback. Its `graphics.json`
+report and separate `graphics-data` directory distinguish an unusable native
+graphics environment from a failure in UARC's renderers. It must also close
+normally. Failing this probe fails the job; it cannot substitute for the actual
+frontend checks. GPU work is finished before the disposable probe process exits.
+
 Rendered canvases must have a completed frame and a live WebGL context. This
 checks rendering availability, not pixel-perfect images or hardware GPU drivers.
 Both launches must exit normally; a timeout or forced cleanup fails the check.
@@ -297,12 +305,19 @@ from a separate thread. Qt can then leave the WebChannel handler before its page
 is destroyed. Debug logs distinguish the close request, the webview loop ending,
 and simulation-job cleanup. Success still requires normal process exit.
 
-Rocket 3D initialization verifies a live WebGL 2 context and non-null vertex and
-fragment shader-precision results before constructing Three.js. If initial
-creation fails, it releases the candidate context and retries once without MSAA.
-Both attempts must use real driver capabilities. A second failure retains the
-existing 2D fallback and reports both causes; CI still fails if 3D cannot render.
-Unmounting the rocket view also explicitly releases its owned WebGL context.
+Both 3D engines use single-sample rendering from their first context creation.
+The rocket canvas sets `antialias=false`; Cesium also sets `msaaSamples=1`, since
+its offscreen scene otherwise defaults to 4x MSAA independently of the canvas.
+The Intel Mac runner image has a [confirmed virtual-GPU MSAA fault](https://github.com/actions/runner-images/issues/14836):
+once triggered, later contexts may fail too, so disabling MSAA only on a retry
+is too late. This removes multisample edge smoothing, while preserving the
+geometry, simulation and real WebGL rendering.
+
+Rocket initialization still verifies a live WebGL 2 context and non-null vertex
+and fragment shader-precision results before constructing Three.js. A failure
+releases the context and keeps the existing 2D fallback; CI still requires actual
+3D frames. The reports check both canvases' antialias attributes and Cesium's
+scene sample count. Unmounting the rocket view releases its owned context.
 
 The explicit `--check-ui DESIGN SCRIPT REPORT --data-dir DIR` launcher option
 runs a trusted local JavaScript diagnostic and closes the window after reporting.

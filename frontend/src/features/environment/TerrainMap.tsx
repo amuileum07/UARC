@@ -3,6 +3,7 @@ import * as Cesium from "cesium";
 import { desktopApi } from "../../lib/bridge";
 import { flightPath } from "../../lib/geography";
 import { runStateLabels } from "../../lib/telemetry";
+import { webglContextAttributes } from "../../lib/webgl";
 import { useWorkspace } from "../../workspace";
 import { awsTerrainProvider } from "./awsTerrain";
 import { frameMap, terrainMaterial, terrainProvider } from "./mapTerrain";
@@ -140,6 +141,9 @@ export function TerrainMap() {
         infoBox: false,
         selectionIndicator: false,
         requestRenderMode: true,
+        contextOptions: { webgl: { ...webglContextAttributes } },
+        // Cesium defaults to 4x MSAA even when the canvas disables antialiasing.
+        msaaSamples: 1,
         maximumRenderTimeChange: Infinity,
         terrainProvider: new Cesium.EllipsoidTerrainProvider(),
       });
@@ -152,6 +156,9 @@ export function TerrainMap() {
     }
     current.scene.globe.baseColor = Cesium.Color.fromCssColorString("#dddddd");
     current.scene.backgroundColor = Cesium.Color.fromCssColorString("#f4f4f4");
+    current.scene.canvas.dataset.msaaSamples = String(
+      current.scene.msaaSamples,
+    );
     current.scene.globe.depthTestAgainstTerrain = true;
     if (current.scene.skyAtmosphere) current.scene.skyAtmosphere.show = false;
     const removeError = current.scene.renderError.addEventListener(

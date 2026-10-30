@@ -65,7 +65,9 @@
     if (!gl || gl.isContextLost()) throw Error("WebGL context is unavailable or lost");
     const info = gl.getExtension("WEBGL_debug_renderer_info");
     return {width: node.width, height: node.height, version: gl.getParameter(gl.VERSION),
-      renderer: gl.getParameter(info ? info.UNMASKED_RENDERER_WEBGL : gl.RENDERER)};
+      renderer: gl.getParameter(info ? info.UNMASKED_RENDERER_WEBGL : gl.RENDERER),
+      antialias: gl.getContextAttributes()?.antialias,
+      msaa_samples: node.dataset.msaaSamples ? Number(node.dataset.msaaSamples) : null};
   }
   let api;
   try {
@@ -126,6 +128,8 @@
     await wait("result metrics", () => [...document.querySelectorAll(".metrics strong")]
       .filter(visible).length >= 3);
     const terrain = await canvas(".cesium-widget canvas");
+    if (rocket.antialias !== false || terrain.antialias !== false || terrain.msaa_samples !== 1)
+      throw Error("A renderer enabled multisampling despite the single-sample configuration");
     await wait("local terrain and saved trajectory", () => [...document.querySelectorAll(".caption")]
       .some((node) => visible(node) && node.textContent.includes("Local CI terrain fixture")) &&
       [...document.querySelectorAll('.caption[role="status"]')].some((node) => visible(node) && node.textContent.includes(`${run.run_id.slice(0, 8)} · 3D 궤적`)));

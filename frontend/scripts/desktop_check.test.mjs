@@ -8,6 +8,13 @@ const source = readFileSync(
   "utf8",
 );
 new Script(source, { filename: "desktop_check.js" });
+new Script(
+  readFileSync(
+    new URL("../../backend/scripts/probe_webgl.js", import.meta.url),
+    "utf8",
+  ),
+  { filename: "probe_webgl.js" },
+);
 // Exercise the same action helpers used by the full native scenario.
 const helpers = `${source.slice(0, source.indexOf("  let api;"))}
 return {click, openPanel, painted}; })()`;

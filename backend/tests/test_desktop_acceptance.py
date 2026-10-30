@@ -246,6 +246,36 @@ class DesktopAcceptanceTests(unittest.TestCase):
                 self.assertIn(b"UARC.exe", captured.getvalue())
                 self.assertIs(proof["ok"], True)
 
+    def test_graphics_probe_is_isolated_and_a_failed_gpu_cannot_pass(self):
+        for ok in (True, False):
+            with self.subTest(ok=ok), tempfile.TemporaryDirectory() as temporary:
+                output = Path(temporary)
+                proof = {"ok": ok, "phase": "graphics"}
+                (output / "graphics.json").write_text(json.dumps(proof))
+                process, launch = Mock(), Mock()
+                process.wait.return_value = 0
+                launch.return_value = process
+                with patch.dict(SMOKE["run_ui"].__globals__, launch_desktop=launch):
+                    if ok:
+                        self.assertEqual(
+                            SMOKE["run_ui"](
+                                Path(sys.executable), output, {"phase": "graphics"}
+                            ),
+                            proof,
+                        )
+                    else:
+                        with self.assertRaisesRegex(RuntimeError, "graphics: exit=0"):
+                            SMOKE["run_ui"](
+                                Path(sys.executable), output, {"phase": "graphics"}
+                            )
+                command = launch.call_args.args[0]
+                self.assertIn("--frontend", command)
+                self.assertEqual(
+                    command[command.index("--data-dir") + 1],
+                    str(output / "graphics-data"),
+                )
+                self.assertNotIn("<script", (output / "graphics.html").read_text())
+
     def test_launcher_checks_json_fixture_and_requires_success_after_jobs_close(self):
         for ok in (True, False):
             with self.subTest(ok=ok), tempfile.TemporaryDirectory() as temporary:

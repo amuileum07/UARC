@@ -1,5 +1,55 @@
 # Backend verification — 2026-10-25
 
+## Intel Mac: avoid MSAA before the first GPU fault (2026-10-30)
+
+[Run 40997785694](https://github.com/amuileum07/UARC/actions/runs/40997785694)
+at `872f053` passed prepare and the complete Windows, Linux and Mac arm64 jobs.
+This confirms the Linux native-close changes in the hosted Xvfb environment.
+Intel Mac alone failed: both the initial and non-MSAA retry contexts were
+already lost during creation. The process then closed normally, with job cleanup
+logged, instead of waiting for the old GUI deadline.
+
+The Intel job used image `20260824.0482.1` and macOS 15.7.9. That exact image is
+covered by [runner-images issue 14836](https://github.com/actions/runner-images/issues/14836),
+where maintainers reproduced virtual-GPU hangs/wrong results with MSAA. The
+report notes that subsequent requests can remain broken after a fault. UARC
+still requested MSAA before its fallback, and Cesium separately defaulted to
+4x scene MSAA. This is a supported hypothesis for this run, not a driver-level
+diagnosis of UARC's VM.
+
+Both engines now avoid MSAA from the outset: shared canvas attributes disable
+antialiasing, and Cesium scene samples are explicitly one. No user-agent or CPU
+heuristic is used. The rocket helper no longer requests an MSAA context before
+retrying. Live contexts, shader capabilities, real 3D frames and normal process
+exit remain mandatory. Reports include the actual canvas attributes and scene
+sample count; Intel CI also logs bounded, read-only model/graphics diagnostics.
+
+The change affects edge smoothing, not simulation inputs/results or geometry.
+It must still be confirmed on a new Intel Mac job. A 2D fallback or an absent
+WebGL context cannot pass the acceptance check.
+
+There is also a related Intel-hosted WebKit limitation in
+[WebKit bug 278277](https://bugs.webkit.org/show_bug.cgi?id=278277); the current
+[Playwright Modernizr tests](https://github.com/microsoft/playwright/blob/main/tests/library/modernizr.spec.ts)
+exclude Intel macOS WebKit WebGL cases with that reference. Those reports do not
+prove UARC's exact driver failure or imply all physical Intel Macs lack WebGL.
+The harness therefore now runs an independent, library-free native WebGL 2
+triangle/pixel-readback probe before loading the application UI, in separate
+test data. If that also fails, the failure predates UARC's frontend and needs a
+GPU-capable Intel environment, rather than further guessed renderer changes.
+The probe and the original full frontend checks are all required.
+
+Locally, a new Linux bundle/archive containing the single-sample settings passed
+the complete Xvfb scenario. The independent probe read back `[255, 0, 0, 255]`;
+both app launches reported `antialias=false` for both engines and Cesium samples
+equal to one, with identical saved results for run
+`647b23bf6f3c41e0a472c5cb170cb297`. All three native processes exited normally.
+Diagnostics are under `/tmp/uarc-run40997785694-preflight`. All 48 frontend/driver
+tests and 12 focused Python acceptance tests passed, as did Ruff lint/format,
+Biome (both external JavaScript probes included), TypeScript, the frontend build,
+Prettier checks and YAML/diff validation. Intel native acceptance remains
+unverified until the updated workflow runs.
+
 ## Desktop acceptance: remaining close and WebGL failures (2026-10-30)
 
 [Run 40994359625](https://github.com/amuileum07/UARC/actions/runs/40994359625)

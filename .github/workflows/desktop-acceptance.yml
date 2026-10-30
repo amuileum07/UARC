@@ -120,6 +120,19 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends xvfb libegl1 libopengl0 libxcb-cursor0 libxkbcommon-x11-0 libxcb-icccm4 libxcb-keysyms1 libxcb-shape0 libnss3 libasound2
+      - name: Log Intel Mac graphics capabilities
+        if: matrix.target == 'macos-x86_64'
+        shell: bash
+        run: |
+          python - <<'PY'
+          import subprocess
+          for command in (["sysctl", "-n", "hw.model"], ["system_profiler", "SPDisplaysDataType"]):
+              try:
+                  result = subprocess.run(command, capture_output=True, text=True, timeout=20, check=True)
+                  print(f"Graphics diagnostic: {command}\n{result.stdout}", flush=True)
+              except (OSError, subprocess.SubprocessError) as error:
+                  print(f"Graphics diagnostic unavailable: {error}", flush=True)
+          PY
       - name: Build native desktop bundle
         working-directory: backend
         run: uv run --locked --with pyinstaller==6.14.2 python scripts/build_desktop.py
