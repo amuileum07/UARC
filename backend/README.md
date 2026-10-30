@@ -133,6 +133,12 @@ inside the worker process. The GUI loop stays on the main thread.
 | `open_terrain_portal(provider)` | Open one fixed AWS/NGII/OpenTopography/VWorld URL in the default browser |
 | `check_elevation(payload_json)` | Height-reference-aware launch elevation check |
 
+AWS calculation terrain downloads up to four GeoTIFF tiles concurrently, with
+at most 16 tiles and 4 MiB per tile. Up to eight successful grids are cached in
+memory within ten-minute windows for identical site/radius/spacing requests.
+Cached responses retain their original retrieval time and return independent
+copies; errors are not cached. Restarting the app clears this cache.
+
 The GUI environment editor exposes place search, map picking, launch date/time,
 timezone, forecast/observation fetch/preview/application, and CSV/XLSX import. The data-service
 methods share two concurrent request slots; HTTPS endpoints are fixed, redirects

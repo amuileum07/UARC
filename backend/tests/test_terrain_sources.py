@@ -3,6 +3,7 @@
 import tempfile
 import unittest
 from pathlib import Path
+from threading import Barrier
 from unittest.mock import patch
 from urllib.error import HTTPError
 
@@ -15,7 +16,7 @@ from rasterio.warp import transform_bounds
 
 from app.schemas import EnvironmentConfig, TerrainImportOptions, TerrainRequest
 from app.terrain import GroundSurface, fetch_terrain, sample_grid
-from app.terrain_sources import _download, grid_layout, import_dem
+from app.terrain_sources import _cached_aws, _download, grid_layout, import_dem
 
 
 def raster_bytes(
@@ -48,6 +49,8 @@ def raster_bytes(
 class DemSourceTests(unittest.TestCase):
     def setUp(self):
         self.area = TerrainRequest(latitude=35.55, longitude=129.3, radius_m=200)
+        _cached_aws.cache_clear()
+        self.addCleanup(_cached_aws.cache_clear)
 
     def test_height_scale_is_strict_and_keeps_the_schema_enum(self):
         for scale in (1.0, 0.3048):
@@ -136,13 +139,17 @@ class DemSourceTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "키"):
             fetch_terrain(self.area.model_copy(update={"provider": "opentopography"}))
 
-    def test_aws_tile_mosaic_crosses_xy_boundaries_without_seams(self):
+    def test_aws_parallel_downloads_cache_isolation_expiry_and_seamless_mosaic(self):
         from math import pi
         from urllib.parse import urlsplit
 
         from app.terrain import EARTH_RADIUS_M
 
+        simultaneous = Barrier(4)
+
         def tile(url, **_kwargs):
+            # All four downloads must start before any can finish, without sleeps.
+            simultaneous.wait(timeout=5)
             parts = urlsplit(url).path.split("/")
             z, x, y = int(parts[-3]), int(parts[-2]), int(parts[-1].split(".")[0])
             span = 2 * pi * EARTH_RADIUS_M / 2**z
@@ -167,15 +174,37 @@ class DemSourceTests(unittest.TestCase):
                 return memory.read()
 
         request = TerrainRequest(latitude=0, longitude=0, radius_m=300)
-        with patch("app.terrain_sources._download", side_effect=tile) as download:
+        with (
+            patch("app.terrain_sources.monotonic", return_value=0) as clock,
+            patch("app.terrain_sources._download", side_effect=tile) as download,
+        ):
             grid = fetch_terrain(request)
-        self.assertEqual(download.call_count, 4)
+            self.assertEqual(download.call_count, 4)
+            cached = fetch_terrain(request)
+            self.assertEqual(cached, grid)
+            cached.heights[0][0] = -9999
+            clock.return_value = 599
+            self.assertEqual(fetch_terrain(request), grid)
+            self.assertEqual(download.call_count, 4)
+            clock.return_value = 600
+            refreshed = fetch_terrain(request)
+            self.assertEqual(download.call_count, 8)
+            self.assertEqual(refreshed.heights, grid.heights)
         self.assertEqual(grid.provider, "aws")
         self.assertEqual(grid.reference, "EGM96")
         self.assertEqual(len(grid.heights), 21)
         self.assertAlmostEqual(sample_grid(grid, 0, 0), 100, places=4)
         self.assertGreater(grid.heights[-1][10], grid.heights[0][10])
         self.assertAlmostEqual(grid.heights[-1][9], grid.heights[-1][11], places=5)
+
+    def test_failed_aws_requests_are_retried_without_caching_partial_results(self):
+        with patch(
+            "app.terrain_sources._download", side_effect=ValueError("offline")
+        ) as download:
+            for _ in range(2):
+                with self.assertRaisesRegex(ValueError, "offline"):
+                    fetch_terrain(self.area)
+            self.assertEqual(download.call_count, 2)
 
     def test_ngii_img_driver_reads_a_single_local_file(self):
         with tempfile.TemporaryDirectory() as root:

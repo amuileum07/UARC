@@ -997,3 +997,27 @@ normalization, caching, scope, deduplication, fallback, malformed coordinates,
 bridge validation and throttling. All 32 frontend tests, Ruff, Biome/TypeScript,
 format checks and production build passed. Public Photon service usage and
 attribution are documented in the frontend README.
+
+### AWS calculation-terrain acquisition latency (2026-10-30)
+
+Calculation-terrain acquisition now downloads at most four AWS GeoTIFFs at a time,
+while Rasterio validation, ordered mosaicking and reprojection stay on the caller
+thread. Existing limits remain 16 tiles and 4 MiB per tile. Up to eight complete,
+successful grids are cached in memory in ten-minute monotonic time buckets;
+responses are deep copies with the original retrieval timestamp. Failed requests
+are retried normally, and pending downloads are cancelled when acquisition fails.
+
+A live backend comparison at 35.55 N, 129.3 E, radius 2000 m and target spacing
+30 m fetched four tiles into a 135x135 grid. Sequential acquisition took 5.908 s;
+the parallel path took 1.579481 s (about 3.74x faster). Two cached repeats took
+0.007642 s and 0.007550 s with zero downloads. The grid SHA256 matched before and
+after. At radius 1000 m, only one tile was needed: first acquisition remained
+network-bound (1.546 s before, 1.483012 s after); a cached repeat took 0.001773 s.
+These measurements cover `fetch_terrain`, excluding Python imports, the desktop
+bridge and Cesium rendering; live network timings are not latency guarantees.
+
+All 21 terrain tests passed. A four-party barrier proves download overlap without
+timing-based assertions; checks also cover cache expiry, mutation isolation,
+retry after failure and the existing seam-free synthetic mosaic. Ruff lint and
+format checks passed. The full backend suite completed 230 tests with five
+skipped and no failures.

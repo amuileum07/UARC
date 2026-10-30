@@ -1,10 +1,13 @@
 """Public raster DEMs and explicit local imports normalized for display and contact."""
 
 import hashlib
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack
 from datetime import UTC, datetime
+from functools import lru_cache
 from math import asinh, ceil, cos, floor, log2, pi, radians, tan
 from pathlib import Path
+from time import monotonic
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import HTTPRedirectHandler, HTTPSHandler, Request, build_opener
@@ -191,23 +194,30 @@ def _aws(request):
     if (x1 - x0 + 1) * (y1 - y0 + 1) > 16:
         raise ValueError("AWS 조회 타일 수 제한을 초과했습니다.")
     with ExitStack() as stack:
+        downloads = ThreadPoolExecutor(max_workers=4)
+        stack.callback(downloads.shutdown, cancel_futures=True)
+        pending = [
+            downloads.submit(
+                _download,
+                f"https://elevation-tiles-prod.s3.amazonaws.com/geotiff/{zoom}/{x}/{y}.tif",
+                limit=4 * 1024**2,
+            )
+            for x in range(x0, x1 + 1)
+            for y in range(y0, y1 + 1)
+        ]
         datasets = []
-        for x in range(x0, x1 + 1):
-            for y in range(y0, y1 + 1):
-                raw = _download(
-                    f"https://elevation-tiles-prod.s3.amazonaws.com/geotiff/{zoom}/{x}/{y}.tif",
-                    limit=4 * 1024**2,
-                )
-                memory = stack.enter_context(MemoryFile(raw))
-                dataset = stack.enter_context(memory.open(driver="GTiff"))
-                if (
-                    dataset.count != 1
-                    or dataset.width != 512
-                    or dataset.height != 512
-                    or dataset.crs != rasterio.CRS.from_epsg(3857)
-                ):
-                    raise ValueError("예상한 AWS GeoTIFF 타일 규격이 아닙니다.")
-                datasets.append(dataset)
+        for future in pending:
+            raw = future.result()
+            memory = stack.enter_context(MemoryFile(raw))
+            dataset = stack.enter_context(memory.open(driver="GTiff"))
+            if (
+                dataset.count != 1
+                or dataset.width != 512
+                or dataset.height != 512
+                or dataset.crs != rasterio.CRS.from_epsg(3857)
+            ):
+                raise ValueError("예상한 AWS GeoTIFF 타일 규격이 아닙니다.")
+            datasets.append(dataset)
         mosaic, affine = merge(
             datasets, indexes=[1], dtype="float64", nodata=float("nan")
         )
@@ -234,10 +244,30 @@ def _aws(request):
     )
 
 
+@lru_cache(maxsize=8)
+def _cached_aws(latitude, longitude, radius_m, spacing_m, _period):
+    """Reuse eight successful grids within ten-minute monotonic time buckets."""
+    # Rollover can refresh early; use per-entry expiry if exact TTL is needed.
+    return _aws(
+        TerrainRequest(
+            latitude=latitude,
+            longitude=longitude,
+            radius_m=radius_m,
+            spacing_m=spacing_m,
+        )
+    )
+
+
 def fetch_dem(request: TerrainRequest) -> TerrainGrid:
     with rasterio.Env(**RASTER_ENV):
         if request.provider == "aws":
-            return _aws(request)
+            return _cached_aws(
+                request.latitude,
+                request.longitude,
+                request.radius_m,
+                request.spacing_m,
+                int(monotonic() // 600),
+            ).model_copy(deep=True)
         if request.provider != "opentopography":
             raise ValueError("로컬 DEM은 파일 선택으로 가져오세요.")
         key = request.api_key.get_secret_value().strip()
