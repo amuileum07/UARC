@@ -138,6 +138,8 @@ affect flight and landing predictions. See the
 Maintainers publish from **Actions → Release UARC → Run workflow**. The default
 automatically increments the patch version; minor/major increments and an explicit
 version override are available. See the [release procedure](./docs/PACKAGING.md#manual-github-actions-releases).
+The **desktop_acceptance** option is enabled by default and verifies the final
+archives' GUI, 3D and normal relaunch before publication.
 
 Report reproducible problems through [GitHub Issues](https://github.com/amuileum07/UARC/issues).
 For contributions, start with the development and coding-style guides.

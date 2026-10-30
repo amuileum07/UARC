@@ -1,5 +1,32 @@
 # Backend verification — 2026-10-25
 
+## Release-integrated final archive acceptance option (2026-10-30)
+
+Release UARC now has a Boolean `desktop_acceptance` input, enabled by default.
+After native packaging, each supported OS runs the same `smoke_desktop.py`
+scenario as the standalone acceptance workflow against its final release
+archive. The archive is uploaded only after successful verification. The
+publish job still requires successful prepare/build jobs, so any required
+acceptance failure blocks GitHub publication and the downstream PyPI job.
+No rebuild occurs between archive verification and publication.
+
+Disabling the input skips only the complete archive scenario. Existing source,
+worker/file, fresh-wheel and native-webview checks remain required. The skip is
+visible as a warning and job summary, and the published notes explicitly say
+whether archive acceptance passed or was skipped. Full-scenario diagnostics
+are retained on failure when available under `release-acceptance-<target>`;
+these do not match the publish job's `desktop-*` archive download pattern.
+The standalone workflow remains available without a version change or release.
+
+Local verification passed all 12 desktop-acceptance and eight release tests,
+Ruff lint/format, Biome and TypeScript. YAML checks confirmed the default-on
+Boolean input, required-job dependencies, unchanged baseline checks and
+archive/test/upload order. A shell harness with mocked external tools tested
+six OS-branch success/failure outcomes, both published-note selections, the
+skip summary and temporary-note cleanup. Those branch tests ran on Linux and
+did not execute real Git/GitHub publication. The new release integration has
+not yet run on GitHub Actions; no version bump or release was performed here.
+
 ## Supported desktop matrix reduced to three platforms (2026-10-30)
 
 The user chose to exclude Intel Mac from official support after the native

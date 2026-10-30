@@ -126,3 +126,8 @@ builds/tests that version on each target, then commits the version files and
 tags that commit after all builds pass. The PyPI README badge follows published
 metadata automatically. Maintainer inputs, branch-movement handling and PyPI
 Trusted Publishing setup are documented in [PACKAGING.md](PACKAGING.md#manual-github-actions-releases).
+
+Release UARC enables `desktop_acceptance` by default: the final archives must
+pass the full UI/3D/normal-relaunch scenario before publication. Disabling it is
+recorded in the release notes. The separate Desktop acceptance workflow remains
+available for verification without changing versions or publishing a release.

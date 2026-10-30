@@ -18,6 +18,9 @@ Intel Macs are not currently supported.
 These builds have no developer code-signing certificate or Apple notarization.
 Release checks cover frozen workers, file operations, and a native-webview/
 JavaScript/bridge-preview check for the installed wheel and frozen executable.
+The `desktop_acceptance` release option is enabled by default and adds checks
+of the final archives' shipping UI, WebGL, 3D, normal close and saved-result
+relaunch. The actual passed/skipped selection is appended to these release notes.
 3D rendering on end-user GPUs and real Windows prerequisite installation still
 need desktop validation. Windows requires WebView2 107+ for the UI's browser APIs.
 HTTPS requests use bundled CA roots alongside system/custom roots, avoiding

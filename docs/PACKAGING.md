@@ -241,8 +241,20 @@ Full desktop acceptance requires the frontend assets and a graphical session.
 manually dispatched workflow with read-only repository permissions. It tests
 Windows x64, Ubuntu x64 and macOS arm64 without changing versions,
 creating tags or publishing releases. The existing release gates remain in
-place. Promote these additional checks into release gates only after native
-matrix results establish that the harness works on each platform.
+place. Use it to verify changes without starting a release.
+
+[Release UARC](../.github/workflows/release.yml) includes the same final-archive
+scenario through the **desktop_acceptance** checkbox, enabled by default. Each
+native build packages its release archive, verifies that exact file with
+`smoke_desktop.py`, then uploads it for publication. A failure on any of the
+three platforms blocks publication. No rebuild occurs between verification and
+publishing. The separate acceptance workflow does not need to run first.
+
+Disabling the checkbox skips only the full archive scenario. Existing source,
+worker/file, fresh-wheel and native-webview checks remain required. Skipping is
+recorded in the job summary and published release notes. Per-launch diagnostics
+are uploaded as `release-acceptance-<target>` even on failure when available;
+they are separate from the `desktop-*` archive artifacts used by the publish job.
 
 Intel Mac and Rosetta jobs have been removed with Intel Mac's exclusion from
 official support. The independent WebGL probe and complete UI/3D/normal-relaunch
@@ -357,9 +369,12 @@ To release from the website:
    Leave **version** empty and choose **bump**: `patch` (default), `minor` or
    `major`. An explicit new X.Y.Z in **version** overrides **bump**. Choose whether
    to mark the GitHub release as a **pre-release** (enabled by default).
+   Leave **desktop_acceptance** enabled to require final-archive UI, 3D, normal
+   close and relaunch checks on all three platforms before publication.
    Enable **publish_pypi** only after registering the Trusted Publisher below.
 3. Click **Run workflow**. The prepare job selects and stages the version, then
-   source checks and all three native builds must succeed before publication.
+   source checks, all three native builds and the selected acceptance checks
+   must succeed before publication.
    The publish job commits only the verified version files to the selected branch
    and tags that commit. Application source is the dispatched commit plus those
    version updates.
@@ -414,6 +429,9 @@ runs the existing frozen-worker/file smoke checks and a real native-webview/
 JavaScript/bridge-preview check before packaging. These checks do not install
 Microsoft runtimes or certify 3D rendering on end-user GPUs. They run from fresh
 temporary data and frontend paths without modifying the user's designs.
+With `desktop_acceptance` enabled, the final compressed archive additionally
+passes the full shipping-UI, WebGL, 3D, normal-close and persistence scenario.
+These verified archives are the same files consumed by the publish job.
 
 The publish job requires three native archives, the verified wheel and sdist,
 and creates `SHA256SUMS.txt`. It uploads all assets into a draft and publishes only after

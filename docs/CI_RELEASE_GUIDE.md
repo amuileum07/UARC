@@ -11,26 +11,26 @@ Intel Mac은 지원 대상에서 제외되어 있다. 지원 범위와 검증 �
 
 ## 1. 현재 구성과 아직 없는 검증
 
-| 항목                                             | Desktop acceptance                                                    | Release UARC                                    |
-| ------------------------------------------------ | --------------------------------------------------------------------- | ----------------------------------------------- |
-| 정의                                             | [desktop-acceptance.yml](../.github/workflows/desktop-acceptance.yml) | [release.yml](../.github/workflows/release.yml) |
-| 실행 계기                                        | 수동 `workflow_dispatch`                                              | 수동 `workflow_dispatch`                        |
-| Ruff lint·format                                 | Linux prepare에서 실행                                                | Linux prepare에서 실행                          |
-| Biome·TypeScript·프런트엔드 테스트·빌드          | 실행                                                                  | 실행                                            |
-| 프런트엔드 `format:check`                        | 현재 workflow에 없음                                                  | 현재 workflow에 없음                            |
-| 백엔드 전체 단위 테스트                          | Linux prepare에서 실행                                                | Linux prepare에서 실행                          |
-| OS별 추가 검사                                   | acceptance·launcher·URL 회귀 검사                                     | launcher·URL 검사, Windows setup 검사 등        |
-| Python wheel·sdist 빌드와 검사                   | 없음                                                                  | 실행, 세 OS에서 `--fresh --gui` 포함            |
-| 네이티브 실행 파일의 worker·파일 검사            | 최종 archive를 추출한 뒤 실행                                         | 빌드 폴더에서 실행                              |
-| 최종 archive의 실제 UI·WebGL·3D·정상 종료·재실행 | 세 OS에서 필수                                                        | 현재 workflow에 없음                            |
-| 버전 변경·태그·GitHub Release·선택적 PyPI 게시   | 없음                                                                  | 모든 해당 release job 통과 후 실행              |
+| 항목                                             | Desktop acceptance                                                    | Release UARC                                            |
+| ------------------------------------------------ | --------------------------------------------------------------------- | ------------------------------------------------------- |
+| 정의                                             | [desktop-acceptance.yml](../.github/workflows/desktop-acceptance.yml) | [release.yml](../.github/workflows/release.yml)         |
+| 실행 계기                                        | 수동 `workflow_dispatch`                                              | 수동 `workflow_dispatch`                                |
+| Ruff lint·format                                 | Linux prepare에서 실행                                                | Linux prepare에서 실행                                  |
+| Biome·TypeScript·프런트엔드 테스트·빌드          | 실행                                                                  | 실행                                                    |
+| 프런트엔드 `format:check`                        | 현재 workflow에 없음                                                  | 현재 workflow에 없음                                    |
+| 백엔드 전체 단위 테스트                          | Linux prepare에서 실행                                                | Linux prepare에서 실행                                  |
+| OS별 추가 검사                                   | acceptance·launcher·URL 회귀 검사                                     | acceptance·launcher·URL 검사, Windows setup 검사 등     |
+| Python wheel·sdist 빌드와 검사                   | 없음                                                                  | 실행, 세 OS에서 `--fresh --gui` 포함                    |
+| 네이티브 실행 파일의 worker·파일 검사            | 최종 archive를 추출한 뒤 실행                                         | 빌드 폴더에서 실행, acceptance 선택 시 추출 후에도 실행 |
+| 최종 archive의 실제 UI·WebGL·3D·정상 종료·재실행 | 세 OS에서 필수                                                        | `desktop_acceptance=true`(기본값)일 때 세 OS에서 필수   |
+| 버전 변경·태그·GitHub Release·선택적 PyPI 게시   | 없음                                                                  | 모든 해당 release job 통과 후 실행                      |
 
 현재 `push`/`pull_request`용 자동 CI workflow는 없다. 소스를 푸시했다는 이유만으로 위 검사가 실행되지는 않는다.
-또한 **Release UARC는 별도 Desktop acceptance의 성공을 자동으로 요구하지 않는다.**
-`smoke_gui.py`의 검사 페이지·bridge 검증과 `smoke_desktop.py`의 배포 UI 전체 흐름도 서로 다른 검사다.
-
-현재 운영에서는 아래 릴리스 절차에 따라 acceptance 결과를 직접 확인한다.
-최종 릴리스 파일에 대한 자동 게시 차단은 [추가할 CI 항목](#6-앞으로-ci에-추가할-항목)에 남겨 둔다.
+**Release UARC의 `desktop_acceptance` 옵션은 기본값이 켜짐이다.** 이번 릴리스에서 만든 최종 archive를
+직접 검사하며, 세 플랫폼 중 하나라도 실패하면 `build`가 실패해 게시가 차단된다. 검증한 파일을 그대로 게시한다.
+옵션을 끄면 기존 worker·wheel·native-webview 검사는 유지하고, 전체 archive 검사 생략을 실행 요약과 릴리스 노트에 명시한다.
+별도 Desktop acceptance는 버전 변경·게시 없는 사전 점검용이며, 릴리스 전에 반드시 별도로 실행할 필요는 없다.
+`smoke_gui.py`의 검사 페이지·bridge 검증과 `smoke_desktop.py`의 배포 UI 전체 흐름은 서로 다른 검사다.
 
 ## 2. 통과 결과를 해석하는 기준
 
@@ -118,7 +118,8 @@ uv run --locked python -m unittest discover -s tests -v
 ### native 검증까지 넓혀야 할 때
 
 GUI·bridge·worker lifecycle·파일 경로·의존성·Python·빌드 도구·배포 리소스를 바꾸거나,
-릴리스 후보를 정했다면 지원 세 OS에서 Desktop acceptance를 실행한다.
+릴리스 후보를 정했다면 지원 세 OS의 전체 archive 검사를 실행한다. 배포 없이 검사할 때는 Desktop acceptance,
+배포할 때는 Release UARC의 `desktop_acceptance` 옵션을 사용한다.
 특정 기능의 OS 전용 검사는 그 OS에서 실행해야 완료로 판단한다.
 GPU·installer 변경은 아래의 별도 검증 한계도 확인한다.
 
@@ -163,9 +164,8 @@ UI 기능을 검사할 때 저장·실행 bridge를 직접 호출해 실제 버�
 | -------- | --------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | 1        | `pull_request`와 기본 브랜치 `push`용 빠른 CI | locked 설치, Ruff lint·format, Biome·TypeScript, 양쪽 테스트, frontend format·build가 자동 실행되고 실패가 보임 |
 | 1        | 두 기존 workflow의 frontend format 검사       | `format:check`를 source 검사에 포함하고 workflow 및 외부 JS 검사 파일도 별도로 포맷 확인                        |
-| 1        | 릴리스의 최종 archive acceptance              | archive 생성 직후 그 파일을 `smoke_desktop.py`로 검사하고, 세 OS 모두 통과해야 `publish`가 실행됨               |
 | 2        | 생성 DTO 일치 검사                            | 스키마에서 TS 생성 → formatter → diff 확인; 생성 파일 수동 수정이나 누락을 CI가 거부                            |
-| 2        | 실패 진단 artifact 보존                       | release에서도 실패 시 phase별 로그·보고서·합성 입력을 보존; 민감한 실제 사용자 파일은 포함하지 않음             |
+| 2        | 설치·빌드·기본 smoke의 실패 진단 보강         | 최종 archive의 진단 artifact는 구현됨; 그 이전 단계의 native loader·설치 실패 자료도 필요에 따라 보강           |
 | 2        | 깨끗한 OS의 설치·첫 실행                      | 필요한 runtime이 없는 환경에서 안내·동의·취소·설치 실패와 복구·재실행을 확인하고 OS·archive·SHA-256 기록        |
 | 필요 시  | 성능·대용량 회귀                              | 실제 요구가 생긴 기능에 고정 workload·시간/메모리 예산·허용 변동 폭을 정해 측정                                 |
 
@@ -173,8 +173,8 @@ UI 기능을 검사할 때 저장·실행 bridge를 직접 호출해 실제 버�
 문서 전용 변경에 무거운 native 빌드를 무조건 요구하지 않고, 공통 런타임·의존성·패키징 변경에는
 영향받는 native 경로가 빠지지 않도록 trigger/filter를 검토한다.
 
-릴리스 연동은 별도 acceptance가 통과했다는 문자열만 읽는 방식보다,
-릴리스 workflow가 **배포할 버전으로 한 번 빌드한 파일을 검증하고 그대로 게시하는 구조**로 확장한다.
+릴리스의 최종 archive acceptance와 해당 진단 artifact 보존은 구현되어 1절에 반영했다.
+릴리스 workflow는 **배포할 버전으로 한 번 빌드한 파일을 검증하고 그대로 게시하는 구조**를 유지한다.
 검증 뒤 다시 빌드하면 다른 파일이 생길 수 있다. job 사이에는 같은 artifact를 전달하고 그 출처를 확인한다.
 관련 원리는 [GitHub의 workflow artifact 문서](https://docs.github.com/en/actions/tutorials/store-and-share-data)를 참고한다.
 
@@ -186,23 +186,23 @@ PR용 검증에는 게시 권한·비밀값을 넘기지 않는다. 기존의 Ac
 
 ### 지금 적용할 운영 절차
 
-1. 관련 회귀·기본 검사를 통과시킨 변경을 커밋·푸시한다. 지원 범위, 저장 호환성, 의존성·설치 조건이 바뀌면 문서도 갱신한다.
-2. **Desktop acceptance → 새 Run workflow**를 실행하고 선택한 브랜치의 실제 커밋 SHA를 기록한다.
-3. 지원 세 OS의 CLI·graphics·first·reopen 결과와 정상 종료를 확인한다. 누락·실패·미실행을 통과로 처리하지 않는다.
-4. 실패를 고쳤으면 새 커밋으로 다시 시작한다. 수정 후에도 예전 실행의 재시도만 누르면 원래 SHA를 사용한다.
-   이 동작은 [GitHub 재실행 문서](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/re-run-workflows-and-jobs)에 명시되어 있다.
-5. [RELEASE_NOTES.md](RELEASE_NOTES.md)에 변경 내용·호환성·지원 범위·검증 한계를 반영한다.
-6. 검증한 소스의 릴리스를 **Release UARC → Run workflow**로 시작한다. `bump` 또는 명시적 버전,
-   pre-release 여부를 정한다. `publish_pypi`는 Trusted Publisher 준비와 배포 의도가 있을 때 선택한다.
-7. `prepare` → 세 native `build` → `publish` 결과를 확인한다. 준비된 버전은 manifests·lockfile에 반영되어
-   검사 후 커밋·태그가 생성된다. 실제 release 입력 SHA와 만들어진 release commit SHA를 함께 기록한다.
-8. 게시된 세 native archive·wheel·sdist와 `SHA256SUMS.txt`가 맞는지 확인한다. PyPI를 선택했다면 그 job의 결과도 별도로 확인한다.
-9. 게시된 파일을 내려받은 깨끗한 대상 환경에서 설치·실행·저장·정상 종료·재실행 결과를 확인하고 기록한다.
+1. 관련 회귀·기본 검사를 통과시키고 [RELEASE_NOTES.md](RELEASE_NOTES.md)에 변경 내용·호환성·지원 범위·검증 한계를 반영한 뒤 커밋·푸시한다.
+2. 배포 없이 사전 점검하려면 **Desktop acceptance → 새 Run workflow**를 선택한다. 이 단계는 선택 사항이며 버전·태그를 만들지 않는다.
+3. 릴리스할 때는 **Release UARC → Run workflow**에서 입력 SHA를 확인하고 `bump` 또는 명시적 버전,
+   pre-release 여부를 정한다. **`desktop_acceptance`는 기본값인 켜짐으로 둔다.**
+   `publish_pypi`는 Trusted Publisher 준비와 배포 의도가 있을 때 선택한다.
+4. `prepare` → 세 native `build` → `publish` 결과를 확인한다. 각 native job은 릴리스 버전으로 빌드·압축한
+   바로 그 archive를 검사한다. 세 OS 중 하나라도 실패하면 게시가 차단된다.
+5. CLI·graphics·first·reopen 보고서, 정상 종료와 저장 결과를 확인한다. 누락·실패·미실행을 통과로 처리하지 않는다.
+   옵션을 껐다면 full archive 검사는 생략이며, 실행 요약과 릴리스 노트에도 생략으로 표시되어야 한다.
+6. 검사 후 버전 커밋·태그가 생성된다. 실제 release 입력 SHA와 만들어진 release commit SHA를 함께 기록한다.
+7. 게시된 세 native archive·wheel·sdist와 `SHA256SUMS.txt`가 맞는지 확인한다. PyPI를 선택했다면 그 job의 결과도 별도로 확인한다.
+8. 게시된 파일을 내려받은 깨끗한 대상 환경에서 설치·실행·저장·정상 종료·재실행 결과를 확인하고 기록한다.
    runner에 이미 설치된 WebView2·Qt 시스템 라이브러리 등이 사용자 환경에도 있다고 가정하지 않는다.
 
-acceptance 이후 소스가 바뀌었다면 바뀐 SHA를 다시 검증한다.
-현재 release는 버전 준비 후 다시 빌드하므로, 앞선 acceptance 성공만으로 릴리스 파일 자체의 전체 UI 검증을 대신할 수 없다.
-최종 archive의 자동 게시 차단은 위 개선 항목이 구현되기 전까지 남아 있는 차이다.
+실패를 수정하거나 사전 점검 이후 소스가 바뀌면 새 커밋으로 시작한다. 예전 실행의 재시도는 원래 SHA를 사용한다.
+이 동작은 [GitHub 재실행 문서](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/re-run-workflows-and-jobs)에 명시되어 있다.
+앞선 별도 acceptance의 통과 여부와 관계없이 릴리스는 선택된 옵션에 따라 이번 배포 파일을 직접 검증한다.
 
 ### 게시 실패와 재시도
 
