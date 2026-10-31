@@ -1108,3 +1108,42 @@ the separate live-AWS verification above. Screenshots and probe reports are in
 
 All 58 frontend tests, Biome/TypeScript, Prettier and the production build passed.
 Desktop acceptance now opens the disclosure when checking terrain/result captions.
+
+## Local application and solver diagnostics (2026-11-01)
+
+The full backend suite ran 235 tests successfully, with five Windows-native GUI
+tests skipped on Linux. All 62 frontend tests, Biome/TypeScript, the production
+build, formatting of the added frontend files, Ruff lint/format, and workflow
+YAML/shell syntax checks passed. The diagnostics tests cover rotation/reopen,
+hook cleanup, bounded/redacted frontend reports, IPC signature preservation,
+thread/host failures, and Python warnings plus Python/native/C-buffered output
+from successful and failing workers. A timeout regression also requires app and
+solver files to survive the smoke harness's cleanup when `--output` is supplied.
+
+A fresh Linux PyInstaller bundle passed actual worker/file checks, including a
+deliberate solver failure with both `error.json` and `solver.log`. The wheel and
+sdist passed offline installation, native GDAL/NetCDF4 operations, spawned
+flight/history with persisted logs, and identical offline sdist rebuild. The
+native Qt GUI/bridge/save smoke also passed with preserved `uarc.log`.
+
+The final Linux release archive passed extraction into a Korean/space path,
+CLI/file operations, WebGL pixel readback, shipping-UI error collection, edited
+design save/load, 3D simulation/results, normal exit and unchanged results after
+relaunch. The diagnostics phase recorded `error`, `unhandledrejection` and
+`renderer` reports and an IPC validation failure. Normal first/reopen data kept
+its solver log and appended both desktop lifecycles to the app log.
+Graphics used Mesa llvmpipe under Xvfb. In this Qt runtime, Promise rejections
+created by native `runJavaScript()` appeared only in the console; a page-owned
+script produced the real `unhandledrejection` event and durable report. The
+acceptance fixture uses that page context.
+
+Local evidence is in `/tmp/uarc-logging-desktop-passed-20261101/`,
+`/tmp/uarc-logging-bundle-checks-20261101/`,
+`/tmp/uarc-logging-python-checks-20261101/`, and
+`/tmp/uarc-logging-gui-checks-20261101/`. The suite logs are
+`/tmp/uarc-logging-tests-passed-20261101.log` and
+`/tmp/uarc-logging-frontend-tests-20261101.log`.
+GitHub-hosted workflow execution, Windows/macOS runtime behavior and fresh online
+dependency resolution were not exercised in this local run. The release and
+standalone acceptance workflows now run the diagnostics regressions on each of
+their three native targets and retain the diagnostic artifacts on failure.

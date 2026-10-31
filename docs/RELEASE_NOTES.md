@@ -1,5 +1,11 @@
 Portable desktop builds for Windows x64, Linux x64 and macOS Apple Silicon.
 
+Local diagnostics now preserve rotating `uarc.log` application/IPC/UI errors and
+per-run `solver.log` Python/native numerical output, including successful runs.
+React crashes show a recovery message. Logs stay in the application data directory;
+no remote telemetry is sent. Release and desktop acceptance verify persistence and
+retain diagnostic artifacts on failure. Existing input/result formats are unchanged.
+
 | Download | Architecture | Launch after extracting the entire archive |
 | --- | --- | --- |
 | `windows-x86_64.zip` | Windows x64 | `UARC/UARC.exe` |

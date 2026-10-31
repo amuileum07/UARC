@@ -115,7 +115,16 @@ jobs:
         working-directory: backend
         run: |
           uv run --locked python scripts/build_python.py
-          uv run --locked python scripts/smoke_python.py ../dist/python
+          uv run --locked python scripts/smoke_python.py ../dist/python --output ../dist/python-checks
+      - name: Preserve Python package diagnostics
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-python-diagnostics
+          path: dist/python-checks/
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 7
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-version-files
@@ -191,6 +200,7 @@ jobs:
           uv run --locked python -m unittest discover -s tests -p test_desktop_acceptance.py -v
           uv run --locked python -m unittest discover -s tests -p test_gui_portability.py -v
           uv run --locked python -m unittest discover -s tests -p test_desktop_runtime.py -k WebviewURLTests -v
+          uv run --locked python -m unittest discover -s tests -p test_logging.py -v
       - name: Install Linux webview test libraries
         if: runner.os == 'Linux'
         run: |
@@ -229,25 +239,34 @@ jobs:
         run: uv run --locked --with pyinstaller==6.14.2 python scripts/build_desktop.py --output ../dist/desktop
       - name: Verify frozen worker and file operations
         working-directory: backend
-        run: uv run --locked python scripts/smoke_bundle.py ../dist/desktop/UARC/${{ matrix.executable }}
+        run: uv run --locked python scripts/smoke_bundle.py ../dist/desktop/UARC/${{ matrix.executable }} --output ../dist/native-checks/bundle
       - name: Verify fresh Python package installation and native libraries
         working-directory: backend
         shell: bash
         run: |
           if [ "$RUNNER_OS" = Linux ]; then
-            xvfb-run --auto-servernum uv run --locked python scripts/smoke_python.py ../dist/python --fresh --gui
+            xvfb-run --auto-servernum uv run --locked python scripts/smoke_python.py ../dist/python --fresh --gui --output ../dist/native-checks/python
           else
-            uv run --locked python scripts/smoke_python.py ../dist/python --fresh --gui
+            uv run --locked python scripts/smoke_python.py ../dist/python --fresh --gui --output ../dist/native-checks/python
           fi
       - name: Verify frozen native webview and Python bridge
         working-directory: backend
         shell: bash
         run: |
           if [ "$RUNNER_OS" = Linux ]; then
-            xvfb-run --auto-servernum uv run --locked python scripts/smoke_gui.py "$GITHUB_WORKSPACE/dist/desktop/UARC/${{ matrix.executable }}"
+            xvfb-run --auto-servernum uv run --locked python scripts/smoke_gui.py --output ../dist/native-checks/gui "$GITHUB_WORKSPACE/dist/desktop/UARC/${{ matrix.executable }}"
           else
-            uv run --locked python scripts/smoke_gui.py "$GITHUB_WORKSPACE/dist/desktop/UARC/${{ matrix.executable }}"
+            uv run --locked python scripts/smoke_gui.py --output ../dist/native-checks/gui "$GITHUB_WORKSPACE/dist/desktop/UARC/${{ matrix.executable }}"
           fi
+      - name: Preserve native and installed-package diagnostics
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-diagnostics-${{ matrix.target }}
+          path: dist/native-checks/
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 7
       - name: Package complete application folder
         shell: bash
         env:

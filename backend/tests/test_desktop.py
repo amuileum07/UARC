@@ -82,6 +82,16 @@ class DesktopBridgeTests(unittest.TestCase):
 
 
 class DesktopLauncherTests(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        data = patch(
+            "app.main.default_data_directory",
+            return_value=Path(temporary.name) / "data",
+        )
+        data.start()
+        self.addCleanup(data.stop)
+
     def test_cancelled_setup_exits_before_creating_jobs_or_webview(self):
         with (
             patch("sys.argv", ["uarc", "--dev-url", "http://localhost:5173"]),

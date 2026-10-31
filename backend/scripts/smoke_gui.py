@@ -131,6 +131,9 @@ def stop_desktop(process: subprocess.Popen) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
+        "--output", type=Path, help="Preserve diagnostics in a new directory"
+    )
+    parser.add_argument(
         "command", nargs=argparse.REMAINDER, help="UARC launcher command"
     )
     args = parser.parse_args()
@@ -140,6 +143,9 @@ def main() -> None:
     token = uuid4().hex
     with tempfile.TemporaryDirectory(prefix="uarc gui 한글 ") as temporary:
         root = Path(temporary)
+        if args.output is not None:
+            root = args.output.resolve()
+            root.mkdir(parents=True, exist_ok=False)
         page = root / "검증 page.html"
         page.write_text(PAGE.replace("TOKEN", json.dumps(token)), encoding="utf-8")
         data = root / "data"
@@ -206,6 +212,9 @@ def main() -> None:
             )
             print(message, file=sys.stderr, flush=True)
             raise RuntimeError(message)
+        assert "Bridge completed method=save_design" in (data / "uarc.log").read_text(
+            encoding="utf-8"
+        )
         print(
             "GUI verified: native webview, browser features, bridge preview, saved design."
         )

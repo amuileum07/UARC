@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { previewParts } from "../../lib/geometry";
+import { reportFrontendError } from "../../lib/diagnostics";
 import type { DesignReport, RocketDesign } from "../../lib/types";
 import { createWebGL2Canvas } from "../../lib/webgl";
 const colors = { body: "#bcbcbc", fin: "#888888", internal: "#dddddd" };
@@ -57,6 +58,7 @@ export function Rocket3D({
         alpha: true,
       });
     } catch (error) {
+      reportFrontendError("renderer", error, "Rocket3D initialization");
       context?.getExtension("WEBGL_lose_context")?.loseContext();
       callbacks.current.fallback(String(error));
       return;

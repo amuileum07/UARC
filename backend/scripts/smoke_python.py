@@ -65,6 +65,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("directory", type=Path)
     parser.add_argument(
+        "--output", type=Path, help="Preserve runtime diagnostics in a new directory"
+    )
+    parser.add_argument(
         "--fresh",
         action="store_true",
         help="Resolve wheel dependencies online in a new isolated virtual environment",
@@ -82,8 +85,13 @@ def main() -> None:
     if len(wheels) != 1 or len(sources) != 1:
         parser.error("Expected one wheel and one sdist.")
     wheel, source = wheels[0].resolve(strict=True), sources[0].resolve(strict=True)
+    output = None
+    if args.output is not None:
+        output = args.output.resolve()
+        output.mkdir(parents=True, exist_ok=False)
     with tempfile.TemporaryDirectory(prefix="uarc-python-smoke-") as temporary:
         root = Path(temporary)
+        data = (output if output is not None else root) / "data"
         target = root / "installed"
         python = Path(sys.executable)
         environment = dict(
@@ -151,20 +159,26 @@ def main() -> None:
                 details["design"],
                 "--design",
                 "--data-dir",
-                root / "data",
+                data,
             )
         )
         assert flight["summary"]["landed"]
         history = json.loads(
-            run("-m", "app", "--data", "--data-dir", root / "data", "list-runs")
+            run("-m", "app", "--data", "--data-dir", data, "list-runs")
         )
         assert history[0]["state"] == "succeeded"
+        assert "Worker finished" in (data / "uarc.log").read_text(encoding="utf-8")
+        solver_log = (data / "runs" / flight["run_id"] / "solver.log").read_text(
+            encoding="utf-8"
+        )
+        assert "Worker started" in solver_log and "Worker succeeded" in solver_log
         if args.gui:
             launcher = target / ("Scripts/uarc.exe" if os.name == "nt" else "bin/uarc")
             subprocess.run(
                 [
                     sys.executable,
                     str(Path(__file__).with_name("smoke_gui.py")),
+                    *(["--output", str(output / "gui")] if output is not None else []),
                     str(launcher),
                 ],
                 env=environment,

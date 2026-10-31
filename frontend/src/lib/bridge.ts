@@ -40,6 +40,7 @@ export interface ElevationCheck {
   difference_m: number | null;
 }
 interface DesktopApi {
+  report_frontend_error(input: string): Promise<boolean>;
   validate_config(kind: "design", input: string): Promise<RocketDesign>;
   validate_config(kind: ConfigKind, input: string): Promise<JsonObject>;
   get_example_design(): Promise<RocketDesign>;

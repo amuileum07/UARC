@@ -112,6 +112,7 @@ jobs:
           uv run --locked python -m unittest discover -s tests -p test_desktop_acceptance.py -v
           uv run --locked python -m unittest discover -s tests -p test_gui_portability.py -v
           uv run --locked python -m unittest discover -s tests -p test_desktop_runtime.py -k WebviewURLTests -v
+          uv run --locked python -m unittest discover -s tests -p test_logging.py -v
       - name: Install Linux webview test libraries
         if: runner.os == 'Linux'
         run: |

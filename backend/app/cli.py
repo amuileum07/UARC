@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from app.config import default_data_directory
+from app.logging import application_logging
 from app.schemas import OpenRocketOptions, RocketDesign, TelemetryQuery
 from app.simulation.jobs import JobManager
 from app.storage import MAX_PAYLOAD_BYTES, atomic_json
@@ -54,7 +55,10 @@ def main() -> None:
     args = parser.parse_args()
     try:
         # These commands use the same single-owner data store as the desktop host.
-        with JobManager(args.data_dir) as manager:
+        with (
+            application_logging(args.data_dir, "data"),
+            JobManager(args.data_dir) as manager,
+        ):
             match args.command:
                 case "list-runs":
                     result = manager.list_runs(args.limit, args.offset)

@@ -27,6 +27,7 @@ from app.storage import TERMINAL_STATES, RunStore, read_json
 
 _SPAWN_LOCK = Lock()
 _THREAD_LIMITS = ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS")
+_LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
@@ -125,6 +126,7 @@ class JobManager:
             self._check_capacity()
             run_id = self._store.create(config, design=design, report=report)
             self._pending.append(run_id)
+            _LOGGER.info("Run queued run_id=%s", run_id)
             self._condition.notify_all()
             return self._store.get(run_id)
 
@@ -240,7 +242,9 @@ class JobManager:
                             os.environ[name] = value
             self._running[run_id] = _Running(process, monotonic())
             self._store.update(run_id, "running", stage="starting", pid=process.pid)
+            _LOGGER.info("Worker started run_id=%s pid=%s", run_id, process.pid)
         except Exception as error:
+            _LOGGER.exception("Cannot start worker run_id=%s", run_id)
             if process.pid is not None:
                 process.terminate()
                 process.join(2)
@@ -287,6 +291,17 @@ class JobManager:
                 self._store.update(
                     run_id, state, error=error, peak_rss_bytes=running.peak_rss_bytes
                 )
+                _LOGGER.log(
+                    logging.INFO
+                    if state in {"succeeded", "cancelled"}
+                    else logging.ERROR,
+                    "Worker finished run_id=%s pid=%s state=%s exitcode=%s error=%s",
+                    run_id,
+                    process.pid,
+                    state,
+                    process.exitcode,
+                    error,
+                )
                 process.close()
                 del self._running[run_id]
                 continue
@@ -301,6 +316,13 @@ class JobManager:
                     running.stop_error = "Worker exceeded the RSS memory limit."
             if running.stop_state is not None:
                 if running.stopped_at is None:
+                    _LOGGER.warning(
+                        "Stopping worker run_id=%s pid=%s state=%s reason=%s",
+                        run_id,
+                        process.pid,
+                        running.stop_state,
+                        running.stop_error,
+                    )
                     self._store.update(run_id, "cancelling", error=running.stop_error)
                     process.terminate()
                     running.stopped_at = now
@@ -329,7 +351,7 @@ class JobManager:
                         return
                     self._condition.wait(0.1)
         except Exception as error:
-            logging.exception("Simulation supervisor failed")
+            _LOGGER.exception("Simulation supervisor failed")
             with self._condition:
                 self._fatal = error
                 self._closing = True
@@ -347,7 +369,7 @@ class JobManager:
                             peak_rss_bytes=running.peak_rss_bytes,
                         )
                     except sqlite3.Error:
-                        logging.exception("Cannot persist failed run %s", run_id)
+                        _LOGGER.exception("Cannot persist failed run %s", run_id)
                 self._running.clear()
                 while self._pending:
                     run_id = self._pending.popleft()
@@ -358,7 +380,7 @@ class JobManager:
                             error="Supervisor failed before execution.",
                         )
                     except sqlite3.Error:
-                        logging.exception("Cannot persist queued run %s", run_id)
+                        _LOGGER.exception("Cannot persist queued run %s", run_id)
 
     def close(self) -> None:
         with self._condition:

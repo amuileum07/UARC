@@ -82,7 +82,12 @@ def run_ui(executable: Path, output: Path, scenario: dict) -> dict:
     report = output / f"{phase}.json"
     source = (
         Path(__file__)
-        .with_name("probe_webgl.js" if phase == "graphics" else "desktop_check.js")
+        .with_name(
+            {
+                "graphics": "probe_webgl.js",
+                "diagnostics": "diagnostics_check.js",
+            }.get(phase, "desktop_check.js")
+        )
         .read_text(encoding="utf-8")
     )
     script.write_text(
@@ -100,7 +105,14 @@ def run_ui(executable: Path, output: Path, scenario: dict) -> dict:
     command = [
         str(executable),
         "--data-dir",
-        str(output / ("graphics-data" if phase == "graphics" else "사용자 데이터")),
+        str(
+            output
+            / (
+                f"{phase}-data"
+                if phase in {"graphics", "diagnostics"}
+                else "사용자 데이터"
+            )
+        ),
         "--check-ui",
         str(output / "design.json"),
         str(script),
@@ -164,6 +176,8 @@ def main() -> None:
                     sys.executable,
                     str(Path(__file__).with_name("smoke_bundle.py")),
                     str(executable),
+                    "--output",
+                    str(output / "bundle-checks"),
                 ],
                 stdout=log,
                 stderr=log,
@@ -173,6 +187,20 @@ def main() -> None:
         design = local_design(executable.parent)
         (output / "design.json").write_text(json.dumps(design), encoding="utf-8")
         run_ui(executable, output, {"phase": "graphics"})
+        run_ui(executable, output, {"phase": "diagnostics"})
+        diagnostics = (output / "diagnostics-data/uarc.log").read_text(encoding="utf-8")
+        for marker in (
+            "UARC diagnostic probe window",
+            "UARC diagnostic probe rejection",
+            "WebGL context lost",
+            "Bridge failed method=validate_config",
+            "Application started component=desktop",
+            "Application stopped component=desktop",
+        ):
+            if marker not in diagnostics:
+                raise RuntimeError(
+                    f"Missing persisted frontend/IPC diagnostic: {marker}"
+                )
         name = f"CI 한글 설계 {uuid4().hex[:12]}"
         first = run_ui(executable, output, {"phase": "first", "name": name})
         reopened = run_ui(
@@ -185,8 +213,19 @@ def main() -> None:
             or first["summary"] != reopened["summary"]
         ):
             raise RuntimeError("Reopened result differs from the original simulation.")
+        data = output / "사용자 데이터"
+        log = (data / "uarc.log").read_text(encoding="utf-8")
+        if log.count("Application stopped component=desktop") < 2:
+            raise RuntimeError("Application log did not survive normal relaunch.")
+        solver = (data / "runs" / first["run_id"] / "solver.log").read_text(
+            encoding="utf-8"
+        )
+        if "Worker started" not in solver or "Worker succeeded" not in solver:
+            raise RuntimeError(
+                "Successful simulation has no durable solver diagnostics."
+            )
     print(
-        "Desktop archive verified: relocated CLI, actual UI, 3D, normal exit, persisted design/result."
+        "Desktop archive verified: relocated CLI, actual UI, 3D, normal exit, persisted design/result and diagnostics."
     )
 
 

@@ -1,7 +1,7 @@
 # 기능 확장과 CI·릴리스 검증 가이드
 
 기능을 추가하거나 수정할 때 어떤 검증을 확장하고, 어떤 결과가 있어야 배포할 수 있는지 정한다.
-2026-10-30의 저장소 구성을 기준으로 작성했다. **현재 구현된 검사와 앞으로 추가할 검사를 구분한다.**
+2026-11-01의 저장소 구성을 기준으로 작성했다. **현재 구현된 검사와 앞으로 추가할 검사를 구분한다.**
 이 문서를 추가한 것만으로 워크플로가 바뀌지는 않는다.
 
 공식 지원 대상은 **Windows x64, Linux x64, macOS Apple Silicon(arm64)**이다.
@@ -31,6 +31,14 @@ Intel Mac은 지원 대상에서 제외되어 있다. 지원 범위와 검증 �
 옵션을 끄면 기존 worker·wheel·native-webview 검사는 유지하고, 전체 archive 검사 생략을 실행 요약과 릴리스 노트에 명시한다.
 별도 Desktop acceptance는 버전 변경·게시 없는 사전 점검용이며, 릴리스 전에 반드시 별도로 실행할 필요는 없다.
 `smoke_gui.py`의 검사 페이지·bridge 검증과 `smoke_desktop.py`의 배포 UI 전체 흐름은 서로 다른 검사다.
+
+통합 로그와 실행별 솔버 로그도 검증한다. 두 workflow의 native job은 `test_logging.py`로
+경고·Python/native stdout/stderr·실패 트레이스·로그 회전·IPC 시그니처·UI 보고 제한을 검사한다.
+최종 archive 검사는 실제 배포 UI의 전역 오류·처리되지 않은 Promise·WebGL 오류와 IPC 실패를
+격리된 진단 시나리오로 발생시키고, `uarc.log` 영속성 및 재실행 후 append와 `solver.log`를 확인한다.
+릴리스의 기본 frozen/wheel/GUI 검사도 `--output`으로 자료를 보존하며 `always()` 아티팩트로 업로드한다.
+이 자료는 게시 파일용 `desktop-*` 패턴에 포함되지 않는다. 경로·보존량은 [PACKAGING.md](PACKAGING.md)의
+Local post-mortem diagnostics 절을 따른다.
 
 ## 2. 통과 결과를 해석하는 기준
 
@@ -165,7 +173,7 @@ UI 기능을 검사할 때 저장·실행 bridge를 직접 호출해 실제 버�
 | 1        | `pull_request`와 기본 브랜치 `push`용 빠른 CI | locked 설치, Ruff lint·format, Biome·TypeScript, 양쪽 테스트, frontend format·build가 자동 실행되고 실패가 보임 |
 | 1        | 두 기존 workflow의 frontend format 검사       | `format:check`를 source 검사에 포함하고 workflow 및 외부 JS 검사 파일도 별도로 포맷 확인                        |
 | 2        | 생성 DTO 일치 검사                            | 스키마에서 TS 생성 → formatter → diff 확인; 생성 파일 수동 수정이나 누락을 CI가 거부                            |
-| 2        | 설치·빌드·기본 smoke의 실패 진단 보강         | 최종 archive의 진단 artifact는 구현됨; 그 이전 단계의 native loader·설치 실패 자료도 필요에 따라 보강           |
+| 2        | 설치·빌드 단계의 실패 진단 보강               | 기본 frozen/wheel/GUI smoke와 최종 archive 로그 보존은 구현됨; 의존성 설치·빌드 도구 자체의 자료는 필요에 따라 보강 |
 | 2        | 깨끗한 OS의 설치·첫 실행                      | 필요한 runtime이 없는 환경에서 안내·동의·취소·설치 실패와 복구·재실행을 확인하고 OS·archive·SHA-256 기록        |
 | 필요 시  | 성능·대용량 회귀                              | 실제 요구가 생긴 기능에 고정 workload·시간/메모리 예산·허용 변동 폭을 정해 측정                                 |
 
@@ -185,6 +193,11 @@ PR용 검증에는 게시 권한·비밀값을 넘기지 않는다. 기존의 Ac
 ## 7. 릴리스할 때의 절차
 
 ### 지금 적용할 운영 절차
+
+이번 통합 진단은 새 영속 로그·UI 오류 수집·IPC 메서드를 추가하므로 `bump=minor`를 권장한다
+(`0.1.1` 기준 `0.2.0`). 단순히 기존 로거의 결함만 고치는 변경은 `patch`로 분류할 수 있다.
+근거는 [Semantic Versioning 2.0.0](https://semver.org/)의 호환되는 기능 추가/버그 수정 구분이다.
+현재 `0.x`는 초기 개발 단계이지만 같은 분류를 일관되게 적용한다. 버전 파일과 태그는 배포 workflow에서 준비한다.
 
 1. 관련 회귀·기본 검사를 통과시키고 [RELEASE_NOTES.md](RELEASE_NOTES.md)에 변경 내용·호환성·지원 범위·검증 한계를 반영한 뒤 커밋·푸시한다.
 2. 배포 없이 사전 점검하려면 **Desktop acceptance → 새 Run workflow**를 선택한다. 이 단계는 선택 사항이며 버전·태그를 만들지 않는다.

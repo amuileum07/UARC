@@ -235,6 +235,46 @@ Build on the target OS. A backend bundle passing headless checks does not verify
 actual Qt/WebView rendering, native dialogs, or another operating system's runtime.
 Full desktop acceptance requires the frontend assets and a graphical session.
 
+## Local post-mortem diagnostics
+
+The desktop, simulation CLI and data CLI append UTC, process/thread-tagged records
+to `<data-dir>/uarc.log`. The default data directory follows the OS application
+data location; `--data-dir` overrides it. Rotation keeps a 5 MiB active log and
+three backups. Startup/shutdown, uncaught host/thread failures, bridge calls and
+exceptions, worker lifecycle/limits and supervisor failures share this file.
+Bridge records contain method, call ID, duration and argument types/lengths;
+submitted runs also include their run ID. Full payloads are kept in the existing
+run snapshots instead of being copied to the app log. Credential-shaped fields
+are redacted and Pydantic errors omit rejected input values. Design-only
+`--preview` stays read-only and does not create a data directory.
+
+Each started worker creates `runs/<run_id>/solver.log` without replacing an
+existing file. It captures Python stdout/stderr, emitted warnings, native fd 1/2
+output, supported fatal Python tracebacks, and a success/failure trace alongside
+the existing `runtime.json` and `error.json`. Successful runs keep the same log.
+Native C output is flushed at normal exit; termination/power loss can still lose
+library-buffered output. Each solver log is retained with its run and is not
+rotated. Diagnostics do not change solver tolerances or promote warnings to errors.
+
+The shipping UI forwards global errors, unhandled rejections, React boundary/root
+errors, WebGL context loss, and handled Three.js/Cesium initialization/render
+failures through the validated `report_frontend_error` bridge. Reports are bounded
+to 32 KiB, with a 20-report startup queue and a backend limit of 60 reports/minute.
+No remote telemetry is sent. A broken diagnostics bridge does not recursively
+report itself. A React crash shows an accessible recovery message.
+
+Release verification checks these files in both frozen and installed-wheel
+executions. `smoke_bundle.py`, `smoke_gui.py` (before its launcher argument), and
+`smoke_python.py` accept `--output <new-directory>` to retain application data
+after failures. Release CI uploads `release-python-diagnostics` and
+`release-diagnostics-<target>` with `always()`, including when full archive
+acceptance is disabled. These names stay outside the published `desktop-*`
+artifacts. Final archive acceptance additionally injects known frontend errors
+and an IPC validation failure in an isolated `diagnostics-data` directory, then
+requires their persisted logs, successful solver logs and append across relaunch.
+Its existing `release-acceptance-<target>` / `acceptance-<target>` artifacts include
+the preserved CLI, app and solver data. Retention is seven days.
+
 ## Final archive and actual UI acceptance
 
 [Desktop acceptance](../.github/workflows/desktop-acceptance.yml) is a separate,

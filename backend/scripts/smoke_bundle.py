@@ -66,6 +66,9 @@ def forecast_design(design: Path, source: Path) -> dict:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("executable", type=Path)
+    parser.add_argument(
+        "--output", type=Path, help="Preserve diagnostics in a new directory"
+    )
     args = parser.parse_args()
     executable = args.executable.resolve(strict=True)
     root = Path(__file__).resolve().parents[2]
@@ -76,9 +79,12 @@ def main() -> None:
     environment.pop("PYTHONHOME", None)
     with tempfile.TemporaryDirectory(prefix="uarc-bundle-smoke-") as temporary:
         directory = Path(temporary)
+        if args.output is not None:
+            directory = args.output.resolve()
+            directory.mkdir(parents=True, exist_ok=False)
         data = directory / "data"
 
-        def run(*arguments):
+        def run(*arguments, expected_code=0):
             print(f"Bundle running: {' '.join(map(str, arguments))}", flush=True)
             try:
                 result = subprocess.run(
@@ -105,15 +111,27 @@ def main() -> None:
                             f"{path.relative_to(data)}: "
                             + path.read_text(encoding="utf-8", errors="replace")[-4000:]
                         )
+                for path in [data / "uarc.log", *data.glob("runs/*/solver.log")]:
+                    if path.is_file():
+                        with path.open("rb") as stream:
+                            stream.seek(max(0, path.stat().st_size - 8000))
+                            details.append(
+                                f"{path.name}: "
+                                + stream.read().decode("utf-8", errors="replace")
+                            )
                 raise RuntimeError(
                     f"Bundle command timed out after 60 seconds: {arguments}\n"
                     + "\n".join(details)
                 ) from error
-            if result.returncode:
+            if result.returncode != expected_code:
                 raise RuntimeError(
                     f"Bundle command failed: {arguments}\n{result.stderr}"
                 )
-            return json.loads(result.stdout) if result.stdout.strip() else None
+            return (
+                json.loads(result.stdout)
+                if not result.returncode and result.stdout.strip()
+                else None
+            )
 
         preview = run("--simulate", design, "--design", "--preview")
         assert preview["mass_properties"]["effective"]["mass_kg"] > 0
@@ -121,6 +139,9 @@ def main() -> None:
         run_id = flight["run_id"]
         assert flight["summary"]["landed"]
         assert (data / "runs" / run_id / "complete.json").is_file()
+        solver_log = (data / "runs" / run_id / "solver.log").read_text(encoding="utf-8")
+        assert "Worker started" in solver_log and "Worker succeeded" in solver_log
+        assert run_id in (data / "uarc.log").read_text(encoding="utf-8")
         history = run("--data", "--data-dir", data, "list-runs")
         assert history[0]["state"] == "succeeded"
         assert history[0]["worker_pid"] != os.getpid()
@@ -159,6 +180,26 @@ def main() -> None:
         )
         imported_flight = run("--simulate", converted, "--design", "--data-dir", data)
         assert imported_flight["summary"]["landed"]
+
+        broken = directory / "broken.csv"
+        broken.write_text("time,thrust\n0,broken\n1,broken\n", encoding="utf-8")
+        asset = run("--data", "--data-dir", data, "import-file", broken)
+        invalid = json.loads(design.read_bytes())
+        invalid["motor"]["thrust_source"] = str(data / "inputs" / asset["path"])
+        invalid_path = directory / "broken.json"
+        invalid_path.write_text(json.dumps(invalid), encoding="utf-8")
+        run("--simulate", invalid_path, "--design", "--data-dir", data, expected_code=1)
+        failed = [
+            item
+            for item in run("--data", "--data-dir", data, "list-runs")
+            if item["state"] == "failed"
+        ]
+        assert len(failed) == 1
+        failure_directory = data / "runs" / failed[0]["run_id"]
+        assert (failure_directory / "error.json").is_file()
+        assert "Traceback" in (failure_directory / "solver.log").read_text(
+            encoding="utf-8"
+        )
 
         if sys.platform == "linux":
             dense = json.loads(design.read_bytes())

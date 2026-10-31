@@ -1,9 +1,14 @@
 """Small JSON boundary exposed to the desktop UI through pywebview."""
 
 import json
+import logging
+from functools import wraps
+from inspect import signature
 from pathlib import Path
-from threading import BoundedSemaphore
+from threading import BoundedSemaphore, Lock
+from time import monotonic
 from typing import Literal
+from uuid import uuid4
 
 from pydantic import TypeAdapter
 
@@ -36,6 +41,7 @@ from app.schemas import (
     WeatherRequest,
     WeatherTable,
 )
+from app.schemas.diagnostics import FrontendError
 from app.simulation.jobs import JobManager
 from app.storage import MAX_PAYLOAD_BYTES
 from app.terrain import check_elevation, fetch_terrain
@@ -74,6 +80,57 @@ _RESULT_MODELS = {
 }
 
 
+_LOGGER = logging.getLogger(__name__)
+
+
+def _logged_call(method):
+    call_signature = signature(method)
+
+    @wraps(method)
+    def call(self, *args, **kwargs):
+        call_id = uuid4().hex[:12]
+        started = monotonic()
+        try:
+            # Keep payload contents and file paths out of the application log.
+            parameters = {
+                name: {"type": type(value).__name__, "length": len(value)}
+                if isinstance(value, (str, list, dict))
+                else {"type": type(value).__name__}
+                for name, value in call_signature.bind(
+                    self, *args, **kwargs
+                ).arguments.items()
+                if name != "self"
+            }
+            _LOGGER.info(
+                "Bridge started method=%s call=%s parameters=%s",
+                method.__name__,
+                call_id,
+                json.dumps(parameters),
+            )
+            result = method(self, *args, **kwargs)
+        except Exception:
+            _LOGGER.exception(
+                "Bridge failed method=%s call=%s elapsed_ms=%.1f",
+                method.__name__,
+                call_id,
+                (monotonic() - started) * 1000,
+            )
+            raise
+        run_id = result.get("run_id") if isinstance(result, dict) else None
+        _LOGGER.info(
+            "Bridge completed method=%s call=%s elapsed_ms=%.1f run_id=%s",
+            method.__name__,
+            call_id,
+            (monotonic() - started) * 1000,
+            run_id,
+        )
+        return result
+
+    # pywebview 6.2 uses getfullargspec(), which ignores functools.wraps alone.
+    call.__signature__ = call_signature
+    return call
+
+
 class DesktopBridge:
     """Public methods are exposed as window.pywebview.api methods.
 
@@ -90,6 +147,30 @@ class DesktopBridge:
         self._initial_design = initial_design
         self._preview_slots = BoundedSemaphore(1)
         self._site_slots = BoundedSemaphore(2)
+        self._error_lock = Lock()
+        self._error_window = monotonic()
+        self._error_count = 0
+
+    def report_frontend_error(self, payload_json: str) -> bool:
+        """Accept bounded diagnostics without accepting a destination path."""
+        if not isinstance(payload_json, str) or len(payload_json) > 32_768:
+            raise ValueError("Frontend diagnostic exceeds 32 KiB.")
+        if len(payload_json.encode("utf-8")) > 32_768:
+            raise ValueError("Frontend diagnostic exceeds 32 KiB.")
+        report = FrontendError.model_validate_json(payload_json)
+        with self._error_lock:
+            now = monotonic()
+            if now - self._error_window >= 60:
+                self._error_window, self._error_count = now, 0
+            self._error_count += 1
+            if self._error_count > 60:
+                if self._error_count == 61:
+                    _LOGGER.warning(
+                        "Frontend diagnostics rate limit reached (60/minute)"
+                    )
+                return False
+            _LOGGER.error("Frontend error %s", report.model_dump_json())
+        return True
 
     @staticmethod
     def _check_payload(payload: str) -> None:
@@ -106,6 +187,7 @@ class DesktopBridge:
             raise RuntimeError("Simulation services are not configured.")
         return self._jobs
 
+    @_logged_call
     def validate_config(self, kind: ConfigKind, payload_json: str) -> dict[str, object]:
         """Validate JSON from JS without relaxing strict Python DTO validation.
 
@@ -120,18 +202,21 @@ class DesktopBridge:
         config = adapter.validate_json(payload_json)
         return json.loads(config.model_dump_json())
 
+    @_logged_call
     def get_config_schema(self, kind: ConfigKind) -> dict:
         try:
             return _CONFIG_ADAPTERS[kind].json_schema()
         except KeyError as error:
             raise ValueError(f"Unknown configuration kind: {kind}") from error
 
+    @_logged_call
     def get_result_schema(self, kind: str) -> dict:
         try:
             return _RESULT_MODELS[kind].model_json_schema()
         except KeyError as error:
             raise ValueError(f"Unknown result kind: {kind}") from error
 
+    @_logged_call
     def get_example_design(self) -> dict:
         """Bundled starting design with terrain-following enabled for the editor."""
         if self._initial_design is not None:
@@ -142,11 +227,13 @@ class DesktopBridge:
         design.environment.elevation_mode = "terrain"
         return design.model_dump(mode="json")
 
+    @_logged_call
     def get_material_catalog(self) -> dict:
         from app.materials import material_catalog
 
         return material_catalog()
 
+    @_logged_call
     def open_material_reference(self, reference_id: str) -> bool:
         from app.materials import material_catalog
 
@@ -157,6 +244,7 @@ class DesktopBridge:
             raise RuntimeError("기본 브라우저에서 자료를 열 수 없습니다.")
         return True
 
+    @_logged_call
     def get_terrain(self, payload_json: str) -> dict:
         self._check_payload(payload_json)
         request = TerrainRequest.model_validate_json(payload_json)
@@ -169,6 +257,7 @@ class DesktopBridge:
         finally:
             self._site_slots.release()
 
+    @_logged_call
     def open_terrain_portal(self, provider: str) -> bool:
         from app.terrain_sources import PORTALS
 
@@ -180,6 +269,7 @@ class DesktopBridge:
             )
         return True
 
+    @_logged_call
     def select_terrain_file(self, payload_json: str) -> dict | None:
         """Read only a native-dialog-authorized raster; freeze the sampled window."""
         import webview
@@ -202,10 +292,12 @@ class DesktopBridge:
         finally:
             self._site_slots.release()
 
+    @_logged_call
     def check_elevation(self, payload_json: str) -> dict:
         self._check_payload(payload_json)
         return check_elevation(EnvironmentConfig.model_validate_json(payload_json))
 
+    @_logged_call
     def search_locations(self, payload_json: str) -> list[dict]:
         self._check_payload(payload_json)
         request = LocationSearch.model_validate_json(payload_json)
@@ -218,6 +310,7 @@ class DesktopBridge:
         finally:
             self._site_slots.release()
 
+    @_logged_call
     def get_weather(self, payload_json: str) -> dict:
         self._check_payload(payload_json)
         request = WeatherRequest.model_validate_json(payload_json)
@@ -230,6 +323,7 @@ class DesktopBridge:
         finally:
             self._site_slots.release()
 
+    @_logged_call
     def preview_weather_file(self, asset_path: str, sheet: str | None = None) -> dict:
         if sheet is not None and (not isinstance(sheet, str) or len(sheet) > 128):
             raise ValueError("Invalid sheet name.")
@@ -240,6 +334,7 @@ class DesktopBridge:
         finally:
             self._site_slots.release()
 
+    @_logged_call
     def import_weather_file(self, asset_path: str, options_json: str) -> dict:
         self._check_payload(options_json)
         options = WeatherImportOptions.model_validate_json(options_json)
@@ -250,11 +345,13 @@ class DesktopBridge:
         finally:
             self._site_slots.release()
 
+    @_logged_call
     def submit_simulation(self, payload_json: str) -> dict:
         self._check_payload(payload_json)
         config = SimulationConfig.model_validate_json(payload_json)
         return self._manager().submit(config)
 
+    @_logged_call
     def preview_design(self, payload_json: str) -> dict:
         self._check_payload(payload_json)
         design = RocketDesign.model_validate_json(payload_json)
@@ -271,30 +368,37 @@ class DesktopBridge:
         finally:
             self._preview_slots.release()
 
+    @_logged_call
     def submit_design(self, payload_json: str) -> dict:
         self._check_payload(payload_json)
         return self._manager().submit_design(
             RocketDesign.model_validate_json(payload_json)
         )
 
+    @_logged_call
     def get_design(self, run_id: str) -> dict:
         return self._manager().get_design(run_id)
 
+    @_logged_call
     def get_design_report(self, run_id: str) -> dict:
         return self._manager().get_design_report(run_id)
 
+    @_logged_call
     def save_design(self, payload_json: str) -> dict:
         self._check_payload(payload_json)
         return self._manager().save_design(
             RocketDesign.model_validate_json(payload_json)
         )
 
+    @_logged_call
     def get_saved_design(self, design_id: str) -> dict:
         return self._manager().get_saved_design(design_id)
 
+    @_logged_call
     def list_designs(self, limit: int = 50, offset: int = 0) -> list[dict]:
         return self._manager().list_designs(limit, offset)
 
+    @_logged_call
     def import_design_file(self) -> dict | None:
         import webview
 
@@ -307,6 +411,7 @@ class DesktopBridge:
         )
         return read_design_file(Path(selected[0])) if selected else None
 
+    @_logged_call
     def export_design_file(self, payload_json: str) -> str | None:
         import webview
 
@@ -329,6 +434,7 @@ class DesktopBridge:
             else None
         )
 
+    @_logged_call
     def select_input_file(self) -> dict | None:
         """Only a file explicitly selected in the native dialog may enter inputs/."""
         import webview
@@ -338,11 +444,13 @@ class DesktopBridge:
         )
         return self._manager().import_file(Path(selected[0])) if selected else None
 
+    @_logged_call
     def import_openrocket(self, asset_path: str, options_json: str) -> dict:
         self._check_payload(options_json)
         options = OpenRocketOptions.model_validate_json(options_json)
         return self._manager().import_openrocket(asset_path, options)
 
+    @_logged_call
     def export_csv(self, run_id: str) -> str | None:
         """A native save dialog authorizes the destination; existing files survive."""
         import webview
@@ -355,21 +463,27 @@ class DesktopBridge:
             return None
         return str(self._manager().export_csv(run_id, Path(selected[0])))
 
+    @_logged_call
     def rerun(self, run_id: str) -> dict:
         return self._manager().rerun(run_id)
 
+    @_logged_call
     def get_run(self, run_id: str) -> dict:
         return self._manager().get_run(run_id)
 
+    @_logged_call
     def list_runs(self, limit: int = 50, offset: int = 0) -> list[dict]:
         return self._manager().list_runs(limit, offset)
 
+    @_logged_call
     def cancel_run(self, run_id: str) -> dict:
         return self._manager().cancel(run_id)
 
+    @_logged_call
     def get_summary(self, run_id: str) -> dict:
         return self._manager().get_summary(run_id)
 
+    @_logged_call
     def get_telemetry(self, run_id: str, query_json: str = "{}") -> dict:
         self._check_payload(query_json)
         return self._manager().get_telemetry(

@@ -28,6 +28,8 @@ class BundleSmokeTests(unittest.TestCase):
             run_dir.mkdir(parents=True)
             (run_dir / "progress.json").write_text('{"stage":"building"}')
             (run_dir / "runtime.json").write_text('{"python":"test-python"}')
+            (run_dir / "solver.log").write_text("solver diagnostic marker")
+            (run_dir.parent.parent / "uarc.log").write_text("app diagnostic marker")
             raise subprocess.TimeoutExpired(
                 command,
                 60,
@@ -38,12 +40,18 @@ class BundleSmokeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             executable = Path(temporary) / "UARC"
             executable.touch()
+            diagnostics = Path(temporary) / "diagnostics"
             with (
-                patch("sys.argv", ["smoke_bundle.py", str(executable)]),
+                patch(
+                    "sys.argv",
+                    ["smoke_bundle.py", str(executable), "--output", str(diagnostics)],
+                ),
                 patch("subprocess.run", side_effect=run),
                 self.assertRaises(RuntimeError) as failure,
             ):
                 SMOKE["main"]()
+            self.assertTrue((diagnostics / "data/uarc.log").is_file())
+            self.assertTrue((diagnostics / "data/runs/test/solver.log").is_file())
         message = str(failure.exception)
         for expected in (
             "timed out after 60 seconds",
@@ -51,6 +59,8 @@ class BundleSmokeTests(unittest.TestCase):
             "running (starting)",
             '"stage":"building"',
             "test-python",
+            "app diagnostic marker",
+            "solver diagnostic marker",
         ):
             self.assertIn(expected, message)
 

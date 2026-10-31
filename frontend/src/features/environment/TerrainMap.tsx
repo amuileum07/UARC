@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as Cesium from "cesium";
 import { desktopApi } from "../../lib/bridge";
+import { reportFrontendError } from "../../lib/diagnostics";
 import { flightPath, nearestTimeIndex } from "../../lib/geography";
 import { runStateLabels } from "../../lib/telemetry";
 import { webglContextAttributes } from "../../lib/webgl";
@@ -131,6 +132,7 @@ export function TerrainMap() {
       });
     } catch (reason) {
       container.current.replaceChildren();
+      reportFrontendError("renderer", reason, "Cesium initialization");
       setRenderError(
         `지도를 시작할 수 없습니다: ${String(reason)}. 환경 패널의 좌표 입력은 계속 사용할 수 있습니다.`,
       );
@@ -144,8 +146,10 @@ export function TerrainMap() {
     current.scene.globe.depthTestAgainstTerrain = true;
     if (current.scene.skyAtmosphere) current.scene.skyAtmosphere.show = false;
     const removeError = current.scene.renderError.addEventListener(
-      (_scene: Cesium.Scene, reason: unknown) =>
-        setRenderError(`지도 렌더링 실패: ${String(reason)}`),
+      (_scene: Cesium.Scene, reason: unknown) => {
+        reportFrontendError("renderer", reason, "Cesium render");
+        setRenderError(`지도 렌더링 실패: ${String(reason)}`);
+      },
     );
     const removeRendered = current.scene.postRender.addEventListener(() => {
       current.scene.canvas.dataset.rendered = "true";
@@ -192,10 +196,12 @@ export function TerrainMap() {
             grid,
             terrainOffset,
             (reason) => {
-              if (active)
+              if (active) {
+                reportFrontendError("renderer", reason, "AWS terrain streaming");
                 setStreamError(
                   `AWS 주변 지형 표시 실패: ${String(reason)}. 저장된 고도 영역은 유지되며, 가져오지 못한 영역은 기준 타원체로 표시됩니다.`,
                 );
+              }
             },
             () => {
               if (active) setStreamFallback(true);
@@ -205,6 +211,7 @@ export function TerrainMap() {
           ? terrainProvider(grid, terrainOffset)
           : new Cesium.EllipsoidTerrainProvider();
     } catch (reason) {
+      reportFrontendError("renderer", reason, "Cesium terrain provider");
       current.terrainProvider = new Cesium.EllipsoidTerrainProvider();
       setTerrainError(String(reason));
     }

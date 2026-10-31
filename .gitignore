@@ -28,6 +28,7 @@ pnpm-debug.log*
 
 # Runtime simulation data & database
 data/uarc.sqlite3*
+data/uarc.log*
 data/.owner.lock
 data/inputs/
 data/designs/

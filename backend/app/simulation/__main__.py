@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import logging
 import sys
 from multiprocessing import freeze_support
 from pathlib import Path
@@ -9,6 +10,7 @@ from time import sleep
 
 from app.config import default_data_directory
 from app.design import compile_design
+from app.logging import application_logging
 from app.schemas import RocketDesign, SimulationConfig
 from app.simulation.jobs import JobManager
 from app.storage import MAX_PAYLOAD_BYTES, TERMINAL_STATES
@@ -56,6 +58,21 @@ def main() -> None:
                 )
             )
             return
+    except (OSError, ValueError, RuntimeError) as error:
+        parser.error(str(error))
+    try:
+        with application_logging(args.data_dir, "simulation"):
+            _simulate(args, parser, config)
+    except OSError as error:
+        parser.error(str(error))
+
+
+def _simulate(
+    args: argparse.Namespace,
+    parser: argparse.ArgumentParser,
+    config: RocketDesign | SimulationConfig,
+) -> None:
+    try:
         manager = JobManager(
             args.data_dir,
             max_pending=0,
@@ -63,6 +80,7 @@ def main() -> None:
             memory_limit_mb=args.memory_limit_mb if args.memory_limit_mb != 0 else None,
         )
     except (OSError, ValueError, RuntimeError) as error:
+        logging.getLogger(__name__).exception("Simulation setup failed")
         parser.error(str(error))
     with manager:
         try:
@@ -93,6 +111,7 @@ def main() -> None:
         except KeyboardInterrupt:
             parser.exit(130, "Simulation cancelled.\n")
         except (OSError, ValueError, RuntimeError) as error:
+            logging.getLogger(__name__).exception("Simulation command failed")
             parser.exit(1, f"Simulation failed: {error}\n")
 
 

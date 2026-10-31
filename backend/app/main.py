@@ -13,6 +13,7 @@ from app.desktop_runtime import (
     log_webview_document,
     prepare_desktop_runtime,
 )
+from app.logging import application_logging
 from app.windows_runtime import ensure_windows_runtime
 
 
@@ -81,55 +82,54 @@ def main() -> None:
         except (OSError, ValueError, UnicodeError) as error:
             parser.error(str(error))
     try:
-        entry = frontend_entrypoint(dev_url=args.dev_url, frontend=args.frontend)
-    except (ValueError, FileNotFoundError) as error:
-        parser.error(str(error))
+        with application_logging(args.data_dir, "desktop"):
+            entry = frontend_entrypoint(dev_url=args.dev_url, frontend=args.frontend)
+            # Delay GUI imports so --help and input checks also work without a display.
+            if not ensure_windows_runtime():
+                return
+            prepare_desktop_runtime()
 
-    # Delay GUI imports so --help and input checks also work without a display.
-    try:
-        if not ensure_windows_runtime():
-            return
-        prepare_desktop_runtime()
-    except RuntimeError as error:
-        parser.error(str(error))
+            import webview
 
-    import webview
+            from app.bridge import DesktopBridge
+            from app.simulation.jobs import JobManager
 
-    from app.bridge import DesktopBridge
-    from app.simulation.jobs import JobManager
-
-    try:
-        jobs = JobManager(
-            args.data_dir,
-            max_workers=args.workers,
-            max_pending=args.queue_size,
-            timeout_seconds=args.job_timeout,
-            memory_limit_mb=args.memory_limit_mb if args.memory_limit_mb != 0 else None,
-        )
+            jobs = JobManager(
+                args.data_dir,
+                max_workers=args.workers,
+                max_pending=args.queue_size,
+                timeout_seconds=args.job_timeout,
+                memory_limit_mb=(
+                    args.memory_limit_mb if args.memory_limit_mb != 0 else None
+                ),
+            )
+            try:
+                window = webview.create_window(
+                    "UARC",
+                    url=entry,
+                    js_api=DesktopBridge(jobs, initial_design=initial_design),
+                    width=1280,
+                    height=800,
+                )
+                window.events.initialized += encode_webview_url
+                if logging.getLogger("pywebview").isEnabledFor(logging.DEBUG):
+                    window.events.loaded += log_webview_document
+                if check_script is not None:
+                    check_result = attach_ui_check(
+                        window, check_script, args.check_ui[2]
+                    )
+                renderer = {"linux": "qt", "win32": "edgechromium"}.get(sys.platform)
+                webview.start(gui=renderer)
+                logging.getLogger(__name__).info("Native webview event loop stopped")
+            finally:
+                jobs.close()
+            if check_result is not None and check_result.get("ok") is not True:
+                logging.getLogger(__name__).error(
+                    "UI acceptance failed: %s", check_result
+                )
+                parser.exit(1, f"UI acceptance failed: {check_result}\n")
     except (ValueError, OSError, RuntimeError) as error:
         parser.error(str(error))
-    try:
-        window = webview.create_window(
-            "UARC",
-            url=entry,
-            js_api=DesktopBridge(jobs, initial_design=initial_design),
-            width=1280,
-            height=800,
-        )
-        window.events.initialized += encode_webview_url
-        if logging.getLogger("pywebview").isEnabledFor(logging.DEBUG):
-            window.events.loaded += log_webview_document
-        if check_script is not None:
-            check_result = attach_ui_check(window, check_script, args.check_ui[2])
-        renderer = {"linux": "qt", "win32": "edgechromium"}.get(sys.platform)
-        webview.start(gui=renderer)
-        logging.getLogger("pywebview").debug("Native webview event loop stopped")
-    finally:
-        logging.getLogger("pywebview").debug("Closing simulation jobs")
-        jobs.close()
-        logging.getLogger("pywebview").debug("Simulation jobs closed")
-    if check_result is not None and check_result.get("ok") is not True:
-        parser.exit(1, f"UI acceptance failed: {check_result}\n")
 
 
 if __name__ == "__main__":
