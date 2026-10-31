@@ -130,6 +130,10 @@
     const terrain = await canvas(".cesium-widget canvas");
     if (rocket.antialias !== false || terrain.antialias !== false || terrain.msaa_samples !== 1)
       throw Error("A renderer enabled multisampling despite the single-sample configuration");
+    const mapInfo = await wait("map information disclosure", () => document.querySelector(".map-info"));
+    if (mapInfo.open) throw Error("Map information should start collapsed");
+    mapInfo.querySelector("summary").click();
+    await painted();
     await wait("local terrain and saved trajectory", () => [...document.querySelectorAll(".caption")]
       .some((node) => visible(node) && node.textContent.includes("Local CI terrain fixture")) &&
       [...document.querySelectorAll('.caption[role="status"]')].some((node) => visible(node) && node.textContent.includes(`${run.run_id.slice(0, 8)} · 3D 궤적`)));
@@ -138,6 +142,8 @@
     if ((await api.list_runs()).length !== 1) throw Error("Unexpected extra simulation runs");
     const summary = await api.get_summary(run.run_id);
     if (!(summary.max_altitude_agl_m > 0) || !(summary.duration_s > 0) || summary.ground_model !== "terrain") throw Error("Invalid flight result");
+    mapInfo.querySelector("summary").click();
+    await painted();
     return {ok: true, phase: scenario.phase, name: scenario.name, run_id: run.run_id, summary, rocket, terrain};
   } catch (error) {
     return {ok: false, phase: scenario.phase, stage, error: String(error), errors,

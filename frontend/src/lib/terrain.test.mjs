@@ -14,6 +14,8 @@ import { automaticWeatherRequest, weatherRequest } from "./weather.ts";
 import {
   terrainProvider,
   frameMap,
+  terrainBounds,
+  terrainWire,
 } from "../features/environment/mapTerrain.ts";
 import {
   decodeTerrarium,
@@ -30,6 +32,100 @@ const grid = {
     [30, 40],
   ],
 };
+
+test("terrain wire keeps identical lines while allocating only their shared nodes", (t) => {
+  const full = {
+    ...grid,
+    heights: Array.from({ length: 135 }, (_, y) =>
+      Array.from({ length: 135 }, (_, x) => y * 2 + x),
+    ),
+  };
+  const fromDegrees = Cesium.Cartesian3.fromDegrees;
+  const conversions = t.mock.method(Cesium.Cartesian3, "fromDegrees");
+  const lines = terrainWire(full, 5);
+  assert.equal(conversions.mock.callCount(), 4064);
+  assert.equal(new Set(lines.flat()).size, 4064);
+  const reference = full.heights.map((row, y) =>
+    row.map((height, x) =>
+      fromDegrees(
+        full.west + ((full.east - full.west) * x) / 134,
+        full.south + ((full.north - full.south) * y) / 134,
+        height + 6,
+      ),
+    ),
+  );
+  const indices = Array.from({ length: 135 }, (_, i) => i).filter(
+    (i) => i % Math.ceil(134 / 16) === 0 || i === 134,
+  );
+  assert.deepEqual(lines, [
+    ...indices.map((y) => reference[y]),
+    ...indices.map((x) => reference.map((row) => row[x])),
+  ]);
+});
+
+test("terrain camera bounds include interior height extrema without wire generation", () => {
+  const full = {
+    ...grid,
+    heights: [
+      [-20, 1, 2],
+      [3, 900, 4],
+      [5, 6, 7],
+    ],
+  };
+  const bounds = terrainBounds(full, 5);
+  assert.equal(bounds.minimum, -20);
+  assert.equal(bounds.maximum, 900);
+  assert.equal(bounds.points.length, 8);
+  const sphere = Cesium.BoundingSphere.fromPoints(bounds.points);
+  for (let y = 0; y < 3; y++)
+    for (let x = 0; x < 3; x++)
+      assert.ok(
+        Cesium.Cartesian3.distance(
+          sphere.center,
+          Cesium.Cartesian3.fromDegrees(
+            full.west + ((full.east - full.west) * x) / 2,
+            full.south + ((full.north - full.south) * y) / 2,
+            full.heights[y][x] + 6,
+          ),
+        ) <=
+          sphere.radius + 0.0001,
+      );
+  assert.equal(
+    terrainBounds(
+      {
+        ...grid,
+        heights: [
+          [null, null],
+          [null, null],
+        ],
+      },
+      0,
+    ),
+    null,
+  );
+});
+
+test("terrain providers stop adding geometric detail beyond supported source resolution", async () => {
+  const location = Cesium.Cartographic.fromDegrees(20.01, 10.01);
+  for (const provider of [
+    terrainProvider(grid, 0),
+    awsTerrainProvider(grid, 0, assert.fail),
+  ]) {
+    assert.ok(provider.getLevelMaximumGeometricError(17) > 0);
+    for (const level of [18, 19, 30, 31])
+      assert.equal(provider.getLevelMaximumGeometricError(level), 0);
+    for (const level of [17, 18, 19]) {
+      const { x, y } = provider.tilingScheme.positionToTileXY(location, level);
+      const data = await provider.requestTileGeometry(x, y, level);
+      for (const dx of [0, 1])
+        for (const dy of [0, 1])
+          assert.equal(
+            data.isChildAvailable(x, y, x * 2 + dx, y * 2 + dy),
+            level < 18,
+          );
+    }
+  }
+});
 
 test("terrain-following updates height/reference atomically and preserves manual elevations", () => {
   const env = {
@@ -241,6 +337,12 @@ test("map framing faces north with a steep 3D view, correct range, and unlocked 
   viewer.scene.canvas.clientWidth = 250;
   frameMap(viewer, "3D", points, 30);
   assert.equal(calls[9].offset.range, 30 * 2.8 * 2);
+  const seabed = [Cesium.Cartesian3.fromDegrees(0, 0, -4931)];
+  frameMap(viewer, "3D", seabed);
+  assert.ok(
+    -4931 + calls[12].offset.range * -Math.sin(calls[12].offset.pitch) >=
+      750 - 0.0001,
+  );
 });
 
 test("editing geometry or weather preserves unchanged terrain identity without mutating previous designs", () => {
@@ -309,6 +411,11 @@ test("Terrarium decoding keeps submeter and negative real heights and rejects mi
   assert.throws(() => decodeTerrarium(new Uint8ClampedArray(4)), /크기/);
   rgba[3] = 0;
   assert.throws(() => decodeTerrarium(rgba), /결측/);
+  rgba.set([71, 132, 53, 255], 0);
+  assert.throws(() => decodeTerrarium(rgba), {
+    name: "RangeError",
+    message: /유효하지 않은 고도/,
+  });
 });
 
 test("streamed terrain preserves saved calculation heights and samples parent tiles above the source zoom limit", () => {
@@ -346,6 +453,168 @@ test("streamed terrain preserves saved calculation heights and samples parent ti
   const child = awsHeightmap(1, 1, 15, pixels, null, 0);
   assert.equal(child[0], 127.5 * 11);
   assert.equal(child.at(-1), 255 * 11);
+  assert.ok(
+    [...awsHeightmap(point.x, point.y, 14, pixels, frozen, 5, 12)].every(
+      (h) => h === 12,
+    ),
+  );
+});
+
+function terrainImages(t, image) {
+  const original = {
+    document: globalThis.document,
+    createImageBitmap: globalThis.createImageBitmap,
+  };
+  t.after(() => {
+    for (const [key, value] of Object.entries(original)) {
+      if (value === undefined) delete globalThis[key];
+      else globalThis[key] = value;
+    }
+  });
+  const requests = [];
+  let closed = 0;
+  let canvases = 0,
+    clears = 0;
+  t.mock.method(globalThis, "fetch", async (url) => {
+    const key = url.split("/terrarium/")[1].replace(".png", "");
+    requests.push(key);
+    const rgba = image(key);
+    return { ok: true, blob: async () => ({ size: rgba.length, rgba }) };
+  });
+  globalThis.createImageBitmap = async (blob) => ({
+    width: 256,
+    height: 256,
+    rgba: blob.rgba,
+    close: () => closed++,
+  });
+  globalThis.document = {
+    createElement: () => {
+      canvases++;
+      const pixels = new Uint8ClampedArray(256 * 256 * 4);
+      return {
+        getContext: () => ({
+          clearRect: () => {
+            pixels.fill(0);
+            clears++;
+          },
+          drawImage: (bitmap) => {
+            for (let i = 0; i < pixels.length; i += 4)
+              if (bitmap.rgba[i + 3] !== 0)
+                pixels.set(bitmap.rgba.subarray(i, i + 4), i);
+          },
+          getImageData: () => ({ data: pixels }),
+        }),
+      };
+    },
+  };
+  return {
+    requests,
+    closed: () => closed,
+    canvases: () => canvases,
+    clears: () => clears,
+  };
+}
+
+test("concurrent tile decoding reuses one canvas and clears transparent source pixels", async (t) => {
+  const rgba = (height) => {
+    const pixels = new Uint8ClampedArray(256 * 256 * 4);
+    for (let i = 0; i < pixels.length; i += 4)
+      pixels.set([128, height, 0, 255], i);
+    return pixels;
+  };
+  const images = terrainImages(t, (key) => {
+    if (key === "2/2/1") return new Uint8ClampedArray(256 * 256 * 4);
+    return rgba({ "2/0/1": 16, "2/1/1": 32, "1/1/0": 64 }[key]);
+  });
+  const { awsTerrainProvider: freshProvider } = await import(
+    "../features/environment/awsTerrain.ts?shared-canvas"
+  );
+  let fallbacks = 0;
+  const provider = freshProvider(
+    null,
+    0,
+    (reason) => assert.fail(String(reason)),
+    () => fallbacks++,
+  );
+  const tiles = await Promise.all([
+    provider.requestTileGeometry(0, 1, 2),
+    provider.requestTileGeometry(1, 1, 2),
+  ]);
+  const heights = tiles.map((tile, x) => {
+    const bounds = provider.tilingScheme.tileXYToRectangle(x, 1, 2);
+    return tile.interpolateHeight(bounds, bounds.west, bounds.north);
+  });
+  assert.deepEqual(heights, [16, 32]);
+  await provider.requestTileGeometry(2, 1, 2);
+  assert.equal(fallbacks, 1);
+  assert.equal(images.canvases(), 1);
+  assert.equal(images.clears(), 4);
+  assert.equal(images.closed(), 4);
+});
+
+test("invalid AWS display heights use a cached valid parent with correct child sampling", async (t) => {
+  const rgba = new Uint8ClampedArray(256 * 256 * 4);
+  for (let y = 0; y < 256; y++)
+    for (let x = 0; x < 256; x++) {
+      const value = 32768 + y * 10 + x;
+      rgba.set(
+        [Math.floor(value / 256), value % 256, 0, 255],
+        (y * 256 + x) * 4,
+      );
+    }
+  const invalid = rgba.slice();
+  invalid.set([71, 132, 53, 255], 0);
+  const images = terrainImages(t, (key) => {
+    assert.ok(["3/3/3", "2/1/1"].includes(key));
+    return key === "3/3/3" ? invalid : rgba;
+  });
+  let fallbacks = 0;
+  const provider = awsTerrainProvider(
+    null,
+    5,
+    (reason) => assert.fail(String(reason)),
+    () => fallbacks++,
+  );
+  const tile = await provider.requestTileGeometry(3, 3, 3);
+  const bounds = provider.tilingScheme.tileXYToRectangle(3, 3, 3);
+  assert.equal(
+    tile.interpolateHeight(bounds, bounds.west, bounds.north),
+    127.5 * 11 + 5,
+  );
+  assert.equal(
+    tile.interpolateHeight(bounds, bounds.east, bounds.south),
+    255 * 11 + 5,
+  );
+  await provider.requestTileGeometry(3, 3, 3);
+  assert.deepEqual(images.requests, ["3/3/3", "2/1/1"]);
+  assert.equal(images.closed(), 2);
+  assert.equal(fallbacks, 2);
+});
+
+test("AWS network failures retain their cause and retry without requesting parent tiles", async (t) => {
+  const reason = new TypeError("Failed to fetch");
+  const images = terrainImages(t, () => {
+    throw reason;
+  });
+  const errors = [];
+  const provider = awsTerrainProvider(null, 0, (error) => errors.push(error));
+  await provider.requestTileGeometry(7, 7, 4);
+  await provider.requestTileGeometry(7, 7, 4);
+  assert.deepEqual(images.requests, ["4/7/7", "4/7/7"]);
+  assert.deepEqual(errors, [reason, reason]);
+});
+
+test("invalid AWS data stops at the root and reports a data error", async (t) => {
+  const rgba = new Uint8ClampedArray(256 * 256 * 4);
+  for (let i = 3; i < rgba.length; i += 4) rgba[i] = 255;
+  const images = terrainImages(t, () => rgba);
+  const errors = [];
+  const provider = awsTerrainProvider(null, 0, (error) => errors.push(error));
+  await provider.requestTileGeometry(0, 0, 1);
+  assert.deepEqual(images.requests, ["1/0/0", "0/0/0"]);
+  assert.equal(errors.length, 1);
+  assert.ok(errors[0] instanceof RangeError);
+  assert.equal(images.closed(), 2);
 });
 
 test("fully saved tiles render without network and missing calculation cells are rejected", async () => {

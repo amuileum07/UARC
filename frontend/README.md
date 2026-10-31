@@ -277,16 +277,29 @@ displaying a previous run's trajectory; late responses cannot replace a newer
 selection. Plot query filters do not crop the full map trajectory.
 Hidden map panels pause rendering and resize on return. Dense grid lines are off
 by default; **고도 격자** toggles them. The outline marks calculation coverage.
+**지도 정보 · 도움말** starts collapsed; click its summary or use Enter/Space to
+show coordinates, sources, height references and controls. The expanded area is
+height-limited and scrollable. Loading and actionable errors remain visible.
 For AWS, surrounding Terrarium elevation tiles stream into a 65×65 Web Mercator
 heightmap rather than dropping the surface to zero outside a rectangular patch.
 A bounded memory cache holds up to 64 decoded tiles; source zoom is capped at 14
 and higher display levels interpolate those source tiles. Pixel edges are clamped
 and Cesium skirts cover subpixel differences. Saved heights always override display
 tiles inside the calculation grid; fully covered tiles need no network. Surrounding
-tiles are visual context and never extend the solver's saved coverage. Timeouts or
+tiles are visual context and never extend the solver's saved coverage. Invalid
+display pixels use a validated lower-resolution parent tile when available, with
+a visible notice; interpolation uses that parent's actual source level. Network
+failures retain their cause instead of retrying every parent. Timeouts or
 missing tiles show a warning and retain frozen heights, with an ellipsoid fallback
 outside them. Other imported datasets remain bounded/offline; contact calculations
 fail outside their saved coverage.
+Display refinement ends at level 18 (about 2.4 m sample spacing at the equator),
+already finer than the minimum 5 m acquisition spacing. Terminal tiles report
+zero geometric error and no child data. A small pinned Cesium engine patch keeps
+these leaves terminal even at zero camera distance; ordinary `pnpm install`
+applies it. Render failures use the app's error/restart controls. Restart restores
+terrain, imagery and entities, and negative-height initial framing starts above
+the ellipsoid while terrain is loading.
 The Cesium logo is removed using its public credit API; ion services are not used.
 
 Set horizontal and vertical references explicitly before checking elevations.

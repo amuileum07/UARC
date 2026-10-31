@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { flightCoordinates, flightPath } from "./geography.ts";
+import {
+  flightCoordinates,
+  flightPath,
+  nearestTimeIndex,
+} from "./geography.ts";
 
 const site = {
   latitude: 35.55,
@@ -16,6 +20,44 @@ const telemetry = {
     [80, 100, 5, 200],
   ],
 };
+
+test("nearest trajectory time preserves first duplicates and earlier ties", () => {
+  for (const [times, time, expected] of [
+    [[], 0, -1],
+    [[2], -10, 0],
+    [[0, 1, 1, 3], 1, 1],
+    [[0, 1, 1, 3], 1.1, 1],
+    [[0, 1, 1, 3], 2, 1],
+    [[0, 1, 1, 3], 2.1, 3],
+    [[0, 3, 3], 100, 1],
+    [[0, 0], 10, 0],
+    [[0, 1], NaN, -1],
+  ])
+    assert.equal(nearestTimeIndex(times, time), expected);
+  const times = Array.from({ length: 1000 }, (_, i) => Math.floor(i / 3));
+  for (let time = -1; time < 335; time += 0.37) {
+    let expected = 0;
+    for (let i = 1; i < times.length; i++)
+      if (Math.abs(times[i] - time) < Math.abs(times[expected] - time))
+        expected = i;
+    assert.equal(nearestTimeIndex(times, time), expected);
+  }
+});
+
+test("nearest trajectory time reads logarithmically many samples", () => {
+  let reads = 0;
+  const times = new Proxy(
+    Array.from({ length: 65536 }, (_, i) => Math.floor(i / 2)),
+    {
+      get(target, key) {
+        if (/^\d+$/.test(String(key))) reads++;
+        return Reflect.get(target, key);
+      },
+    },
+  );
+  assert.equal(nearestTimeIndex(times, 12345.25), 24690);
+  assert.ok(reads < 40, `Read ${reads} samples`);
+});
 
 test("maps named telemetry columns to absolute 3D heights at the run's frozen site", () => {
   const path = flightPath(telemetry, site);

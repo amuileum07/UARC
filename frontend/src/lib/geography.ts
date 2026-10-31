@@ -1,5 +1,25 @@
 import type { EnvironmentConfig, TelemetryResult } from "./types";
 
+function lowerBoundTime(times: number[], time: number, end = times.length) {
+  let start = 0;
+  while (start < end) {
+    const middle = Math.floor((start + end) / 2);
+    if (times[middle] < time) start = middle + 1;
+    else end = middle;
+  }
+  return start;
+}
+
+/** Sorted finite times from flightPath; ties and duplicates select the first row. */
+export function nearestTimeIndex(times: number[], time: number): number {
+  if (!times.length || !Number.isFinite(time)) return -1;
+  const next = lowerBoundTime(times, time);
+  if (next === 0) return 0;
+  if (next === times.length || time - times[next - 1] <= times[next] - time)
+    return lowerBoundTime(times, times[next - 1], next);
+  return next;
+}
+
 /** Matches app.terrain.coordinates: local flat-earth flight, spherical map placement. */
 export function flightCoordinates(
   latitude: number,

@@ -1021,3 +1021,90 @@ timing-based assertions; checks also cover cache expiry, mutation isolation,
 retry after failure and the existing seam-free synthetic mosaic. Ruff lint and
 format checks passed. The full backend suite completed 230 tests with five
 skipped and no failures.
+
+### Invalid AWS display tiles at the initial site (2026-11-01)
+
+At the initial 0 N, 0 E site, Terrarium tiles `13/4096/4096` and `14/8192/8192`
+returned HTTP 200 with valid CORS headers, but contained heights below the
+existing -12,000 m display validation limit. The level-14 minimum was
+-14,459.79296875 m, with 512 invalid pixels. Python/Pillow and QtWebEngine 6.11.2
+(Chromium 140) decoded the same values. The former catch-all notification called
+this a connection failure, although DNS, HTTPS, image decoding and a separate
+calculation-terrain request succeeded.
+
+Invalid display data now falls back through parent tiles until a valid source is
+found, stopping at level zero. Each cached result includes its actual source
+level so child sampling uses the correct quadrant and scale. Valid frozen grid
+cells continue to override display pixels. The UI labels lower-resolution display
+fallback and preserves the reason of errors that cannot be recovered. Network
+errors do not trigger a sequence of parent downloads.
+
+A live offscreen Qt probe ran the actual bundled provider against AWS. The initial
+level-14 tile fell back through levels 13 and 12 with no errors or out-of-range
+output. Subsequent level-13 and level-15 requests reused cached data. A control
+Ulsan tile used its original level without fallback. A frozen-grid fixture kept
+its original values and applied the 5 m display offset exactly once. This verifies
+network/image/provider processing, not full 3D frame rendering.
+
+All 51 frontend tests, Biome/TypeScript, Prettier and the production build passed.
+Regression checks cover invalid source values, parent quadrant sampling, caching,
+bitmap cleanup, frozen-grid priority, unrecoverable root data and network retries.
+The rebuilt frontend is the default source-checkout entry point used by `uv run`.
+
+### 3D map allocation, refinement and information area (2026-11-01)
+
+Terrain wire generation now converts only nodes on the selected lines and shares
+their intersections. The 135x135 regression fixture needs 4,064 Cartesian objects,
+down from 18,225, with identical line positions. Hidden wire lines allocate none.
+Camera framing uses eight corner/extreme-height bounds instead of flattened wire
+positions, and toggling the wire no longer reframes the camera. Height extrema are
+scanned without flattening the full grid or spreading it into `Math.min/max`.
+
+Terrarium decoding shares one 256x256 Canvas/context. Drawing, reading and decoding
+remain synchronous after image loading, with a clear before every draw so invalid
+transparent cells cannot retain previous tile data. Concurrent-image tests verify
+one Canvas, distinct decoded values, parent fallback and bitmap cleanup. Nearest
+trajectory time now uses binary search, preserving the first duplicate and earlier
+tie; a 65,536-element test requires fewer than 40 array reads. Switching 2D/3D no
+longer replaces an otherwise unchanged terrain provider.
+
+Heightmap latitude conversion was already once per row (65 calls), rather than
+once per cell. Longitude and interpolation coordinates/weights are now computed
+once per column/row. All 48 comparison fixtures matched the prior Float32 output
+exactly across levels 0, 2, 8, 14, 16 and 18, saved-grid presence and offsets.
+A warmed Node CPU-only comparison measured median generation times of about
+0.096 to 0.081 ms without a saved grid, and 0.137 to 0.126 ms with one. These
+synthetic timings exclude fetch, decoding, Qt and GPU work and are not FPS claims.
+
+The reported `undefined.southwest` access matches the installed Cesium engine's
+fixed traversal array for levels 0 through 30. Our custom heightmap providers had
+no terminal level. Both providers now report no child data and zero geometric
+error at level 18 (~2.4 m sample spacing at the equator, finer than minimum 5 m
+acquisitions). A child mask alone still permits upsampling; zero error alone can
+produce `0 / 0` when camera distance is zero. The pinned five-line engine patch
+returns zero screen-space error for such terminal tiles. Its regression test
+executes the actual installed engine calculation at zero and positive distances.
+The patch is registered in the pnpm workspace/lockfile without version changes;
+pnpm 10.33.4 frozen-lockfile validation with `--lockfile-only --offline` passed.
+Negative-height initial framing also starts above the ellipsoid, avoiding camera
+collision adjustments before bathymetry is ready.
+
+Native Qt/WebEngine probes used software WebGL 2 under Xvfb. Near-surface traversal
+reached level 29 before the changes and stayed at 18 after them. A negative-height
+boundary case also stayed at 18 after the zero-distance patch. The original
+`southwest` popup was not reproduced in these probes; the source trace and terminal
+tile checks verify the identified failure path without claiming reproduction of
+the user's exact camera state.
+
+The production UI starts with **지도 정보 · 도움말** collapsed. Its measured height
+was 24 px closed and 134 px open in the test viewport; CSS limits open height to
+180 px or 30% of the panel, with scrolling. Keyboard-focusable native disclosure,
+restored map height, mode changes, wire toggles and recovery from one injected
+render fault passed in the real app. Error/loading notices stay outside the
+disclosure, and Cesium's duplicate error modal is disabled. GUI fixtures used
+synthetic negative elevations and controlled PNG responses; they do not replace
+the separate live-AWS verification above. Screenshots and probe reports are in
+`/tmp/uarc-map-fixes-20261101/`.
+
+All 58 frontend tests, Biome/TypeScript, Prettier and the production build passed.
+Desktop acceptance now opens the disclosure when checking terrain/result captions.

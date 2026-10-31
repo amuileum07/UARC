@@ -1,0 +1,16 @@
+diff --git a/Source/Scene/QuadtreePrimitive.js b/Source/Scene/QuadtreePrimitive.js
+index fa8930c0baa18e9a759dcda61e5e1797e7694314..04dd854a9b02b2065b42448a7b0fc97db5a693bf 100644
+--- a/Source/Scene/QuadtreePrimitive.js
++++ b/Source/Scene/QuadtreePrimitive.js
+@@ -1250,6 +1250,11 @@ function screenSpaceError(primitive, frameState, tile) {
+   const maxGeometricError =
+     primitive._tileProvider.getLevelMaximumGeometricError(tile.level);
+ 
++  // A zero-error leaf stays terminal even inside its bounding volume (0 / 0).
++  if (maxGeometricError === 0) {
++    return 0;
++  }
++
+   const distance = tile._distance;
+   const height = frameState.context.drawingBufferHeight;
+   const sseDenominator = frameState.camera.frustum.sseDenominator;

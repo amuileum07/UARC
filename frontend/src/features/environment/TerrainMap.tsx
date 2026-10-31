@@ -1,12 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as Cesium from "cesium";
 import { desktopApi } from "../../lib/bridge";
-import { flightPath } from "../../lib/geography";
+import { flightPath, nearestTimeIndex } from "../../lib/geography";
 import { runStateLabels } from "../../lib/telemetry";
 import { webglContextAttributes } from "../../lib/webgl";
 import { useWorkspace } from "../../workspace";
 import { awsTerrainProvider } from "./awsTerrain";
-import { frameMap, terrainMaterial, terrainProvider } from "./mapTerrain";
+import {
+  frameMap,
+  terrainBounds,
+  terrainMaterial,
+  terrainProvider,
+  terrainWire,
+} from "./mapTerrain";
 
 export function TerrainMap() {
   const w = useWorkspace();
@@ -20,6 +26,7 @@ export function TerrainMap() {
   const [imageryError, setImageryError] = useState("");
   const [terrainError, setTerrainError] = useState("");
   const [streamError, setStreamError] = useState("");
+  const [streamFallback, setStreamFallback] = useState(false);
   const [showGrid, setShowGrid] = useState(false);
   const [dataError, setDataError] = useState("");
   const [ready, setReady] = useState(false);
@@ -30,14 +37,16 @@ export function TerrainMap() {
   const grid = env.terrain;
   const streamAWS =
     grid?.provider === "aws" || (!grid && w.terrainSource === "aws");
-  const terrainRange = useMemo(() => {
-    const heights = grid?.heights.flat().filter((height) => height !== null);
-    return heights?.length
-      ? `${Math.min(...heights).toFixed(0)}–${Math.max(...heights).toFixed(0)} m`
-      : "";
-  }, [grid]);
+  const hasTerrain = !!grid || streamAWS;
   const terrainOffset =
     grid && grid.reference !== "ellipsoid" ? (env.geoid_undulation_m ?? 0) : 0;
+  const terrainShape = useMemo(
+    () => (grid ? terrainBounds(grid, terrainOffset) : null),
+    [grid, terrainOffset],
+  );
+  const terrainRange = terrainShape
+    ? `${terrainShape.minimum.toFixed(0)}–${terrainShape.maximum.toFixed(0)} m`
+    : "";
   const flightOffset =
     env.elevation_reference === "ellipsoid" ? 0 : (env.geoid_undulation_m ?? 0);
   const launch = useMemo(
@@ -49,34 +58,10 @@ export function TerrainMap() {
       ),
     [env.longitude, env.latitude, env.elevation, flightOffset],
   );
-  const meshLines = useMemo(() => {
-    if (
-      !grid ||
-      grid.heights.some((row) => row.some((height) => height === null))
-    )
-      return [];
-    const rows = grid.heights.length,
-      columns = grid.heights[0].length;
-    const nodes = grid.heights.map((row, y) =>
-      row.map((height, x) =>
-        Cesium.Cartesian3.fromDegrees(
-          grid.west + ((grid.east - grid.west) * x) / (columns - 1),
-          grid.south + ((grid.north - grid.south) * y) / (rows - 1),
-          (height ?? 0) + terrainOffset + 1,
-        ),
-      ),
-    );
-    return [
-      ...nodes.filter(
-        (_, y) => y % Math.ceil((rows - 1) / 16) === 0 || y === rows - 1,
-      ),
-      ...Array.from({ length: columns }, (_, x) => x)
-        .filter(
-          (x) => x % Math.ceil((columns - 1) / 16) === 0 || x === columns - 1,
-        )
-        .map((x) => nodes.map((row) => row[x])),
-    ];
-  }, [grid, terrainOffset]);
+  const meshLines = useMemo(
+    () => (showGrid && grid ? terrainWire(grid, terrainOffset) : []),
+    [grid, terrainOffset, showGrid],
+  );
   const trajectory = useMemo(() => {
     try {
       const path = result
@@ -91,8 +76,8 @@ export function TerrainMap() {
     }
   }, [result]);
   const sitePoints = useMemo(
-    () => [launch, ...meshLines.flat()],
-    [launch, meshLines],
+    () => [launch, ...(terrainShape?.points ?? [])],
+    [launch, terrainShape],
   );
   const allPoints = useMemo(
     () =>
@@ -105,14 +90,10 @@ export function TerrainMap() {
   const minimumRadius = trajectory.points.length > 1 ? 30 : 750;
   const framing = useRef({ mode, points: allPoints, minimumRadius });
   framing.current = { mode, points: allPoints, minimumRadius };
-  const selectedPosition = useMemo(() => {
-    const times = trajectory.times;
-    let index = 0;
-    for (let i = 1; i < times.length; i++)
-      if (Math.abs(times[i] - w.time) < Math.abs(times[index] - w.time))
-        index = i;
-    return trajectory.points[index];
-  }, [w.time, trajectory]);
+  const selectedPosition = useMemo(
+    () => trajectory.points[nearestTimeIndex(trajectory.times, w.time)],
+    [w.time, trajectory],
+  );
   const latestPosition = useRef(selectedPosition);
   latestPosition.current = selectedPosition;
   useEffect(() => {
@@ -141,6 +122,7 @@ export function TerrainMap() {
         infoBox: false,
         selectionIndicator: false,
         requestRenderMode: true,
+        showRenderLoopErrors: false,
         contextOptions: { webgl: { ...webglContextAttributes } },
         // Cesium defaults to 4x MSAA even when the canvas disables antialiasing.
         msaaSamples: 1,
@@ -202,24 +184,26 @@ export function TerrainMap() {
     if (!ready || !current) return;
     setTerrainError("");
     setStreamError("");
+    setStreamFallback(false);
     let active = true;
-    current.scene.globe.material = undefined;
-    let material: Cesium.Material | undefined;
     try {
       current.terrainProvider = streamAWS
-        ? awsTerrainProvider(grid, terrainOffset, () => {
-            if (active)
-              setStreamError(
-                "AWS 주변 지형 연결 실패. 저장된 고도 영역은 유지되며, 가져오지 못한 영역은 기준 타원체로 표시됩니다.",
-              );
-          })
+        ? awsTerrainProvider(
+            grid,
+            terrainOffset,
+            (reason) => {
+              if (active)
+                setStreamError(
+                  `AWS 주변 지형 표시 실패: ${String(reason)}. 저장된 고도 영역은 유지되며, 가져오지 못한 영역은 기준 타원체로 표시됩니다.`,
+                );
+            },
+            () => {
+              if (active) setStreamFallback(true);
+            },
+          )
         : grid
           ? terrainProvider(grid, terrainOffset)
           : new Cesium.EllipsoidTerrainProvider();
-      if ((grid || streamAWS) && mode === "3D") {
-        material = terrainMaterial();
-        current.scene.globe.material = material;
-      }
     } catch (reason) {
       current.terrainProvider = new Cesium.EllipsoidTerrainProvider();
       setTerrainError(String(reason));
@@ -227,10 +211,19 @@ export function TerrainMap() {
     current.scene.requestRender();
     return () => {
       active = false;
-      if (!current.isDestroyed()) current.scene.globe.material = undefined;
-      material?.destroy();
     };
-  }, [grid, terrainOffset, mode, ready, streamAWS]);
+  }, [grid, terrainOffset, ready, streamAWS]);
+  useEffect(() => {
+    const current = viewer.current;
+    if (!ready || !current || !hasTerrain || mode !== "3D") return;
+    const material = terrainMaterial();
+    current.scene.globe.material = material;
+    current.scene.requestRender();
+    return () => {
+      if (!current.isDestroyed()) current.scene.globe.material = undefined;
+      material.destroy();
+    };
+  }, [hasTerrain, mode, ready]);
   useEffect(() => {
     const current = viewer.current;
     if (!ready || !current || !w.pickingSite || w.mapMode !== "design") return;
@@ -604,7 +597,14 @@ export function TerrainMap() {
           Esc.
         </p>
       )}
-      {[renderError, imageryError, terrainError, streamError, dataError]
+      {[
+        renderError,
+        imageryError,
+        terrainError,
+        streamError,
+        dataError,
+        w.terrainAutoError,
+      ]
         .filter(Boolean)
         .map((message) => (
           <p className="notice warning" role="status" key={message}>
@@ -629,6 +629,11 @@ export function TerrainMap() {
             : "실행 이력에서 결과를 선택하세요."}
         </p>
       )}
+      {w.terrainBusy && (
+        <p className="caption map-status" role="status">
+          AWS/선택한 소스의 계산용 고도를 가져오는 중…
+        </p>
+      )}
       <div
         ref={container}
         className="map-host"
@@ -638,7 +643,12 @@ export function TerrainMap() {
         aria-label="발사장 지형과 비행 궤적"
       />
       {!waiting && (
-        <>
+        <details className="map-info">
+          <summary>
+            지도 정보 · 도움말
+            {streamFallback ? " · 일부 낮은 해상도 지형" : ""}
+            {heightApproximate ? " · 고도 기준 미확인" : ""}
+          </summary>
           {result && (
             <p className="caption" role="status">
               실행 {result.runId.slice(0, 8)} · {mode} 궤적 · 선택 시간{" "}
@@ -666,14 +676,10 @@ export function TerrainMap() {
               위성영상을 추가하세요.
             </p>
           )}
-          {w.terrainBusy && (
+          {streamAWS && streamFallback && (
             <p className="caption" role="status">
-              AWS/선택한 소스의 계산용 고도를 가져오는 중…
-            </p>
-          )}
-          {w.terrainAutoError && (
-            <p className="notice warning" role="status">
-              {w.terrainAutoError}
+              일부 AWS 주변 지형은 정상적인 낮은 해상도 자료로 표시합니다.
+              저장된 계산용 고도는 유지됩니다.
             </p>
           )}
           {imagery === "none" && (
@@ -702,7 +708,7 @@ export function TerrainMap() {
                 : "발사 고도 평면"}
             </p>
           )}
-        </>
+        </details>
       )}
     </section>
   );

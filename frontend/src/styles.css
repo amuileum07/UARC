@@ -330,6 +330,22 @@ legend {
 .map-host[data-picking="true"] canvas {
   cursor: crosshair;
 }
+.map-info {
+  flex: none;
+  border-top: 1px solid var(--border);
+  font-size: 10px;
+}
+.map-info[open] {
+  max-height: min(30%, 180px);
+  overflow-y: auto;
+}
+.map-info > summary {
+  padding: 6px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .weather-table {
   overflow-x: auto;
 }
@@ -352,6 +368,10 @@ legend {
 .caption {
   padding: 0 14px;
   font-size: 10px;
+}
+.map-info .caption,
+.map-status {
+  margin: 6px 0;
 }
 .notice {
   margin: 10px;
