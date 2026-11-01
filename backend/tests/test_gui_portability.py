@@ -8,7 +8,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from contextlib import redirect_stderr, redirect_stdout
+from contextlib import closing, redirect_stderr, redirect_stdout
 from pathlib import Path
 from time import monotonic, sleep
 from types import SimpleNamespace
@@ -29,7 +29,7 @@ class GUIPortabilityTests(unittest.TestCase):
     def test_uncommitted_or_malformed_reports_cannot_pass(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            with sqlite3.connect(root / "uarc.sqlite3") as writer:
+            with closing(sqlite3.connect(root / "uarc.sqlite3")) as writer:
                 writer.execute("CREATE TABLE designs (name TEXT)")
                 writer.commit()
                 proof = {"token": "token", "ok": True}
@@ -49,11 +49,13 @@ class GUIPortabilityTests(unittest.TestCase):
                     writer.execute("INSERT INTO designs VALUES (?)", (name,))
                 writer.commit()
                 self.assertEqual(SMOKE["saved_reports"](root, "token"), [])
+            with self.assertRaises(sqlite3.ProgrammingError):
+                writer.execute("SELECT 1")
 
     def test_locked_database_has_a_finite_wait(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            with sqlite3.connect(root / "uarc.sqlite3") as writer:
+            with closing(sqlite3.connect(root / "uarc.sqlite3")) as writer:
                 writer.execute("CREATE TABLE designs (name TEXT)")
                 writer.commit()
                 writer.execute("BEGIN EXCLUSIVE")
@@ -61,6 +63,8 @@ class GUIPortabilityTests(unittest.TestCase):
                 self.assertEqual(SMOKE["saved_reports"](root, "token"), [])
                 self.assertLess(monotonic() - started, 1)
                 writer.rollback()
+            with self.assertRaises(sqlite3.ProgrammingError):
+                writer.execute("SELECT 1")
 
     def test_corrupt_database_is_reported_instead_of_ignored(self):
         with tempfile.TemporaryDirectory() as temporary:

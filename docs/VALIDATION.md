@@ -1147,3 +1147,45 @@ GitHub-hosted workflow execution, Windows/macOS runtime behavior and fresh onlin
 dependency resolution were not exercised in this local run. The release and
 standalone acceptance workflows now run the diagnostics regressions on each of
 their three native targets and retain the diagnostic artifacts on failure.
+
+## Release run 41232359755 review (2026-11-01)
+
+The [Windows job](https://github.com/amuileum07/UARC/actions/runs/41232359755/job/124629828349)
+failed in the native test harness. Its worker log confirms that `ucrtbase.printf`
+is not exported. The C-output fixture now calls non-variadic `puts` with an
+explicit argument type; unexpected worker exits also include the solver-log tail
+instead of only the redirected, usually empty stderr.
+
+The same job had two earlier `WinError 32` failures in GUI portability tests.
+Their SQLite connection context managers committed/rolled back transactions but
+did not close the connections before temporary-directory cleanup. The two test
+writers and both matching readers in the cancellation smoke now use
+`contextlib.closing`. The tests explicitly require the writer to be closed after
+its scope, so Linux also detects a regression in that lifetime contract.
+
+The native harness used Windows' default PowerShell shell, which continued from
+those failed external test commands into subsequent passing commands. Both
+release and standalone acceptance now explicitly use GitHub's `bash` shell for
+the multi-command native-test step, stopping at the first failure. A local check
+using the runner's `bash --noprofile --norc -eo pipefail` invocation confirmed that
+a failed first command prevents a later successful command from masking it.
+
+The [macOS job](https://github.com/amuileum07/UARC/actions/runs/41232359755/job/124629828292)
+and its retained `first.json` show `Timed out: JSON input committed`, before any
+map-information disclosure interaction. They do not support the proposed
+`summary.click()` diagnosis; its native interaction remains in the test.
+The JSON driver now focuses the editor, dispatches input, waits for a render,
+clicks the actual validation button and requires the formatted applied JSON to
+contain the changed mass. It no longer treats React's `defaultValue` mirroring
+as an edit acknowledgement. Existing saved-design checks still require the mass
+change to reach persistent backend state. Two driver regressions cover a stale
+`defaultValue` and an ignored input event that must not pass from DOM assignment.
+
+Local verification passed: 235 backend tests with five platform skips, all 64
+frontend tests, Ruff lint/format, Biome/TypeScript, frontend build, and workflow
+YAML plus fail-fast shell checks. The unchanged Linux application archive passed
+the updated CLI, graphics, diagnostics, first-run and relaunch harness under Xvfb.
+Evidence is in `/tmp/uarc-41232359755-review/`, including the downloaded macOS
+diagnostics and the new `desktop-checks/` reports. Hosted Windows/macOS checks
+must run again on a commit containing these fixes; rerunning the old SHA uses the
+old code. No new hosted workflow was started by this local review.

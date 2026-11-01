@@ -58,6 +58,25 @@
     button.click();
     await wait("loaded design name", () => document.querySelector(".app-header .project-name-button")?.textContent.trim() === name);
   }
+  async function editPayloadMass() {
+    // Exercise the controlled JSON editor and Python validation through the UI.
+    await openPanel("설계 JSON");
+    const editor = await wait("design JSON editor", () => document.querySelector("#design-json"));
+    const design = JSON.parse(editor.value);
+    design.components.find((component) => component.id === "payload").mass = 1.05;
+    const payload = JSON.stringify(design);
+    editor.focus();
+    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set.call(editor, payload);
+    editor.dispatchEvent(new Event("input", {bubbles: true}));
+    await painted();
+    await click("validate changed mass", ".json-panel button", "검증 후 적용");
+    // Applying replaces the draft with formatted, validated JSON. Read the live
+    // editor, rather than React's internal synchronization of defaultValue.
+    await wait("JSON edit applied", () => {
+      const current = document.querySelector("#design-json");
+      return current.value !== payload && JSON.parse(current.value).components.find((component) => component.id === "payload").mass === 1.05;
+    });
+  }
   async function canvas(selector) {
     const node = await wait("rendered 3D canvas", () => [...document.querySelectorAll(selector)]
       .find((element) => visible(element) && element.dataset.rendered === "true" && element.width > 0 && element.height > 0));
@@ -74,20 +93,8 @@
     await wait("shipping frontend and bridge", () => document.querySelector(".app-header") && window.pywebview?.api?.list_runs);
     api = window.pywebview.api;
     if (scenario.phase === "first") {
-      // Exercise the actual controlled JSON editor and Python validation before
-      // saving. Only the startup terrain fixture is injected by the launcher.
-      await openPanel("설계 JSON");
-      const editor = await wait("design JSON editor", () => document.querySelector("#design-json"));
-      const design = JSON.parse(editor.value);
-      design.components.find((component) => component.id === "payload").mass = 1.05;
-      const payload = JSON.stringify(design);
-      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value").set.call(editor, payload);
-      editor.dispatchEvent(new Event("input", {bubbles: true}));
-      // React 19.2 mirrors its committed controlled value to defaultValue.
-      // The imperative .value assignment alone cannot prove state was updated.
-      await wait("JSON input committed", () => editor.defaultValue === payload);
-      await click("validate changed mass", ".json-panel button", "검증 후 적용");
-      await wait("edited mass", () => JSON.parse(document.querySelector("#design-json").value).components.find((component) => component.id === "payload").mass === 1.05);
+      // Only the startup terrain fixture is injected by the launcher.
+      await editPayloadMass();
       await rename(scenario.name);
       await save(scenario.name);
       await rename(`${scenario.name} 다른 설계`);

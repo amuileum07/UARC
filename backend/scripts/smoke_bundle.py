@@ -9,6 +9,7 @@ import sqlite3
 import subprocess
 import sys
 import tempfile
+from contextlib import closing
 from pathlib import Path
 from time import monotonic, sleep
 
@@ -231,8 +232,8 @@ def main() -> None:
                                 json.loads(progress.read_bytes())["stage"]
                                 == "simulating"
                             ):
-                                with sqlite3.connect(
-                                    cancelled_data / "uarc.sqlite3"
+                                with closing(
+                                    sqlite3.connect(cancelled_data / "uarc.sqlite3")
                                 ) as connection:
                                     worker_pid = connection.execute(
                                         "SELECT worker_pid FROM runs"
@@ -246,7 +247,9 @@ def main() -> None:
                     )
                     process.send_signal(signal.SIGINT)
                     assert process.wait(timeout=10) == 130
-                    with sqlite3.connect(cancelled_data / "uarc.sqlite3") as connection:
+                    with closing(
+                        sqlite3.connect(cancelled_data / "uarc.sqlite3")
+                    ) as connection:
                         assert (
                             connection.execute("SELECT state FROM runs").fetchone()[0]
                             == "cancelled"

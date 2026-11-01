@@ -159,7 +159,10 @@ def build(config):
     warnings.warn("numerical warning marker", RuntimeWarning)
     os.write(1, b"native stdout marker\n")
     os.write(2, b"native stderr marker\n")
-    ctypes.CDLL("ucrtbase" if os.name == "nt" else None).printf(b"C buffered marker\n")
+    # UCRT's printf is a header wrapper, not a DLL export. puts is portable.
+    puts = ctypes.CDLL("ucrtbase" if os.name == "nt" else None).puts
+    puts.argtypes = [ctypes.c_char_p]
+    assert puts(b"C buffered marker") >= 0
     if sys.argv[2] == "fail":
         raise RuntimeError("solver failure marker")
     return original(config)
@@ -180,8 +183,10 @@ print("outside worker marker")
                     encoding="utf-8",
                     timeout=60,
                 )
-                self.assertEqual(result.returncode, exitcode, result.stderr)
                 log = (directory / "solver.log").read_text(encoding="utf-8")
+                self.assertEqual(
+                    result.returncode, exitcode, result.stderr + log[-8000:]
+                )
                 for marker in (
                     "Python stdout",
                     "Python stderr",

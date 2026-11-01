@@ -196,6 +196,7 @@ jobs:
         run: uv sync --locked
       - name: Check native desktop test harnesses
         working-directory: backend
+        shell: bash
         run: |
           uv run --locked python -m unittest discover -s tests -p test_desktop_acceptance.py -v
           uv run --locked python -m unittest discover -s tests -p test_gui_portability.py -v
