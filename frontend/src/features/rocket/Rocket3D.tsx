@@ -2,13 +2,14 @@ import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { previewParts } from "../../lib/geometry";
+import type { GeometryGuide } from "../../lib/geometry";
 import { reportFrontendError } from "../../lib/diagnostics";
 import type { DesignReport, RocketDesign } from "../../lib/types";
 import { createWebGL2Canvas } from "../../lib/webgl";
 const colors = { body: "#bcbcbc", fin: "#888888", internal: "#dddddd" };
 function disposeGroup(group: THREE.Group) {
   group.traverse((object) => {
-    if (object instanceof THREE.Mesh) {
+    if (object instanceof THREE.Mesh || object instanceof THREE.Line) {
       object.geometry.dispose();
       const materials = Array.isArray(object.material)
         ? object.material
@@ -26,6 +27,7 @@ export function Rocket3D({
   interior,
   selection,
   select,
+  guide,
   fallback,
 }: {
   design: RocketDesign;
@@ -33,12 +35,15 @@ export function Rocket3D({
   interior: boolean;
   selection: string;
   select: (id: string) => void;
+  guide: GeometryGuide | null;
   fallback: (message: string) => void;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const engine = useRef<{
     scene: THREE.Scene;
     group: THREE.Group;
+    guides: THREE.Group;
+    canvas: HTMLCanvasElement;
     camera: THREE.PerspectiveCamera;
     render: () => void;
   } | null>(null);
@@ -68,6 +73,9 @@ export function Rocket3D({
     const scene = new THREE.Scene();
     const group = new THREE.Group();
     scene.add(group);
+    const guides = new THREE.Group();
+    guides.renderOrder = 1000;
+    scene.add(guides);
     const camera = new THREE.PerspectiveCamera(35, 1, 0.001, 1000);
     camera.position.set(1.1, 0.7, 1.4);
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -122,11 +130,19 @@ export function Rocket3D({
     renderer.domElement.addEventListener("pointerup", pointerUp);
     renderer.domElement.addEventListener("webglcontextlost", lost);
     controls.update();
-    engine.current = { scene, group, camera, render };
+    engine.current = {
+      scene,
+      group,
+      guides,
+      canvas: renderer.domElement,
+      camera,
+      render,
+    };
     return () => {
       resize.disconnect();
       controls.dispose();
       disposeGroup(group);
+      disposeGroup(guides);
       renderer.domElement.removeEventListener("pointerdown", pointerDown);
       renderer.domElement.removeEventListener("pointerup", pointerUp);
       renderer.domElement.removeEventListener("webglcontextlost", lost);
@@ -214,6 +230,77 @@ export function Rocket3D({
     current.group.add(cg);
     current.render();
   }, [design, report, selection, interior]);
+  useEffect(() => {
+    const current = engine.current;
+    if (!current) return;
+    disposeGroup(current.guides);
+    if (guide) {
+      const extent = Math.max(
+        0.2,
+        ...report.components.flatMap((part) =>
+          part.outline_z_radius_m.map(([z]) => Math.abs(z)),
+        ),
+      );
+      const size = extent * 0.12;
+      const arrow = (from: THREE.Vector3, to: THREE.Vector3, color: string) => {
+        const direction = to.clone().sub(from);
+        const length = direction.length();
+        if (!length) return;
+        const head = Math.min(size * 0.16, length / 3);
+        current.guides.add(
+          new THREE.ArrowHelper(
+            direction.normalize(),
+            from,
+            length,
+            color,
+            head,
+            head * 0.55,
+          ),
+        );
+      };
+      const origin = new THREE.Vector3(...guide.origin);
+      arrow(
+        origin,
+        origin.clone().add(new THREE.Vector3(0, size, 0)),
+        "#2464a6",
+      );
+      arrow(
+        origin,
+        origin.clone().add(new THREE.Vector3(size, 0, 0)),
+        "#137354",
+      );
+      arrow(
+        new THREE.Vector3(...guide.from),
+        new THREE.Vector3(...guide.to),
+        "#b65400",
+      );
+      const dot = new THREE.Mesh(
+        new THREE.SphereGeometry(size * 0.045, 12, 8),
+        new THREE.MeshBasicMaterial({ color: "#b65400" }),
+      );
+      dot.position.copy(origin);
+      current.guides.add(dot);
+      current.guides.traverse((object) => {
+        if (object instanceof THREE.Mesh || object instanceof THREE.Line) {
+          const materials = Array.isArray(object.material)
+            ? object.material
+            : [object.material];
+          materials.forEach((material) => {
+            material.depthTest = false;
+            material.depthWrite = false;
+          });
+        }
+      });
+    }
+    current.render();
+    if (guide) {
+      current.canvas.dataset.guideField = guide.field;
+      current.canvas.dataset.guideValue = String(guide.value);
+    } else {
+      delete current.canvas.dataset.guideField;
+      delete current.canvas.dataset.guideValue;
+    }
+  }, [guide, report]);
   return (
     <div
       className="canvas-host"

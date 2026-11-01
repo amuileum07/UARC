@@ -25,6 +25,13 @@
     await new Promise(requestAnimationFrame);
     await new Promise((resolve) => setTimeout(resolve, 0));
   }
+  function focusInput(input) {
+    input.focus();
+    if (document.activeElement !== input) throw Error("Numeric input could not receive focus");
+    // Inactive Xvfb windows update activeElement without emitting focusin.
+    // Supply the keyboard-focus event when driving the UI without an OS window manager.
+    if (!document.hasFocus()) input.dispatchEvent(new FocusEvent("focusin", {bubbles: true}));
+  }
   async function click(label, selector, value) {
     const button = await wait(label, () => [...document.querySelectorAll(selector)]
       .find((node) => visible(node) && !node.disabled && text(node) === value));
@@ -111,7 +118,47 @@
       await click(`select ${part.id}`, ".tree button", `◇ ${part.name || part.id}`);
       return await selected(part, index);
     }
-    for (const [index, part] of design.components.entries()) await select(part, index);
+    let coordinateGuides = 0;
+    for (const [index, part] of design.components.entries()) {
+      const panel = await select(part, index);
+      if (document.querySelector(".geometry-guide")) throw Error("Changing components retained the old coordinate guide");
+      const path = `components.${index}.${part.surface ? "surface.position" : "position"}`;
+      const input = panel.querySelector(`[data-field="${path}"] input`);
+      if (!input) throw Error(`Missing coordinate input ${path}`);
+      focusInput(input);
+      await wait(`coordinate guide ${path}`, () => document.querySelector(".geometry-guide")?.dataset.guideField === path &&
+        document.querySelector(".geometry-axes")?.dataset.guideField === path);
+      if (document.activeElement !== input) throw Error("Showing coordinates stole the numeric input focus");
+      coordinateGuides++;
+    }
+    // Editing must update the dimension without stealing focus or changing other parts.
+    const tube = design.components.findIndex((part) => part.component_type === "body_tube");
+    const tubePanel = await select(design.components[tube], tube);
+    const lengthPath = `components.${tube}.length`;
+    const lengthInput = tubePanel.querySelector(`[data-field="${lengthPath}"] input`);
+    focusInput(lengthInput);
+    for (const value of [design.components[tube].length + 0.01, design.components[tube].length]) {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(lengthInput, String(value));
+      lengthInput.dispatchEvent(new Event("input", {bubbles: true}));
+      await wait(`live dimension ${value}`, () => document.querySelector(".geometry-guide")?.dataset.guideField === lengthPath &&
+        document.querySelector(".geometry-guide strong")?.textContent.includes(`${value} m`));
+      if (document.activeElement !== lengthInput) throw Error("Updating dimensions stole input focus");
+      if (Number(lengthInput.value) !== value) throw Error("Updating dimensions lost the numeric draft");
+    }
+    await click("3D coordinate guide", 'fieldset[aria-label="로켓 보기"] button', "3D");
+    await wait("3D coordinate geometry", () => document.querySelector('[aria-label="로켓 3D 형상"] canvas')?.dataset.guideField === lengthPath);
+    await canvas('[aria-label="로켓 3D 형상"] canvas');
+    window.dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}));
+    await wait("dismiss coordinates", () => !document.querySelector(".geometry-guide") &&
+      !document.querySelector('[aria-label="로켓 3D 형상"] canvas')?.dataset.guideField);
+    await click("2D selection after guide", 'fieldset[aria-label="로켓 보기"] button', "2D");
+    // A mass is not a distance: moving from radius to mass removes the guide.
+    const payloadIndex = design.components.findIndex((part) => part.id === "payload");
+    const payloadPanel = await select(design.components[payloadIndex], payloadIndex);
+    focusInput(payloadPanel.querySelector(`[data-field="components.${payloadIndex}.radius"] input`));
+    await wait("payload radius guide", () => !!document.querySelector(".geometry-guide"));
+    focusInput(payloadPanel.querySelector(`[data-field="components.${payloadIndex}.mass"] input`));
+    await wait("nonspatial field hides coordinates", () => !document.querySelector(".geometry-guide"));
     // The second click keeps the same selection ID and still must reveal the tab.
     for (let repeat = 0; repeat < 2; repeat++) {
       await openPanel("발사 환경");
@@ -144,7 +191,8 @@
     }
     if (JSON.stringify((await readDesign()).components) !== JSON.stringify(baseline.components))
       throw Error("Component selection check changed the original flight components");
-    return {components: design.components.length, outlines, same_selection_reopens: true};
+    return {components: design.components.length, outlines, same_selection_reopens: true,
+      coordinate_guides: coordinateGuides, live_dimension: true, guide_3d: true};
   }
   async function canvas(selector) {
     const node = await wait("rendered 3D canvas", () => [...document.querySelectorAll(selector)]

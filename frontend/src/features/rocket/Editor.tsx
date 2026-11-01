@@ -12,6 +12,7 @@ import {
 import type { ComponentKind } from "../../lib/templates";
 import { compatibleMaterial, densityUnits } from "../../lib/materials";
 import { useWorkspace } from "../../workspace";
+import { geometryGuide } from "../../lib/geometry";
 import { AssemblyEditor, FlightEditor, MotorEditor } from "./Settings";
 import { OpenRocketImporter } from "./OpenRocket";
 import { MaterialsEditor, SurfaceFinishEditor } from "./Materials";
@@ -188,6 +189,15 @@ export function Explorer() {
 }
 export function Properties() {
   const w = useWorkspace();
+  const guideField = (target: EventTarget) => {
+    const path =
+      target instanceof HTMLInputElement &&
+      !target.readOnly &&
+      ["decimal", "numeric"].includes(target.inputMode)
+        ? target.closest<HTMLElement>("[data-field]")?.dataset.field?.split(".")
+        : null;
+    w.setGeometryField(path && geometryGuide(w.design, path) ? path : null);
+  };
   const index = w.design.components.findIndex((c) => c.id === w.selection);
   const component = w.design.components[index];
   let content: ReactNode;
@@ -340,5 +350,15 @@ export function Properties() {
       </>
     );
   }
-  return <div className="panel scroll">{content}</div>;
+  return (
+    <div
+      className="panel scroll"
+      onFocusCapture={(event) => guideField(event.target)}
+      onClickCapture={(event) => {
+        if (event.target instanceof HTMLInputElement) guideField(event.target);
+      }}
+    >
+      {content}
+    </div>
+  );
 }

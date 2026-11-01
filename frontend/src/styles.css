@@ -251,6 +251,10 @@ legend {
   padding: 4px 8px 8px;
   min-width: 0;
 }
+.config-field[data-guide-active="true"] {
+  outline: 2px solid #b65400;
+  outline-offset: 2px;
+}
 .numeric-table-input {
   width: 100%;
   resize: vertical;
@@ -314,6 +318,46 @@ legend {
 }
 .rocket-svg polygon {
   cursor: pointer;
+}
+.geometry-axes line,
+.geometry-axes circle {
+  vector-effect: non-scaling-stroke;
+  stroke-width: 1.5px;
+}
+.geometry-axes text {
+  paint-order: stroke;
+  stroke: #ffffff;
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.geometry-guide {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  max-width: min(340px, calc(100% - 20px));
+  display: grid;
+  gap: 5px;
+  padding: 10px 32px 10px 12px;
+  border: 1px solid #b65400;
+  border-radius: 5px;
+  background: #fffffff2;
+  color: #333333;
+  font-size: 11px;
+  pointer-events: none;
+}
+.geometry-guide button {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  padding: 2px 6px;
+  pointer-events: auto;
+}
+.guide-z {
+  color: #2464a6;
+}
+.guide-r {
+  color: #137354;
 }
 .canvas-host {
   width: 100%;

@@ -419,14 +419,22 @@ export function ConfigField({
   } else input = <p className="field-error">이 값의 입력 형식을 확인하세요.</p>;
   if (selected.type === "array" || selected.type === "object")
     return (
-      <fieldset className="config-field" data-field={path.join(".")}>
+      <fieldset
+        className="config-field"
+        data-field={path.join(".")}
+        data-guide-active={w.geometryField?.join(".") === path.join(".")}
+      >
         <legend>{label}</legend>
         {title}
         {input}
       </fieldset>
     );
   return (
-    <div className="config-field" data-field={path.join(".")}>
+    <div
+      className="config-field"
+      data-field={path.join(".")}
+      data-guide-active={w.geometryField?.join(".") === path.join(".")}
+    >
       {title}
       {input}
     </div>

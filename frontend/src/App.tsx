@@ -135,6 +135,25 @@ function Workspace() {
     if (w.propertiesView) open("properties");
   }, [w.propertiesView, open]);
   useEffect(() => {
+    const current = api.current;
+    if (!w.geometryField || !current) return;
+    const properties = current.getPanel("properties");
+    const rocket =
+      current.getPanel("rocket") ||
+      current.addPanel({
+        id: "rocket",
+        component: "rocket",
+        title: titles.rocket,
+        position: properties
+          ? { referencePanel: properties.id, direction: "left" }
+          : undefined,
+      });
+    // Keep the focused input visible even when the user docked both tabs together.
+    if (properties && rocket.group === properties.group)
+      rocket.api.moveTo({ group: properties.group, position: "left" });
+    rocket.api.setActive();
+  }, [w.geometryField]);
+  useEffect(() => {
     if (w.pickingSite) open("map");
   }, [w.pickingSite, open]);
   useEffect(() => {
@@ -164,10 +183,19 @@ function Workspace() {
     map.api.setActive();
     results.api.setActive();
   }, [w.resultView]);
-  const actions = useRef({ save: w.save, run: w.run });
-  actions.current = { save: w.save, run: w.run };
+  const actions = useRef({
+    save: w.save,
+    run: w.run,
+    setGeometryField: w.setGeometryField,
+  });
+  actions.current = {
+    save: w.save,
+    run: w.run,
+    setGeometryField: w.setGeometryField,
+  };
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
+      if (event.key === "Escape") actions.current.setGeometryField(null);
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
         event.preventDefault();
         void actions.current.save();

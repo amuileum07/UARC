@@ -20,6 +20,8 @@ export interface Workspace {
   previewState: "pending" | "ready" | "invalid";
   selection: string;
   propertiesView: number;
+  geometryField: string[] | null;
+  setGeometryField: (path: string[] | null) => void;
   setSelection: (id: string) => void;
   edit: (path: string[], value: unknown) => void;
   removeComponent: (id: string) => void;
@@ -73,6 +75,8 @@ type DesignWorkspace = Pick<
   | "previewState"
   | "selection"
   | "propertiesView"
+  | "geometryField"
+  | "setGeometryField"
   | "setSelection"
   | "edit"
   | "removeComponent"

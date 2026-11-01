@@ -17,7 +17,7 @@ new Script(
 );
 // Exercise the same action helpers used by the full native scenario.
 const helpers = `${source.slice(0, source.indexOf("  let api;"))}
-return {click, openPanel, painted, editPayloadMass, componentProperties}; })()`;
+return {click, openPanel, painted, editPayloadMass, componentProperties, focusInput}; })()`;
 
 function browser(document, frame, overrides = {}) {
   return runInNewContext(helpers, {
@@ -48,6 +48,43 @@ test("UI actions wait for a rendered frame and React's subsequent commit task", 
   });
   await api.click("apply", "button", "Apply");
   assert.equal(committed, true);
+});
+
+test("inactive native windows receive the focusin event after DOM focus", async () => {
+  let delivered = false;
+  const document = { hasFocus: () => false, activeElement: null };
+  const input = {
+    focus() {
+      document.activeElement = this;
+    },
+    dispatchEvent(event) {
+      assert.equal(document.activeElement, this);
+      assert.equal(event.type, "focusin");
+      assert.equal(event.bubbles, true);
+      delivered = true;
+    },
+  };
+  const api = await browser(document, undefined, { FocusEvent: Event });
+  api.focusInput(input);
+  assert.equal(delivered, true);
+});
+
+test("active native windows use real focus events and unfocusable inputs fail", async () => {
+  const document = { hasFocus: () => true, activeElement: null };
+  const input = {
+    focus() {
+      document.activeElement = this;
+    },
+    dispatchEvent() {
+      throw Error("Duplicate focus event");
+    },
+  };
+  const api = await browser(document);
+  api.focusInput(input);
+  assert.throws(
+    () => api.focusInput({ focus() {} }),
+    /could not receive focus/,
+  );
 });
 
 test("opening a panel waits for Dockview readiness and selected-tab state", async () => {

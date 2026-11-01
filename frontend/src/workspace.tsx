@@ -67,8 +67,10 @@ export function WorkspaceProvider({
     useState<Workspace["previewState"]>("pending");
   const [selection, setSelectedComponent] = useState(initial.components[0].id);
   const [propertiesView, setPropertiesView] = useState(0);
+  const [geometryField, setGeometryField] = useState<string[] | null>(null);
   const setSelection = useCallback((id: string) => {
     setSelectedComponent(id);
+    setGeometryField(null);
     // Re-selecting the same component must also reveal its properties tab.
     setPropertiesView((value) => value + 1);
   }, []);
@@ -536,6 +538,8 @@ export function WorkspaceProvider({
       previewState,
       selection,
       propertiesView,
+      geometryField,
+      setGeometryField,
       setSelection,
       edit,
       removeComponent,
@@ -555,6 +559,7 @@ export function WorkspaceProvider({
       previewState,
       selection,
       propertiesView,
+      geometryField,
       setSelection,
       edit,
       removeComponent,
