@@ -1,13 +1,10 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { desktopApi } from "../lib/bridge";
 import { useWorkspace } from "../workspace";
 export function DesignJson() {
   const w = useWorkspace();
-  const [text, setText] = useState(JSON.stringify(w.design, null, 2));
-  const [edited, setEdited] = useState(false);
-  useEffect(() => {
-    if (!edited) setText(JSON.stringify(w.design, null, 2));
-  }, [w.design, edited]);
+  const [draft, setDraft] = useState<string | null>(null);
+  const text = draft ?? JSON.stringify(w.design, null, 2);
   return (
     <div className="panel json-panel">
       <p className="muted">
@@ -20,10 +17,7 @@ export function DesignJson() {
         id="design-json"
         spellCheck={false}
         value={text}
-        onChange={(e) => {
-          setText(e.target.value);
-          setEdited(true);
-        }}
+        onChange={(e) => setDraft(e.target.value)}
       />
       <div className="button-row">
         <button
@@ -34,7 +28,7 @@ export function DesignJson() {
                 await desktopApi()
               ).validate_config("design", text);
               w.replace(design);
-              setEdited(false);
+              setDraft(null);
             })
           }
         >
@@ -43,10 +37,8 @@ export function DesignJson() {
         <button
           type="button"
           onClick={() => {
-            if (!edited || window.confirm("JSON 편집 내용을 버릴까요?")) {
-              setEdited(false);
-              setText(JSON.stringify(w.design, null, 2));
-            }
+            if (draft === null || window.confirm("JSON 편집 내용을 버릴까요?"))
+              setDraft(null);
           }}
         >
           현재 설계 다시 읽기

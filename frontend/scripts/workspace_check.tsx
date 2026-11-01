@@ -1,4 +1,6 @@
 import { createRoot } from "react-dom/client";
+import { useLayoutEffect } from "react";
+import { DesignJson } from "../src/components/DesignJson";
 import { desktopApi } from "../src/lib/bridge";
 import {
   WorkspaceProvider,
@@ -46,6 +48,23 @@ function Controls() {
     simulation: useSimulation(),
     playback: usePlayback(),
   };
+  return null;
+}
+function EarlyJsonInput() {
+  useLayoutEffect(() => {
+    // Input can arrive before the editor's initial passive effects have run.
+    const editor = document.querySelector<HTMLTextAreaElement>("#design-json");
+    if (!editor) throw Error("Missing JSON editor");
+    const design = JSON.parse(editor.value);
+    design.components.find(
+      (part: { id: string }) => part.id === "payload",
+    ).mass = 1.05;
+    Object.getOwnPropertyDescriptor(
+      HTMLTextAreaElement.prototype,
+      "value",
+    )?.set?.call(editor, JSON.stringify(design));
+    editor.dispatchEvent(new Event("input", { bubbles: true }));
+  }, []);
   return null;
 }
 const painted = async () => {
@@ -98,6 +117,8 @@ async function verify() {
         <SimulationProbe />
         <PlaybackProbe />
         <Controls />
+        <DesignJson />
+        <EarlyJsonInput />
       </WorkspaceProvider>,
     );
     await wait(
@@ -106,6 +127,26 @@ async function verify() {
         !!controls.environment.elevation,
     );
     await painted();
+    const editor = document.querySelector<HTMLTextAreaElement>("#design-json");
+    if (
+      !editor ||
+      JSON.parse(editor.value).components.find(
+        (part: { id: string }) => part.id === "payload",
+      ).mass !== 1.05
+    )
+      throw Error("Initial effects erased JSON input");
+    document.querySelector<HTMLButtonElement>(".json-panel button")?.click();
+    await wait(() => {
+      const workspace = current().design;
+      const part = workspace.design.components.find(
+        (part) => part.id === "payload",
+      );
+      return (
+        part?.component_type === "mass" &&
+        part.mass === 1.05 &&
+        workspace.previewState === "ready"
+      );
+    });
     let before = { ...renders };
     for (let frame = 1; frame <= 60; frame++) {
       current().playback.setTime(frame / 60);
@@ -186,6 +227,7 @@ async function verify() {
       ok: true,
       phase: "workspace",
       components: 64,
+      json_input_preserved: true,
       playback,
       editing,
       history,
