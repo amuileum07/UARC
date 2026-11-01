@@ -366,6 +366,14 @@ From `backend/`, after building and creating one native archive:
 uv run --locked python scripts/smoke_desktop.py ../dist/release --output ../dist/desktop-checks
 ```
 
+For the isolated React render-count check used in release/acceptance, first run
+`pnpm --dir frontend exec node scripts/build-workspace-check.mjs ../dist/workspace-check`
+from the repository root, then add
+`--workspace-probe ../dist/workspace-check/workspace_check.html` to the command
+above. Choose a new output directory when rebuilding the probe. Its 64-component
+fixture runs against the same extracted native executable, in separate app data;
+the check page stays outside the published application archives.
+
 Use `xvfb-run --auto-servernum` before that command on headless Linux. The output
 directory must be new. CI uploads its per-launch JSON reports, logs, scripts and
 test data even after failure; it contains only synthetic inputs.

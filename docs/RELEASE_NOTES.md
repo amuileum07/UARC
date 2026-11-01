@@ -9,6 +9,12 @@ telemetry is sent. Release and desktop acceptance verify diagnostics and network
 error recovery and retain artifacts on failure. Existing input/result formats are
 unchanged. Automatic push/PR CI now checks source, formatting and generated DTOs.
 
+Workspace subscriptions now separate design, environment, simulation and playback
+updates. Committed run/design changes notify the UI, with a slower recovery poll;
+idle history no longer polls every 1.2 seconds. Editing rocket properties also
+preserves launch-elevation verification. Release acceptance checks render isolation
+with a 64-component fixture alongside the shipping UI and saved-result relaunch.
+
 | Download | Architecture | Launch after extracting the entire archive |
 | --- | --- | --- |
 | `windows-x86_64.zip` | Windows x64 | `UARC/UARC.exe` |

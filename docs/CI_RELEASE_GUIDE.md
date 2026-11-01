@@ -43,6 +43,16 @@ Local post-mortem diagnostics 절을 따른다.
 
 GUI 초기화의 fd 출력과 치명적 Python 스택은 `native.log`로 보존하며, 호스트 로그는 JSON Lines로 기록한다. `test_native_output.py`를 native job에서도 실행한다. 최종 archive의 `network` 단계는 지형·기상의 HTTP 500/timeout/offline, 요청 중 탭 전환, 경고 표시·재시도·설계 보존을 검사한다. 해당 요청 화면에서 오류가 보이는지도 확인한다. 실서비스 가용성과 깨끗한 OS/개별 GPU 검증은 별도 범위다.
 
+이력은 DB 커밋 뒤 네이티브 이벤트로 갱신하고, 30초 복구 조회와 창 포커스 시 재동기화를 유지한다.
+`test_history_events.py`는 세 native job에서도 실행한다. 별도 빌드한 `workspace_check.html`은
+64개 부품·재생 60회·질량 편집 20회·이력 갱신에서 실제 React 렌더 횟수와 Context 격리를 검사한다.
+두 수동 workflow는 이 테스트 페이지를 진단용 artifact로 전달하고, 같은 최종 압축본에서 추출한
+실행 파일로 검사한다. 테스트 페이지는 게시할 `desktop-*` artifact에 들어가지 않는다.
+
+단단·축 중심 모델과 검증한 Python 3.13.x/native 의존성 범위는 유지한다. 다단·분리·비대칭은
+새 물리 기능 요구사항과 검증 자료가 있어야 확장하며, PyInstaller/native wheel 호환성 확인 없이
+Python 상한이나 런타임 준비 코드를 제거하지 않는다. OS별 실제 웹뷰 검사는 계속 필수다.
+
 ## 2. 통과 결과를 해석하는 기준
 
 | 통과한 검사                    | 확인한 범위                                 | 아직 확인하지 못한 범위                                           |

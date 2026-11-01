@@ -3,10 +3,10 @@ import { NumberField } from "../../components/Fields";
 import { desktopApi } from "../../lib/bridge";
 import { alignLaunchElevation, terrainReferences } from "../../lib/terrain";
 import type { TerrainGrid, TerrainRequest } from "../../lib/types";
-import { useWorkspace } from "../../workspace";
+import { useEnvironment } from "../../workspace";
 
 export function TerrainSources() {
-  const w = useWorkspace();
+  const w = useEnvironment();
   const provider = w.terrainSource;
   const { radius_m: radius, spacing_m: spacing } = w.terrainArea;
   const [apiKey, setApiKey] = useState("");
@@ -15,7 +15,7 @@ export function TerrainSources() {
     useState<TerrainGrid["reference"]>("unknown");
   const [epsg, setEpsg] = useState<number | null>(null);
   const [heightScale, setHeightScale] = useState<1 | 0.3048>(1);
-  const env = w.design.environment;
+  const env = w.environment;
   const grid = env.terrain;
   const aligned = alignLaunchElevation(env);
   const openPortal = (source: "aws" | "local" | "opentopography") =>
@@ -201,9 +201,9 @@ export function TerrainSources() {
         최대 257×257 표본으로 보존합니다. 지도와 지형 충돌 계산은 같은 고도를
         사용합니다. 온라인 조회는 현재 좌표를 서비스에 전송합니다.
       </p>
-      {(w.problems.terrain || w.terrainAutoError) && (
+      {(w.terrainProblem || w.terrainAutoError) && (
         <p className="notice warning" role="status">
-          {w.problems.terrain || w.terrainAutoError}
+          {w.terrainProblem || w.terrainAutoError}
         </p>
       )}
       {grid && (

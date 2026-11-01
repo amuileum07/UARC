@@ -1,5 +1,5 @@
 import { NumberField } from "../../components/Fields";
-import { useWorkspace } from "../../workspace";
+import { useEnvironment } from "../../workspace";
 import { TerrainSources } from "./TerrainSources";
 import { terrainReferences } from "../../lib/terrain";
 import { SiteSearch } from "./SiteSearch";
@@ -7,9 +7,9 @@ import { WeatherEditor } from "./Weather";
 import { ConfigFields } from "../../components/ConfigFields";
 
 export function EnvironmentEditor() {
-  const w = useWorkspace();
+  const w = useEnvironment();
   const [tab, setTab] = useState<"site" | "weather">("site");
-  const env = w.design.environment;
+  const env = w.environment;
   return (
     <div className="panel scroll">
       <p className="eyebrow">LAUNCH ENVIRONMENT</p>
@@ -115,9 +115,9 @@ export function EnvironmentEditor() {
             변경된 발사 위치·고도·시각의 기상을 자동으로 갱신하고 있습니다…
           </p>
         )}
-        {w.problems.weather && (
+        {w.weatherProblem && (
           <p className="notice warning" role="status">
-            {w.problems.weather}
+            {w.weatherProblem}
           </p>
         )}
         <NumberField

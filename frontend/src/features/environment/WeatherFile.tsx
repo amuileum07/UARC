@@ -12,7 +12,7 @@ import {
   weatherMatches,
   weatherRequest,
 } from "../../lib/weather";
-import { useWorkspace } from "../../workspace";
+import { useEnvironment } from "../../workspace";
 
 type Units = Required<
   Pick<
@@ -65,8 +65,8 @@ export function WeatherFile({
 }: {
   onPreview: (profile: WeatherProfile) => void;
 }) {
-  const w = useWorkspace();
-  const env = w.design.environment;
+  const w = useEnvironment();
+  const env = w.environment;
   const latest = useRef(env);
   latest.current = env;
   const revision = useRef(0);

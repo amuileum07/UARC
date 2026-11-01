@@ -190,7 +190,7 @@ function dateSignature(value: string) {
 }
 
 export function applyWeather(
-  design: RocketDesign,
+  design: Pick<RocketDesign, "environment">,
   profile: WeatherProfile,
 ): EnvironmentConfig {
   if (!weatherMatches(design.environment, profile))

@@ -8,6 +8,7 @@ from pathlib import Path
 
 from app.config import default_data_directory, frontend_entrypoint
 from app.desktop_runtime import (
+    attach_history_events,
     attach_ui_check,
     encode_webview_url,
     log_webview_document,
@@ -107,6 +108,7 @@ def main() -> None:
                     args.memory_limit_mb if args.memory_limit_mb != 0 else None
                 ),
             )
+            stop_history_events = None
             try:
                 window = webview.create_window(
                     "UARC",
@@ -117,6 +119,9 @@ def main() -> None:
                 )
                 window.events.initialized += encode_webview_url
                 window.events.loaded += restore_native_output
+                stop_history_events = attach_history_events(
+                    window, jobs.history_changed
+                )
                 if logging.getLogger("pywebview").isEnabledFor(logging.DEBUG):
                     window.events.loaded += log_webview_document
                 if check_script is not None:
@@ -127,6 +132,8 @@ def main() -> None:
                 webview.start(gui=renderer)
                 logging.getLogger(__name__).info("Native webview event loop stopped")
             finally:
+                if stop_history_events is not None:
+                    stop_history_events()
                 jobs.close()
             if check_result is not None and check_result.get("ok") is not True:
                 logging.getLogger(__name__).error(

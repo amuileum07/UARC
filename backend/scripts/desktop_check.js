@@ -2,6 +2,8 @@
   const scenario = /* SCENARIO */ {};
   let stage = "frontend startup";
   const errors = [];
+  let historyNotifications = 0;
+  window.addEventListener("uarc:history-changed", () => historyNotifications++);
   window.addEventListener("error", (event) => errors.push(event.message));
   window.addEventListener("unhandledrejection", (event) => errors.push(String(event.reason)));
   const visible = (node) => node && node.getClientRects().length > 0;
@@ -187,6 +189,7 @@
       await save(scenario.name);
       await rename(`${scenario.name} 다른 설계`);
       await save(`${scenario.name} 다른 설계`);
+      await wait("native history notification", () => historyNotifications > 0, 10000);
     }
     await load(scenario.name);
     const saved = await api.list_designs();
@@ -239,7 +242,7 @@
     if (!(summary.max_altitude_agl_m > 0) || !(summary.duration_s > 0) || summary.ground_model !== "terrain") throw Error("Invalid flight result");
     mapInfo.querySelector("summary").click();
     await painted();
-    return {ok: true, phase: scenario.phase, name: scenario.name, run_id: run.run_id, summary, rocket, terrain};
+    return {ok: true, phase: scenario.phase, name: scenario.name, run_id: run.run_id, summary, rocket, terrain, history_notifications: historyNotifications};
   } catch (error) {
     return {ok: false, phase: scenario.phase, stage, error: String(error), errors,
       url: location.href, body: document.body?.innerText.slice(-12000),

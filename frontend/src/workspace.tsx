@@ -1,12 +1,4 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
   checkElevation,
@@ -16,6 +8,7 @@ import {
 } from "./lib/bridge";
 import type { ElevationCheck } from "./lib/bridge";
 import { previewQueue } from "./lib/preview";
+import { watchHistory } from "./lib/history";
 import {
   componentRemovalIssue,
   editDesign,
@@ -31,74 +24,29 @@ import {
 import { telemetryColumns } from "./lib/telemetry";
 import { automaticWeatherRequest, applyAutomaticWeather } from "./lib/weather";
 import type {
-  DesignPreview,
-  FlightSummary,
   RocketDesign,
   RunRecord,
   SavedDesignRecord,
-  TelemetryResult,
   TerrainRequest,
-  TerrainImportOptions,
   WeatherRequest,
 } from "./lib/types";
 
-interface Workspace {
-  schema: InputSchema;
-  design: RocketDesign;
-  preview: { design: RocketDesign; result: DesignPreview } | null;
-  previewState: "pending" | "ready" | "invalid";
-  selection: string;
-  setSelection: (id: string) => void;
-  edit: (path: string[], value: unknown) => void;
-  removeComponent: (id: string) => void;
-  replace: (design: RocketDesign, saved?: boolean) => void;
-  dirty: boolean;
-  problems: Record<string, string>;
-  fieldIssue: (id: string, message: string) => void;
-  act: (operation: () => Promise<void>, problem?: string) => Promise<void>;
-  save: () => Promise<void>;
-  run: () => Promise<void>;
-  saved: SavedDesignRecord[];
-  runs: RunRecord[];
-  selectedRun: string;
-  selectedRunState: RunRecord["state"] | undefined;
-  resultView: number;
-  selectRun: (id: string) => void;
-  result: {
-    runId: string;
-    design: RocketDesign;
-    summary: FlightSummary;
-    telemetry: TelemetryResult;
-  } | null;
-  elevation: ElevationCheck | null;
-  elevationIssue: string;
-  weatherBusy: boolean;
-  terrainBusy: boolean;
-  terrainSource: NonNullable<TerrainRequest["provider"]>;
-  setTerrainSource: (source: NonNullable<TerrainRequest["provider"]>) => void;
-  terrainAutoError: string;
-  terrainArea: { radius_m: number; spacing_m: number };
-  setTerrainArea: (area: { radius_m: number; spacing_m: number }) => void;
-  loadTerrain: (
-    options: Omit<TerrainRequest, "latitude" | "longitude">,
-    local?: Omit<TerrainImportOptions, "area">,
-  ) => Promise<void>;
-  vworldKey: string;
-  setVworldKey: (key: string) => void;
-  mapMode: "design" | "result";
-  setMapMode: (mode: "design" | "result") => void;
-  pickingSite: boolean;
-  setPickingSite: (picking: boolean) => void;
-  placeSite: (latitude: number, longitude: number) => void;
-  time: number;
-  setTime: (time: number) => void;
-}
-const Context = createContext<Workspace | null>(null);
-export function useWorkspace() {
-  const value = useContext(Context);
-  if (!value) throw new Error("Missing workspace");
-  return value;
-}
+import {
+  ActionsContext,
+  DesignContext,
+  EnvironmentContext,
+  SimulationContext,
+  PlaybackProvider,
+} from "./workspaceContexts";
+import type { Workspace } from "./workspaceContexts";
+export {
+  useWorkspace,
+  useWorkspaceActions,
+  useSimulation,
+  useEnvironment,
+  usePlayback,
+} from "./workspaceContexts";
+
 export function WorkspaceProvider({
   initial,
   schema,
@@ -144,7 +92,6 @@ export function WorkspaceProvider({
   const [vworldKey, setVworldKey] = useState("");
   const [mapMode, setMapMode] = useState<"design" | "result">("design");
   const [pickingSite, setPickingSite] = useState(false);
-  const [time, setTime] = useState(0);
   const pendingRun = useRef(false);
   const fieldIssue = useCallback(
     (key: string, message: string) =>
@@ -181,27 +128,23 @@ export function WorkspaceProvider({
         (value) => {
           setPreview(value);
           setPreviewState("ready");
-          setProblems((old) => {
-            const next = { ...old };
-            delete next.preview;
-            return next;
-          });
+          fieldIssue("preview", "");
         },
         (error) => {
           setPreviewState("invalid");
-          setProblems((old) => ({ ...old, preview: String(error) }));
+          fieldIssue("preview", String(error));
         },
       ),
-    [],
+    [fieldIssue],
   );
   useEffect(() => {
     queue.push(design);
     setPreviewState("pending");
-    setElevation(null);
   }, [design, queue]);
   useEffect(() => () => queue.dispose(), [queue]);
   useEffect(() => {
     let active = true;
+    setElevation(null);
     void checkElevation(design.environment)
       .then((value) => {
         if (active) setElevation(value);
@@ -219,31 +162,23 @@ export function WorkspaceProvider({
       active = false;
     };
   }, [design.environment]);
-  useEffect(() => {
-    let active = true;
-    let timer: ReturnType<typeof setTimeout>;
-    async function poll() {
-      try {
-        const api = await desktopApi();
-        const [history, documents] = await Promise.all([
-          api.list_runs(),
-          api.list_designs(),
-        ]);
-        if (active) {
-          setRuns(history);
-          setSaved(documents);
-        }
-      } catch (error) {
-        if (active) setProblems((old) => ({ ...old, history: String(error) }));
-      }
-      if (active) timer = setTimeout(poll, 1200);
-    }
-    void poll();
-    return () => {
-      active = false;
-      clearTimeout(timer);
-    };
-  }, []);
+  useEffect(
+    () =>
+      watchHistory(
+        (history, documents) => {
+          // Both IPC lists are capped at 50 flat metadata records.
+          setRuns((old) =>
+            JSON.stringify(old) === JSON.stringify(history) ? old : history,
+          );
+          setSaved((old) =>
+            JSON.stringify(old) === JSON.stringify(documents) ? old : documents,
+          );
+          fieldIssue("history", "");
+        },
+        (error) => fieldIssue("history", String(error)),
+      ),
+    [fieldIssue],
+  );
   const selectedState = runs.find((r) => r.run_id === selectedRun)?.state;
   useEffect(() => {
     setResult(null);
@@ -264,7 +199,6 @@ export function WorkspaceProvider({
       ]);
       if (active) {
         setResult({ runId: selectedRun, design: snapshot, summary, telemetry });
-        setTime(summary.start_time_s);
       }
     });
     return () => {
@@ -277,137 +211,38 @@ export function WorkspaceProvider({
     setPickingSite(false);
     setResultView((value) => value + 1);
   }, []);
-  const edit = (path: string[], value: unknown) => {
+  const edit = useCallback((path: string[], value: unknown) => {
     setDesign((old) => editDesign(old, path, value));
     setDirty(true);
     if (path[0] === "environment") setMapMode("design");
-  };
-  const removeComponent = (id: string) => {
-    const current = latest.current;
-    const issue = componentRemovalIssue(current, id);
-    if (issue) {
-      fieldIssue("action", issue);
-      return;
-    }
-    const index = current.components.findIndex(
-      (component) => component.id === id,
-    );
-    const remaining = current.components.filter(
-      (component) => component.id !== id,
-    );
-    setDesign((old) => removeDesignComponent(old, id));
-    setSelection(remaining[Math.min(index, remaining.length - 1)].id);
-    setDirty(true);
-    fieldIssue("action", "");
-  };
+  }, []);
+  const removeComponent = useCallback(
+    (id: string) => {
+      const current = latest.current;
+      const issue = componentRemovalIssue(current, id);
+      if (issue) {
+        fieldIssue("action", issue);
+        return;
+      }
+      const index = current.components.findIndex(
+        (component) => component.id === id,
+      );
+      const remaining = current.components.filter(
+        (component) => component.id !== id,
+      );
+      setDesign((old) => removeDesignComponent(old, id));
+      setSelection(remaining[Math.min(index, remaining.length - 1)].id);
+      setDirty(true);
+      fieldIssue("action", "");
+    },
+    [fieldIssue],
+  );
   const placeSite = useCallback((latitude: number, longitude: number) => {
     setDesign((old) => placeLaunchSite(old, latitude, longitude));
     setDirty(true);
     setMapMode("design");
     setPickingSite(false);
   }, []);
-  const replace = (value: RocketDesign, saved = false) => {
-    if (dirty && !window.confirm("저장하지 않은 편집 내용을 바꿀까요?")) return;
-    autoTerrain.push(null);
-    autoWeather.push(null);
-    setTerrainSource(
-      value.environment.terrain?.provider === "unknown"
-        ? "local"
-        : value.environment.terrain?.provider || "aws",
-    );
-    const normalized = editDesign(value, ["environment"], value.environment);
-    setDesign(normalized);
-    setDirty(!saved || normalized.environment !== value.environment);
-    setSelection(value.components[0].id);
-    setMapMode("design");
-    setPickingSite(false);
-  };
-  const save = () =>
-    act(async () => {
-      if (Object.keys(problems).some((key) => key.startsWith("field:")))
-        throw new Error("편집 중인 입력을 적용하거나 수정한 뒤 저장하세요.");
-      const snapshot = design;
-      await (await desktopApi()).save_design(JSON.stringify(snapshot));
-      if (latest.current === snapshot) setDirty(false);
-    });
-  const run = () =>
-    act(async () => {
-      if (pendingRun.current) return;
-      if (elevationIssue) throw new Error(terrainAutoError || elevationIssue);
-      if (automaticWeatherRequest(design.environment))
-        throw new Error(
-          problems.weather ||
-            "기상 자료를 자동 갱신 중입니다. 완료한 뒤 실행하세요.",
-        );
-      if (
-        terrainBusy ||
-        terrainAutoBusy ||
-        (terrainSource === "aws" &&
-          !terrainAutoError &&
-          defaultTerrainRequest(
-            design.environment,
-            terrainArea.radius_m,
-            terrainArea.spacing_m,
-          ))
-      )
-        throw new Error(
-          "계산용 지형을 가져오는 중입니다. 완료한 뒤 실행하세요.",
-        );
-      if (
-        previewState !== "ready" ||
-        Object.keys(problems).some((k) => k.startsWith("field:"))
-      )
-        throw new Error("입력과 미리보기를 먼저 확인해 주세요.");
-      pendingRun.current = true;
-      try {
-        const record = await submitDesign(design);
-        setRuns((old) => [record, ...old]);
-        selectRun(record.run_id);
-      } finally {
-        pendingRun.current = false;
-      }
-    });
-  const loadTerrain: Workspace["loadTerrain"] = (options, local) =>
-    act(async () => {
-      if (pendingTerrain.current) return;
-      autoTerrain.push(null);
-      setTerrainAutoError("");
-      const environment = latest.current.environment;
-      if (environment.datum !== "WGS84")
-        throw new Error(
-          "지형 조회 전에 좌표 기준을 WGS84로 지정해 주세요. 기존 좌표는 자동 변환하지 않습니다.",
-        );
-      setTerrainBusy(true);
-      pendingTerrain.current = true;
-      try {
-        const api = await desktopApi();
-        const area = {
-          ...options,
-          latitude: environment.latitude,
-          longitude: environment.longitude,
-        };
-        const grid = local
-          ? await api.select_terrain_file(JSON.stringify({ ...local, area }))
-          : await api.get_terrain(JSON.stringify(area));
-        if (!grid) return;
-        if (latest.current.environment !== environment)
-          throw new Error(
-            "조회 중 발사 환경이 변경되어 지형을 적용하지 않았습니다. 다시 가져오세요.",
-          );
-        setDesign((old) =>
-          editDesign(old, ["environment"], {
-            ...old.environment,
-            terrain: grid,
-            terrain_mode: "terrain",
-          }),
-        );
-        setMapMode("design");
-        setDirty(true);
-      } finally {
-        pendingTerrain.current = false;
-        setTerrainBusy(false);
-      }
-    }, "terrain");
   const autoTerrain = useMemo(
     () =>
       previewQueue(
@@ -522,6 +357,133 @@ export function WorkspaceProvider({
     autoWeather.push(JSON.parse(weatherQuery));
   }, [autoWeather, weatherQuery, fieldIssue]);
   useEffect(() => () => autoWeather.dispose(), [autoWeather]);
+  const replace = useCallback(
+    (value: RocketDesign, saved = false) => {
+      if (dirty && !window.confirm("저장하지 않은 편집 내용을 바꿀까요?"))
+        return;
+      autoTerrain.push(null);
+      autoWeather.push(null);
+      setTerrainSource(
+        value.environment.terrain?.provider === "unknown"
+          ? "local"
+          : value.environment.terrain?.provider || "aws",
+      );
+      const normalized = editDesign(value, ["environment"], value.environment);
+      setDesign(normalized);
+      setDirty(!saved || normalized.environment !== value.environment);
+      setSelection(value.components[0].id);
+      setMapMode("design");
+      setPickingSite(false);
+    },
+    [dirty, autoTerrain, autoWeather],
+  );
+  const save = useCallback(
+    () =>
+      act(async () => {
+        if (Object.keys(problems).some((key) => key.startsWith("field:")))
+          throw new Error("편집 중인 입력을 적용하거나 수정한 뒤 저장하세요.");
+        const snapshot = design;
+        await (await desktopApi()).save_design(JSON.stringify(snapshot));
+        if (latest.current === snapshot) setDirty(false);
+      }),
+    [act, design, problems],
+  );
+  const run = useCallback(
+    () =>
+      act(async () => {
+        if (pendingRun.current) return;
+        if (elevationIssue) throw new Error(terrainAutoError || elevationIssue);
+        if (automaticWeatherRequest(design.environment))
+          throw new Error(
+            problems.weather ||
+              "기상 자료를 자동 갱신 중입니다. 완료한 뒤 실행하세요.",
+          );
+        if (
+          terrainBusy ||
+          terrainAutoBusy ||
+          (terrainSource === "aws" &&
+            !terrainAutoError &&
+            defaultTerrainRequest(
+              design.environment,
+              terrainArea.radius_m,
+              terrainArea.spacing_m,
+            ))
+        )
+          throw new Error(
+            "계산용 지형을 가져오는 중입니다. 완료한 뒤 실행하세요.",
+          );
+        if (
+          previewState !== "ready" ||
+          Object.keys(problems).some((k) => k.startsWith("field:"))
+        )
+          throw new Error("입력과 미리보기를 먼저 확인해 주세요.");
+        pendingRun.current = true;
+        try {
+          const record = await submitDesign(design);
+          setRuns((old) => [record, ...old]);
+          selectRun(record.run_id);
+        } finally {
+          pendingRun.current = false;
+        }
+      }),
+    [
+      act,
+      elevationIssue,
+      terrainAutoError,
+      design,
+      problems,
+      terrainBusy,
+      terrainAutoBusy,
+      terrainSource,
+      terrainArea,
+      previewState,
+      selectRun,
+    ],
+  );
+  const loadTerrain: Workspace["loadTerrain"] = useCallback(
+    (options, local) =>
+      act(async () => {
+        if (pendingTerrain.current) return;
+        autoTerrain.push(null);
+        setTerrainAutoError("");
+        const environment = latest.current.environment;
+        if (environment.datum !== "WGS84")
+          throw new Error(
+            "지형 조회 전에 좌표 기준을 WGS84로 지정해 주세요. 기존 좌표는 자동 변환하지 않습니다.",
+          );
+        setTerrainBusy(true);
+        pendingTerrain.current = true;
+        try {
+          const api = await desktopApi();
+          const area = {
+            ...options,
+            latitude: environment.latitude,
+            longitude: environment.longitude,
+          };
+          const grid = local
+            ? await api.select_terrain_file(JSON.stringify({ ...local, area }))
+            : await api.get_terrain(JSON.stringify(area));
+          if (!grid) return;
+          if (latest.current.environment !== environment)
+            throw new Error(
+              "조회 중 발사 환경이 변경되어 지형을 적용하지 않았습니다. 다시 가져오세요.",
+            );
+          setDesign((old) =>
+            editDesign(old, ["environment"], {
+              ...old.environment,
+              terrain: grid,
+              terrain_mode: "terrain",
+            }),
+          );
+          setMapMode("design");
+          setDirty(true);
+        } finally {
+          pendingTerrain.current = false;
+          setTerrainBusy(false);
+        }
+      }, "terrain"),
+    [act, autoTerrain],
+  );
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
       if (dirty) event.preventDefault();
@@ -529,64 +491,133 @@ export function WorkspaceProvider({
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
+  const changeTerrainSource = useCallback(
+    (source: NonNullable<TerrainRequest["provider"]>) => {
+      setTerrainSource(source);
+      if (
+        source === "aws" &&
+        latest.current.environment.terrain &&
+        latest.current.environment.terrain.provider !== "aws"
+      )
+        void loadTerrain({ provider: "aws", ...terrainArea });
+    },
+    [loadTerrain, terrainArea],
+  );
+  const selectedResult =
+    result?.runId === selectedRun && selectedState === "succeeded"
+      ? result
+      : null;
+  const simulation = useMemo(
+    () => ({
+      runs,
+      selectedRun,
+      selectedRunState: selectedState,
+      resultView,
+      selectRun,
+      result: selectedResult,
+    }),
+    [runs, selectedRun, selectedState, resultView, selectRun, selectedResult],
+  );
+  const actions = useMemo(
+    () => ({ act, fieldIssue, replace, problems }),
+    [act, fieldIssue, replace, problems],
+  );
+  const designWorkspace = useMemo(
+    () => ({
+      schema,
+      design,
+      preview,
+      previewState,
+      selection,
+      setSelection,
+      edit,
+      removeComponent,
+      replace,
+      dirty,
+      problems,
+      fieldIssue,
+      act,
+      save,
+      run,
+      saved,
+    }),
+    [
+      schema,
+      design,
+      preview,
+      previewState,
+      selection,
+      edit,
+      removeComponent,
+      replace,
+      dirty,
+      problems,
+      fieldIssue,
+      act,
+      save,
+      run,
+      saved,
+    ],
+  );
+  const weatherBusy = weatherQuery !== "null" && !problems.weather;
+  const weatherProblem = problems.weather || "";
+  const terrainProblem = problems.terrain || "";
+  const environment = useMemo(
+    () => ({
+      environment: design.environment,
+      act,
+      edit,
+      elevation,
+      elevationIssue,
+      weatherBusy,
+      weatherProblem,
+      terrainProblem,
+      terrainBusy: terrainBusy || terrainAutoBusy,
+      terrainSource,
+      setTerrainSource: changeTerrainSource,
+      terrainAutoError,
+      terrainArea,
+      setTerrainArea,
+      loadTerrain,
+      vworldKey,
+      setVworldKey,
+      mapMode,
+      setMapMode,
+      pickingSite,
+      setPickingSite,
+      placeSite,
+    }),
+    [
+      design.environment,
+      act,
+      edit,
+      elevation,
+      elevationIssue,
+      weatherBusy,
+      weatherProblem,
+      terrainProblem,
+      terrainBusy,
+      terrainAutoBusy,
+      terrainSource,
+      changeTerrainSource,
+      terrainAutoError,
+      terrainArea,
+      loadTerrain,
+      vworldKey,
+      mapMode,
+      pickingSite,
+      placeSite,
+    ],
+  );
   return (
-    <Context
-      value={{
-        schema,
-        design,
-        preview,
-        previewState,
-        selection,
-        setSelection,
-        edit,
-        removeComponent,
-        replace,
-        dirty,
-        problems,
-        fieldIssue,
-        act,
-        save,
-        run,
-        saved,
-        runs,
-        selectedRun,
-        selectedRunState: selectedState,
-        resultView,
-        selectRun,
-        result:
-          result?.runId === selectedRun && selectedState === "succeeded"
-            ? result
-            : null,
-        elevation,
-        elevationIssue,
-        weatherBusy: weatherQuery !== "null" && !problems.weather,
-        terrainBusy: terrainBusy || terrainAutoBusy,
-        terrainSource,
-        setTerrainSource: (source) => {
-          setTerrainSource(source);
-          if (
-            source === "aws" &&
-            latest.current.environment.terrain &&
-            latest.current.environment.terrain.provider !== "aws"
-          )
-            void loadTerrain({ provider: "aws", ...terrainArea });
-        },
-        terrainAutoError,
-        terrainArea,
-        setTerrainArea,
-        loadTerrain,
-        vworldKey,
-        setVworldKey,
-        mapMode,
-        setMapMode,
-        pickingSite,
-        setPickingSite,
-        placeSite,
-        time,
-        setTime,
-      }}
-    >
-      {children}
-    </Context>
+    <ActionsContext value={actions}>
+      <DesignContext value={designWorkspace}>
+        <EnvironmentContext value={environment}>
+          <SimulationContext value={simulation}>
+            <PlaybackProvider>{children}</PlaybackProvider>
+          </SimulationContext>
+        </EnvironmentContext>
+      </DesignContext>
+    </ActionsContext>
   );
 }

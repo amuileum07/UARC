@@ -87,6 +87,7 @@ def run_ui(executable: Path, output: Path, scenario: dict) -> dict:
             {
                 "graphics": "probe_webgl.js",
                 "diagnostics": "diagnostics_check.js",
+                "workspace": "probe_workspace.js",
             }.get(phase, "desktop_check.js")
         )
         .read_text(encoding="utf-8")
@@ -113,7 +114,7 @@ def run_ui(executable: Path, output: Path, scenario: dict) -> dict:
         design.write_text(json.dumps(fixture), encoding="utf-8")
     data = output / (
         f"{phase}-data"
-        if phase in {"graphics", "diagnostics", "network"}
+        if phase in {"graphics", "diagnostics", "network", "workspace"}
         else "사용자 데이터"
     )
     command = [
@@ -132,6 +133,8 @@ def run_ui(executable: Path, output: Path, scenario: dict) -> dict:
             encoding="utf-8",
         )
         command.extend(["--frontend", str(page)])
+    elif phase == "workspace":
+        command.extend(["--frontend", scenario["frontend"]])
     with (output / f"{phase}.log").open("w", encoding="utf-8") as log:
         # Windows CI's parent stdout can be cp1252 even when the child is UTF-8.
         print(f"Desktop UI: {phase}, launcher={str(executable)!a}", flush=True)
@@ -166,6 +169,9 @@ def main() -> None:
     parser.add_argument(
         "--output", type=Path, required=True, help="New diagnostics directory"
     )
+    parser.add_argument(
+        "--workspace-probe", type=Path, help="Built standalone React context check page"
+    )
     args = parser.parse_args()
     archive = args.archive.resolve(strict=True)
     if archive.is_dir():
@@ -174,6 +180,9 @@ def main() -> None:
             parser.error("Pass exactly one native desktop archive.")
         archive = archives[0]
     output = args.output.resolve()
+    probe = args.workspace_probe.resolve(strict=True) if args.workspace_probe else None
+    if probe is not None and not probe.is_file():
+        parser.error("--workspace-probe requires a built HTML file.")
     output.mkdir(parents=True, exist_ok=False)
     with tempfile.TemporaryDirectory(prefix="UARC 설치 한글 ") as temporary:
         executable = extract_archive(archive, Path(temporary) / "압축 해제 폴더")
@@ -209,6 +218,8 @@ def main() -> None:
                     f"Missing persisted frontend/IPC diagnostic: {marker}"
                 )
         run_ui(executable, output, {"phase": "network"})
+        if probe is not None:
+            run_ui(executable, output, {"phase": "workspace", "frontend": str(probe)})
         name = f"CI 한글 설계 {uuid4().hex[:12]}"
         first = run_ui(executable, output, {"phase": "first", "name": name})
         reopened = run_ui(
@@ -222,12 +233,15 @@ def main() -> None:
         ):
             raise RuntimeError("Reopened result differs from the original simulation.")
         data = output / "사용자 데이터"
-        for directory in (
+        directories = [
             "graphics-data",
             "diagnostics-data",
             "network-data",
             data.name,
-        ):
+        ]
+        if probe is not None:
+            directories.append("workspace-data")
+        for directory in directories:
             root = output / directory
             records = [
                 json.loads(line)

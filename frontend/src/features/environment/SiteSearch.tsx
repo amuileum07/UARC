@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { desktopApi } from "../../lib/bridge";
 import type { LocationResult } from "../../lib/types";
-import { useWorkspace } from "../../workspace";
+import { useEnvironment } from "../../workspace";
 
 export function SiteSearch() {
-  const w = useWorkspace();
+  const w = useEnvironment();
   const [query, setQuery] = useState("");
   const [country, setCountry] = useState<"KR" | "all">("KR");
   const revision = useRef(0);

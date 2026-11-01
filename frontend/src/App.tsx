@@ -11,7 +11,12 @@ import type { DockviewApi, DockviewReadyEvent } from "dockview-react";
 import { desktopApi } from "./lib/bridge";
 import type { RocketDesign } from "./lib/types";
 import type { InputSchema } from "./lib/forms";
-import { WorkspaceProvider, useWorkspace } from "./workspace";
+import {
+  WorkspaceProvider,
+  useWorkspace,
+  useSimulation,
+  useEnvironment,
+} from "./workspace";
 import { Explorer, Properties } from "./features/rocket/Editor";
 import { RocketView } from "./features/rocket/RocketView";
 import { EnvironmentEditor } from "./features/environment/Environment";
@@ -92,7 +97,7 @@ function defaultLayout(api: DockviewApi) {
   api.getPanel("properties")?.api.setActive();
 }
 function Workspace() {
-  const w = useWorkspace();
+  const w = { ...useWorkspace(), ...useSimulation(), ...useEnvironment() };
   const api = useRef<DockviewApi | null>(null);
   const subscription = useRef<{ dispose: () => void } | null>(null);
   const [layoutIssue, setLayoutIssue] = useState("");

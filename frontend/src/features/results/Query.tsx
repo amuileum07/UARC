@@ -3,14 +3,14 @@ import { NumberField } from "../../components/Fields";
 import { desktopApi } from "../../lib/bridge";
 import { telemetryColumns, telemetryLabels } from "../../lib/telemetry";
 import type { TelemetryResult } from "../../lib/types";
-import { useWorkspace } from "../../workspace";
+import { useWorkspaceActions, useSimulation } from "../../workspace";
 
 export function TelemetryQuery({
   onResult,
 }: {
   onResult: (id: string, value: TelemetryResult | null) => void;
 }) {
-  const w = useWorkspace();
+  const w = { ...useWorkspaceActions(), ...useSimulation() };
   const latestRun = useRef(w.selectedRun);
   latestRun.current = w.selectedRun;
   const [columns, setColumns] = useState(telemetryColumns);

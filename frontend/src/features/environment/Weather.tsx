@@ -10,12 +10,12 @@ import {
   weatherModels,
   weatherRequest,
 } from "../../lib/weather";
-import { useWorkspace } from "../../workspace";
+import { useEnvironment } from "../../workspace";
 import { WeatherFile } from "./WeatherFile";
 
 export function WeatherEditor() {
-  const w = useWorkspace();
-  const env = w.design.environment;
+  const w = useEnvironment();
+  const env = w.environment;
   const latest = useRef(env);
   latest.current = env;
   const [model, setModel] = useState<WeatherRequest["model"]>(
@@ -254,9 +254,9 @@ export function WeatherEditor() {
           변경된 발사 환경의 기상을 자동으로 갱신하고 있습니다…
         </p>
       )}
-      {w.problems.weather && (
+      {w.weatherProblem && (
         <p className="notice warning" role="status">
-          {w.problems.weather}
+          {w.weatherProblem}
         </p>
       )}
       <p className="muted">
@@ -331,7 +331,10 @@ export function WeatherEditor() {
               disabled={!matching || !coversLaunch}
               onClick={() =>
                 void w.act(async () => {
-                  w.edit(["environment"], applyWeather(w.design, preview));
+                  w.edit(
+                    ["environment"],
+                    applyWeather({ environment: env }, preview),
+                  );
                   setPending(null);
                   setMessage(
                     "기상을 적용했습니다. 설계·실행에 이 자료가 보존되며 재실행 시 다시 조회하지 않습니다.",

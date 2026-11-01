@@ -145,6 +145,14 @@ from tail toward nose (`tail_to_nose`). Choose one body reference station as zer
 and retain it for the whole design; negative stations are allowed. Surface
 positions in a parametric design are axial scalars rather than XYZ tuples.
 
+The current editable model is a single rocket with one motor and at most 64
+components. Stage separation, strap-on boosters and asymmetric assemblies are
+outside this contract; unsupported OpenRocket stages/pods and off-axis surfaces
+are rejected rather than approximated silently. Adding these features requires
+explicit topology, separation events and verified physical models before changing
+the schema. Compilation remains separate from RocketPy assembly/integration; a
+future design-model extension does not by itself justify rewriting the integrator.
+
 | Position field | Reference point |
 | --- | --- |
 | Tube `position` | Aft end; the tube extends in +z |
