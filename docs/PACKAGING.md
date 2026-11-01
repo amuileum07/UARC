@@ -237,16 +237,33 @@ Full desktop acceptance requires the frontend assets and a graphical session.
 
 ## Local post-mortem diagnostics
 
-The desktop, simulation CLI and data CLI append UTC, process/thread-tagged records
-to `<data-dir>/uarc.log`. The default data directory follows the OS application
-data location; `--data-dir` overrides it. Rotation keeps a 5 MiB active log and
-three backups. Startup/shutdown, uncaught host/thread failures, bridge calls and
+The desktop, simulation CLI and data CLI append JSON Lines records to
+`<data-dir>/uarc.log`, with UTC timestamp, level, logger, process, thread, message
+and optional exception/stack fields. The default data directory follows the OS
+application data location; `--data-dir` overrides it. Rotation uses a 5 MiB
+threshold and three backups, rather than a strict total-disk quota. Individual
+message/trace fields are bounded. Existing text logs move into a rotated backup
+on upgrade; current records are independently parseable JSON objects.
+Startup/shutdown, uncaught host/thread failures, bridge calls and
 exceptions, worker lifecycle/limits and supervisor failures share this file.
 Bridge records contain method, call ID, duration and argument types/lengths;
 submitted runs also include their run ID. Full payloads are kept in the existing
 run snapshots instead of being copied to the app log. Credential-shaped fields
 are redacted and Pydantic errors omit rejected input values. Design-only
 `--preview` stays read-only and does not create a data directory.
+
+Before GUI runtime initialization, the desktop opens `native.log`, redirects
+Python/native stdout/stderr and enables `faulthandler` against that stable file.
+The first loaded-document event restores console output, so cached console
+handlers do not keep writing application requests into the startup file. Fatal
+Python tracebacks continue to use the file until desktop shutdown. Rotation
+happens between launches only, with three backups; there is no per-session byte
+cap for this raw channel. Workers reuse the same descriptor capture helper.
+Consoleless launches reserve missing fd 1/2 before opening log files. Tests cover
+missing handles, console restoration and fatal signals before/after restoration.
+In Python 3.13 these fatal records contain Python stacks, not native C stacks.
+Failures before Python reaches the desktop entry point, including a bootloader
+or interpreter loader failure, still require external launcher/OS diagnostics.
 
 Each started worker creates `runs/<run_id>/solver.log` without replacing an
 existing file. It captures Python stdout/stderr, emitted warnings, native fd 1/2
@@ -255,6 +272,8 @@ the existing `runtime.json` and `error.json`. Successful runs keep the same log.
 Native C output is flushed at normal exit; termination/power loss can still lose
 library-buffered output. Each solver log is retained with its run and is not
 rotated. Diagnostics do not change solver tolerances or promote warnings to errors.
+The raw `native.log`/`solver.log` channels do not pass through the app log's
+credential formatter.
 
 The shipping UI forwards global errors, unhandled rejections, React boundary/root
 errors, WebGL context loss, and handled Three.js/Cesium initialization/render
@@ -272,8 +291,18 @@ acceptance is disabled. These names stay outside the published `desktop-*`
 artifacts. Final archive acceptance additionally injects known frontend errors
 and an IPC validation failure in an isolated `diagnostics-data` directory, then
 requires their persisted logs, successful solver logs and append across relaunch.
+It also parses app records as JSON Lines and requires startup logs and their
+rotation across normal relaunch.
 Its existing `release-acceptance-<target>` / `acceptance-<target>` artifacts include
 the preserved CLI, app and solver data. Retention is seven days.
+
+The isolated `network` phase uses the shipping UI and injects HTTP 500, timeout
+and offline failures at the terrain/weather IPC boundary. It requires local
+warnings, released busy controls, unchanged design data and successful retries
+for both services. Timeout cases switch away from the environment panel while a
+request is pending. Backend tests separately inject HTTP/timeout failures into
+the actual HTTP adapters. These deterministic checks do not measure live service
+availability, credentials, remote TLS/CORS policy or every GPU/OS combination.
 
 ## Final archive and actual UI acceptance
 

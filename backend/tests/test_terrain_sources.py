@@ -254,6 +254,21 @@ class DemSourceTests(unittest.TestCase):
         self.assertNotIn("secret", str(caught.exception))
         self.assertTrue(caught.exception.__suppress_context__)
 
+    def test_server_failure_and_timeout_do_not_expose_keys(self):
+        url = "https://portal.opentopography.org/API/globaldem?API_Key=secret"
+        for error, message in (
+            (HTTPError(url, 500, "secret", None, None), "HTTP 500"),
+            (TimeoutError("secret"), "연결"),
+        ):
+            with (
+                self.subTest(error=type(error).__name__),
+                patch("app.terrain_sources.build_opener") as build,
+            ):
+                build.return_value.open.side_effect = error
+                with self.assertRaisesRegex(ValueError, message) as caught:
+                    _download(url)
+                self.assertNotIn("secret", str(caught.exception))
+
     def test_layout_reports_actual_spacing_and_keeps_launch_center(self):
         large = self.area.model_copy(update={"radius_m": 5000, "spacing_m": 5})
         bounds, count, affine = grid_layout(large)

@@ -55,7 +55,7 @@ interface Workspace {
   dirty: boolean;
   problems: Record<string, string>;
   fieldIssue: (id: string, message: string) => void;
-  act: (operation: () => Promise<void>) => Promise<void>;
+  act: (operation: () => Promise<void>, problem?: string) => Promise<void>;
   save: () => Promise<void>;
   run: () => Promise<void>;
   saved: SavedDesignRecord[];
@@ -158,13 +158,13 @@ export function WorkspaceProvider({
     [],
   );
   const act = useCallback(
-    async (operation: () => Promise<void>) => {
+    async (operation: () => Promise<void>, problem = "action") => {
+      fieldIssue(problem, "");
       try {
         await operation();
-        fieldIssue("action", "");
       } catch (error) {
         fieldIssue(
-          "action",
+          problem,
           error instanceof Error ? error.message : String(error),
         );
       }
@@ -407,7 +407,7 @@ export function WorkspaceProvider({
         pendingTerrain.current = false;
         setTerrainBusy(false);
       }
-    });
+    }, "terrain");
   const autoTerrain = useMemo(
     () =>
       previewQueue(

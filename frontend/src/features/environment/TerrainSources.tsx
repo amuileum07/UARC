@@ -201,9 +201,9 @@ export function TerrainSources() {
         최대 257×257 표본으로 보존합니다. 지도와 지형 충돌 계산은 같은 고도를
         사용합니다. 온라인 조회는 현재 좌표를 서비스에 전송합니다.
       </p>
-      {w.terrainAutoError && (
+      {(w.problems.terrain || w.terrainAutoError) && (
         <p className="notice warning" role="status">
-          {w.terrainAutoError}
+          {w.problems.terrain || w.terrainAutoError}
         </p>
       )}
       {grid && (

@@ -36,15 +36,28 @@ class _DiagnosticFormatter(logging.Formatter):
         return super().formatException(exc_info)
 
     def format(self, record):
-        # Other handlers may already have cached a traceback containing inputs.
-        previous = record.exc_text
-        record.exc_text = None
-        try:
-            content = _VALIDATION_INPUT.sub(r"\1[redacted]\2", super().format(record))
-            content = _VWORLD_KEY.sub(r"\1[redacted]", content)
-            return _CREDENTIAL.sub(r"\1[redacted]", content)
-        finally:
-            record.exc_text = previous
+        entry = {
+            "timestamp": f"{self.formatTime(record, self.datefmt)}.{int(record.msecs):03d}Z",
+            "level": record.levelname,
+            "logger": record.name[:256],
+            "pid": record.process,
+            "thread": record.threadName[:256] if record.threadName else None,
+            "message": _redact(record.getMessage())[:32768],
+        }
+        # Ignore another handler's cached traceback, which may include inputs.
+        if record.exc_info:
+            entry["exception"] = _redact(self.formatException(record.exc_info))[-32768:]
+        elif record.exc_text:
+            entry["exception"] = _redact(record.exc_text)[-32768:]
+        if record.stack_info:
+            entry["stack"] = _redact(record.stack_info)[-32768:]
+        return json.dumps(entry, ensure_ascii=False, allow_nan=False)
+
+
+def _redact(content: str) -> str:
+    content = _VALIDATION_INPUT.sub(r"\1[redacted]\2", content)
+    content = _VWORLD_KEY.sub(r"\1[redacted]", content)
+    return _CREDENTIAL.sub(r"\1[redacted]", content)
 
 
 @contextmanager
@@ -61,11 +74,26 @@ def application_logging(directory: Path, component: str):
     )
     handler.setFormatter(
         _DiagnosticFormatter(
-            "%(asctime)s.%(msecs)03dZ %(levelname)s pid=%(process)d "
-            "thread=%(threadName)s %(name)s %(message)s",
             datefmt="%Y-%m-%dT%H:%M:%S",
         )
     )
+    try:
+        # Preserve existing text logs as a rotated backup when upgrading to JSONL.
+        path = directory / "uarc.log"
+        if path.stat().st_size:
+            with path.open(encoding="utf-8", errors="replace") as stream:
+                try:
+                    first = json.loads(stream.readline(1024**2))
+                except (ValueError, RecursionError):
+                    first = None
+            if (
+                not isinstance(first, dict)
+                or not {"timestamp", "message"} <= first.keys()
+            ):
+                handler.doRollover()
+    except OSError:
+        handler.close()
+        raise
     root = logging.getLogger()
     previous_level = root.level
     previous_hook = threading.excepthook

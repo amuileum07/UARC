@@ -239,7 +239,7 @@ export function WeatherEditor() {
             } finally {
               setBusy(false);
             }
-          });
+          }, "weather");
         }}
       >
         {busy ? "기상 자료 요청 중…" : "고도별 기상 가져오기"}

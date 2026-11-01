@@ -101,6 +101,7 @@ jobs:
       - name: Check and build frontend
         run: |
           pnpm --dir frontend install --frozen-lockfile
+          pnpm --dir frontend format:check
           pnpm --dir frontend check
           pnpm --dir frontend test
           pnpm --dir frontend build
@@ -111,6 +112,13 @@ jobs:
           uv run --locked ruff check app scripts tests
           uv run --locked ruff format --check app scripts tests
           uv run --locked python -m unittest discover -s tests -v
+      - name: Verify generated DTO types
+        working-directory: backend
+        run: |
+          uv run --locked python scripts/export_frontend_types.py
+          pnpm --dir ../frontend exec prettier --write src/lib/types.ts
+          git ls-files --error-unmatch -- ../frontend/src/lib/types.ts
+          git diff --exit-code -- ../frontend/src/lib/types.ts
       - name: Build and verify Python distributions
         working-directory: backend
         run: |
@@ -202,6 +210,7 @@ jobs:
           uv run --locked python -m unittest discover -s tests -p test_gui_portability.py -v
           uv run --locked python -m unittest discover -s tests -p test_desktop_runtime.py -k WebviewURLTests -v
           uv run --locked python -m unittest discover -s tests -p test_logging.py -v
+          uv run --locked python -m unittest discover -s tests -p test_native_output.py -v
       - name: Install Linux webview test libraries
         if: runner.os == 'Linux'
         run: |

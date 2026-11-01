@@ -1,18 +1,8 @@
-type ErrorKind =
-  | "error"
-  | "unhandledrejection"
-  | "react"
-  | "renderer"
-  | "resource";
-interface ErrorReport {
-  kind: ErrorKind;
-  message: string;
-  stack: string;
-  source: string;
-  component_stack: string;
-}
+import type { FrontendError } from "./types";
 
-const pending: ErrorReport[] = [];
+type ErrorKind = FrontendError["kind"];
+
+const pending: FrontendError[] = [];
 let sending = false;
 
 async function flushErrors() {

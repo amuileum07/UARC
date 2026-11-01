@@ -17,7 +17,8 @@ Intel Mac은 지원 대상에서 제외되어 있다. 지원 범위와 검증 �
 | 실행 계기                                        | 수동 `workflow_dispatch`                                              | 수동 `workflow_dispatch`                                |
 | Ruff lint·format                                 | Linux prepare에서 실행                                                | Linux prepare에서 실행                                  |
 | Biome·TypeScript·프런트엔드 테스트·빌드          | 실행                                                                  | 실행                                                    |
-| 프런트엔드 `format:check`                        | 현재 workflow에 없음                                                  | 현재 workflow에 없음                                    |
+| 프런트엔드 `format:check`                        | 실행                                                                  | 실행                                                    |
+| 생성 DTO 동기화                                  | 재생성·포맷·추적 파일·diff 검사                                       | 재생성·포맷·추적 파일·diff 검사                          |
 | 백엔드 전체 단위 테스트                          | Linux prepare에서 실행                                                | Linux prepare에서 실행                                  |
 | OS별 추가 검사                                   | acceptance·launcher·URL 회귀 검사                                     | acceptance·launcher·URL 검사, Windows setup 검사 등     |
 | Python wheel·sdist 빌드와 검사                   | 없음                                                                  | 실행, 세 OS에서 `--fresh --gui` 포함                    |
@@ -25,7 +26,7 @@ Intel Mac은 지원 대상에서 제외되어 있다. 지원 범위와 검증 �
 | 최종 archive의 실제 UI·WebGL·3D·정상 종료·재실행 | 세 OS에서 필수                                                        | `desktop_acceptance=true`(기본값)일 때 세 OS에서 필수   |
 | 버전 변경·태그·GitHub Release·선택적 PyPI 게시   | 없음                                                                  | 모든 해당 release job 통과 후 실행                      |
 
-현재 `push`/`pull_request`용 자동 CI workflow는 없다. 소스를 푸시했다는 이유만으로 위 검사가 실행되지는 않는다.
+[CI](../.github/workflows/ci.yml)는 `main` push와 `main` 대상 PR에서 자동 실행된다. 백엔드와 프런트엔드 job이 병렬로 locked 설치, Ruff, Prettier, Biome, TypeScript, 테스트와 프런트엔드 빌드를 검사한다. 생성 DTO는 Python 스키마에서 재생성하고 Prettier로 정규화한 뒤 추적 파일 존재와 diff를 확인한다. 설치 캐시와 러너 상태에 따라 시간이 달라지므로 2분 완료를 보장하지 않는다. 수동 실행도 가능하다.
 **Release UARC의 `desktop_acceptance` 옵션은 기본값이 켜짐이다.** 이번 릴리스에서 만든 최종 archive를
 직접 검사하며, 세 플랫폼 중 하나라도 실패하면 `build`가 실패해 게시가 차단된다. 검증한 파일을 그대로 게시한다.
 옵션을 끄면 기존 worker·wheel·native-webview 검사는 유지하고, 전체 archive 검사 생략을 실행 요약과 릴리스 노트에 명시한다.
@@ -39,6 +40,8 @@ Intel Mac은 지원 대상에서 제외되어 있다. 지원 범위와 검증 �
 릴리스의 기본 frozen/wheel/GUI 검사도 `--output`으로 자료를 보존하며 `always()` 아티팩트로 업로드한다.
 이 자료는 게시 파일용 `desktop-*` 패턴에 포함되지 않는다. 경로·보존량은 [PACKAGING.md](PACKAGING.md)의
 Local post-mortem diagnostics 절을 따른다.
+
+GUI 초기화의 fd 출력과 치명적 Python 스택은 `native.log`로 보존하며, 호스트 로그는 JSON Lines로 기록한다. `test_native_output.py`를 native job에서도 실행한다. 최종 archive의 `network` 단계는 지형·기상의 HTTP 500/timeout/offline, 요청 중 탭 전환, 경고 표시·재시도·설계 보존을 검사한다. 해당 요청 화면에서 오류가 보이는지도 확인한다. 실서비스 가용성과 깨끗한 OS/개별 GPU 검증은 별도 범위다.
 
 ## 2. 통과 결과를 해석하는 기준
 
@@ -166,13 +169,12 @@ UI 기능을 검사할 때 저장·실행 bridge를 직접 호출해 실제 버�
 
 ## 6. 앞으로 CI에 추가할 항목
 
+자동 소스 CI, 프런트엔드 포맷, 생성 DTO 검사는 구현되어 1절에 반영했다.
+
 아래는 **아직 구현하지 않은 개선 작업**이다. 한 번에 모두 추가하기보다 각 단계가 실제로 실패를 잡는지 확인하며 확장한다.
 
 | 우선순위 | 추가할 작업                                   | 완료 기준                                                                                                       |
 | -------- | --------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| 1        | `pull_request`와 기본 브랜치 `push`용 빠른 CI | locked 설치, Ruff lint·format, Biome·TypeScript, 양쪽 테스트, frontend format·build가 자동 실행되고 실패가 보임 |
-| 1        | 두 기존 workflow의 frontend format 검사       | `format:check`를 source 검사에 포함하고 workflow 및 외부 JS 검사 파일도 별도로 포맷 확인                        |
-| 2        | 생성 DTO 일치 검사                            | 스키마에서 TS 생성 → formatter → diff 확인; 생성 파일 수동 수정이나 누락을 CI가 거부                            |
 | 2        | 설치·빌드 단계의 실패 진단 보강               | 기본 frozen/wheel/GUI smoke와 최종 archive 로그 보존은 구현됨; 의존성 설치·빌드 도구 자체의 자료는 필요에 따라 보강 |
 | 2        | 깨끗한 OS의 설치·첫 실행                      | 필요한 runtime이 없는 환경에서 안내·동의·취소·설치 실패와 복구·재실행을 확인하고 OS·archive·SHA-256 기록        |
 | 필요 시  | 성능·대용량 회귀                              | 실제 요구가 생긴 기능에 고정 workload·시간/메모리 예산·허용 변동 폭을 정해 측정                                 |

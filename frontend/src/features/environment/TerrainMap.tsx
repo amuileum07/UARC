@@ -197,7 +197,11 @@ export function TerrainMap() {
             terrainOffset,
             (reason) => {
               if (active) {
-                reportFrontendError("renderer", reason, "AWS terrain streaming");
+                reportFrontendError(
+                  "renderer",
+                  reason,
+                  "AWS terrain streaming",
+                );
                 setStreamError(
                   `AWS 주변 지형 표시 실패: ${String(reason)}. 저장된 고도 영역은 유지되며, 가져오지 못한 영역은 기준 타원체로 표시됩니다.`,
                 );

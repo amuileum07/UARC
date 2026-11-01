@@ -14,6 +14,7 @@ from app.desktop_runtime import (
     prepare_desktop_runtime,
 )
 from app.logging import application_logging
+from app.native_output import desktop_native_output
 from app.windows_runtime import ensure_windows_runtime
 
 
@@ -82,7 +83,10 @@ def main() -> None:
         except (OSError, ValueError, UnicodeError) as error:
             parser.error(str(error))
     try:
-        with application_logging(args.data_dir, "desktop"):
+        with (
+            desktop_native_output(args.data_dir) as restore_native_output,
+            application_logging(args.data_dir, "desktop"),
+        ):
             entry = frontend_entrypoint(dev_url=args.dev_url, frontend=args.frontend)
             # Delay GUI imports so --help and input checks also work without a display.
             if not ensure_windows_runtime():
@@ -112,6 +116,7 @@ def main() -> None:
                     height=800,
                 )
                 window.events.initialized += encode_webview_url
+                window.events.loaded += restore_native_output
                 if logging.getLogger("pywebview").isEnabledFor(logging.DEBUG):
                     window.events.loaded += log_webview_document
                 if check_script is not None:

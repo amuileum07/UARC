@@ -1,61 +1,15 @@
 """Spawn entry point: build, solve, and save one run without GUI imports."""
 
-import ctypes
-import errno
-import faulthandler
-import io
 import os
 import sys
 import traceback
-from contextlib import contextmanager, suppress
 from importlib.metadata import version
 from multiprocessing import parent_process
 from pathlib import Path
 from threading import Thread
 from time import sleep
 
-
-@contextmanager
-def solver_output(path: Path):
-    """Capture Python and native fd 1/2 output in this disposable worker only."""
-    original = sys.stdout, sys.stderr
-    saved = {}
-    with path.open("xb", buffering=0) as log:
-        stream = io.TextIOWrapper(
-            log,
-            encoding="utf-8",
-            errors="backslashreplace",
-            line_buffering=True,
-            write_through=True,
-        )
-        try:
-            for descriptor in (1, 2):
-                try:
-                    saved[descriptor] = os.dup(descriptor)
-                except OSError as error:
-                    # Windowed Windows builds can have no stdout/stderr handles.
-                    if error.errno != errno.EBADF:
-                        raise
-                    saved[descriptor] = None
-                os.dup2(log.fileno(), descriptor)
-            sys.stdout = sys.stderr = stream
-            faulthandler.enable(file=log)
-            yield
-        finally:
-            faulthandler.disable()
-            stream.flush()
-            # Flush C stdio while fd 1/2 still point at the run log. Fortran's
-            # own buffers may still be lost on SIGKILL or a power failure.
-            with suppress(OSError, AttributeError):
-                ctypes.CDLL("ucrtbase" if os.name == "nt" else None).fflush(None)
-            sys.stdout, sys.stderr = original
-            for descriptor, previous in saved.items():
-                if previous is not None:
-                    os.dup2(previous, descriptor)
-                    os.close(previous)
-                else:
-                    os.close(descriptor)
-            stream.detach()
+from app.native_output import capture_output as solver_output
 
 
 def _watch_parent() -> None:

@@ -11,7 +11,7 @@ from contextlib import closing
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
-from urllib.error import URLError
+from urllib.error import HTTPError, URLError
 
 from pydantic import ValidationError
 
@@ -421,6 +421,18 @@ class WeatherTests(unittest.TestCase):
             _read_json(SEARCH_URL, {})
         with self.assertRaisesRegex(ValueError, "redirects"):
             _NoRedirect().redirect_request(None, None, 302, "", {}, "http://127.0.0.1")
+
+    def test_service_failure_and_timeout_keep_actionable_errors(self):
+        for error, message in (
+            (HTTPError(FORECAST_URL, 500, "server failure", None, None), "HTTP 500"),
+            (TimeoutError("timed out"), "기존 설정"),
+        ):
+            with (
+                self.subTest(error=type(error).__name__),
+                patch("app.weather._OPENER.open", side_effect=error),
+                self.assertRaisesRegex(ValueError, message),
+            ):
+                _read_json(FORECAST_URL, {})
 
 
 if __name__ == "__main__":

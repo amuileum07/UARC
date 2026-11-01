@@ -8,6 +8,7 @@ import sys
 import tarfile
 import tempfile
 import zipfile
+from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from uuid import uuid4
 
@@ -102,19 +103,25 @@ def run_ui(executable: Path, output: Path, scenario: dict) -> dict:
         PYWEBVIEW_LOG="DEBUG",
     )
     environment.pop("PYTHONHOME", None)
+    design = output / "design.json"
+    if phase == "network":
+        fixture = json.loads(design.read_bytes())
+        fixture["environment"]["date"] = datetime.now(UTC).strftime(
+            "%Y-%m-%dT00:00:00Z"
+        )
+        design = output / "network-design.json"
+        design.write_text(json.dumps(fixture), encoding="utf-8")
+    data = output / (
+        f"{phase}-data"
+        if phase in {"graphics", "diagnostics", "network"}
+        else "사용자 데이터"
+    )
     command = [
         str(executable),
         "--data-dir",
-        str(
-            output
-            / (
-                f"{phase}-data"
-                if phase in {"graphics", "diagnostics"}
-                else "사용자 데이터"
-            )
-        ),
+        str(data),
         "--check-ui",
-        str(output / "design.json"),
+        str(design),
         str(script),
         str(report),
     ]
@@ -201,6 +208,7 @@ def main() -> None:
                 raise RuntimeError(
                     f"Missing persisted frontend/IPC diagnostic: {marker}"
                 )
+        run_ui(executable, output, {"phase": "network"})
         name = f"CI 한글 설계 {uuid4().hex[:12]}"
         first = run_ui(executable, output, {"phase": "first", "name": name})
         reopened = run_ui(
@@ -214,9 +222,34 @@ def main() -> None:
         ):
             raise RuntimeError("Reopened result differs from the original simulation.")
         data = output / "사용자 데이터"
+        for directory in (
+            "graphics-data",
+            "diagnostics-data",
+            "network-data",
+            data.name,
+        ):
+            root = output / directory
+            records = [
+                json.loads(line)
+                for line in (root / "uarc.log").read_text(encoding="utf-8").splitlines()
+            ]
+            if not records or any(
+                not {"timestamp", "level", "logger", "pid", "thread", "message"}
+                <= row.keys()
+                for row in records
+            ):
+                raise RuntimeError(f"{directory}: invalid structured application log.")
+            if "Native desktop startup" not in (root / "native.log").read_text(
+                encoding="utf-8", errors="replace"
+            ):
+                raise RuntimeError(f"{directory}: missing native startup diagnostics.")
         log = (data / "uarc.log").read_text(encoding="utf-8")
         if log.count("Application stopped component=desktop") < 2:
             raise RuntimeError("Application log did not survive normal relaunch.")
+        if "Native desktop startup" not in (data / "native.log.1").read_text(
+            encoding="utf-8", errors="replace"
+        ):
+            raise RuntimeError("Native startup log did not survive normal relaunch.")
         solver = (data / "runs" / first["run_id"] / "solver.log").read_text(
             encoding="utf-8"
         )

@@ -24,6 +24,7 @@ from app.schemas import (
     WeatherRequest,
     WeatherTable,
 )
+from app.schemas.diagnostics import FrontendError
 
 
 def typescript(schema):
@@ -87,6 +88,7 @@ def main():
         RunRecord,
         SavedDesignRecord,
         FlightSummary,
+        FrontendError,
         TelemetryResult,
     ):
         schema = model.model_json_schema()

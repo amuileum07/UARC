@@ -1189,3 +1189,48 @@ Evidence is in `/tmp/uarc-41232359755-review/`, including the downloaded macOS
 diagnostics and the new `desktop-checks/` reports. Hosted Windows/macOS checks
 must run again on a commit containing these fixes; rerunning the old SHA uses the
 old code. No new hosted workflow was started by this local review.
+
+## Automatic CI and startup/network diagnostics (2026-11-01)
+
+The new read-only source CI runs on `main` pushes and pull requests targeting
+`main`. Backend and frontend jobs run in parallel; they retain locked installs,
+lint, type checks, both test suites and the frontend build. Prettier and generated
+DTO regeneration/format/tracked-file/diff checks also run in release and standalone
+desktop acceptance. Cold installation and runner time are not a two-minute SLA.
+
+Local verification passed 242 backend tests with five Windows GUI tests skipped,
+all 64 frontend tests, Ruff lint/format, Prettier, Biome/TypeScript and the production
+build. Generated TypeScript was byte-identical after regeneration and formatting.
+The three changed workflows parsed as YAML, their multiline shell blocks passed
+`bash -n`, and their external actions retained commit SHA pins.
+
+The native-output tests cover consoleless fd reservation, startup-log rotation,
+cached console handlers after restoration, and POSIX fatal signals both during
+GUI initialization and after console restoration. Fatal traces use a stable log
+descriptor. A local source launch under Conda also failed during Mesa/Qt startup;
+its `native.log.1` preserved the loader messages and fatal Python traceback.
+That source-environment failure was not repaired by this logging change.
+The frozen Linux bundle passed the scenarios below under Xvfb/Mesa llvmpipe.
+
+The final Linux archive passed relocated CLI/worker/file checks and all five UI
+phases: graphics, diagnostics, network, first run and reopen. The run checks actual
+3D rendering, edited design save/load, a successful flight, normal close and an
+identical result after relaunch. App logs parsed as JSON Lines in all four data
+directories; startup-log rotation and app/solver persistence also passed.
+The terrain/weather scenarios each cover HTTP 500, timeout and offline rejection,
+tab changes during pending requests, local warnings, reenabled controls, unchanged
+designs and successful retries. An additional run of the final driver required
+all local warnings to disappear after recovery, preventing a different error
+from being mistaken for a successful retry. Backend HTTP adapter tests separately
+cover HTTP 500/timeout conversion and credential-safe errors. No live service
+availability is inferred from these injected responses.
+
+The locally tested `UARC-v0.1.1-linux-x86_64.tar.gz` has SHA-256
+`22467cb79d74bfe08f738a3e2f0248a1a520c2dff2db2ce40c7b263105fd07bb`.
+The filename uses the existing manifest version for validation; no release version
+was changed or published. Evidence is in `/tmp/uarc-ci-desktop-checks-20261101/`,
+`/tmp/uarc-ci-network-final-20261101/` and
+`/tmp/uarc-ci-network-probe-20261101/data/native.log.1`. Test/build logs use the
+`/tmp/uarc-ci-` prefix. Hosted push/PR CI and Windows/macOS reruns are pending;
+clean OS, individual GPU drivers and real external API behavior remain outside
+this local validation.

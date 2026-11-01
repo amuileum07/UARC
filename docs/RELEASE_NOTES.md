@@ -1,10 +1,13 @@
 Portable desktop builds for Windows x64, Linux x64 and macOS Apple Silicon.
 
-Local diagnostics now preserve rotating `uarc.log` application/IPC/UI errors and
-per-run `solver.log` Python/native numerical output, including successful runs.
-React crashes show a recovery message. Logs stay in the application data directory;
-no remote telemetry is sent. Release and desktop acceptance verify persistence and
-retain diagnostic artifacts on failure. Existing input/result formats are unchanged.
+Local diagnostics preserve rotating JSON Lines `uarc.log` application/IPC/UI errors,
+`native.log` GUI startup output/fatal Python stacks, and per-run `solver.log`
+Python/native numerical output, including successful runs. React crashes show a
+recovery message. Terrain/weather failures also show a warning in the requesting
+panel and permit retries. Logs stay in the application data directory; no remote
+telemetry is sent. Release and desktop acceptance verify diagnostics and network
+error recovery and retain artifacts on failure. Existing input/result formats are
+unchanged. Automatic push/PR CI now checks source, formatting and generated DTOs.
 
 | Download | Architecture | Launch after extracting the entire archive |
 | --- | --- | --- |

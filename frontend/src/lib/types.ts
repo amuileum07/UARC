@@ -205,6 +205,14 @@ export type FluidConfig = {
   density: number;
 };
 
+export type FrontendError = {
+  kind: "error" | "unhandledrejection" | "react" | "renderer" | "resource";
+  message: string;
+  stack?: string;
+  source?: string;
+  component_stack?: string;
+};
+
 export type GenericMotorConfig = {
   thrust_source: number | string | Array<[number, number]>;
   nozzle_radius: number;

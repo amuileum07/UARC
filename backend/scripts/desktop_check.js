@@ -88,10 +88,98 @@
       antialias: gl.getContextAttributes()?.antialias,
       msaa_samples: node.dataset.msaaSamples ? Number(node.dataset.msaaSamples) : null};
   }
+  async function networkFailures() {
+    await openPanel("설계 JSON");
+    const baseline = document.querySelector("#design-json").value;
+    const design = JSON.parse(baseline);
+    const original = {get_terrain: api.get_terrain, get_weather: api.get_weather};
+    const cases = [];
+    const recovered = [];
+    const services = [
+      {method: "get_terrain", tab: "위치 · 지형", button: "주변 2 km 고도 자료 가져오기"},
+      {method: "get_weather", tab: "시각 · 기상", button: "고도별 기상 가져오기"},
+    ];
+    async function environment(tab) {
+      await openPanel("발사 환경");
+      await click("environment tab", 'fieldset[aria-label="발사 환경 설정"] button', tab);
+    }
+    const warnings = () => [...document.querySelector('fieldset[aria-label="발사 환경 설정"]').parentElement
+      .querySelectorAll('.notice.warning[role="status"]')].filter(visible);
+    async function unchanged() {
+      await openPanel("설계 JSON");
+      if (document.querySelector("#design-json").value !== baseline)
+        throw Error("A failed network request changed the design");
+    }
+    try {
+      for (const service of services) {
+        await environment(service.tab);
+        if (service.method === "get_terrain") {
+          const source = [...document.querySelectorAll("label")]
+            .find((node) => visible(node) && node.textContent.includes("고도 자료 소스"))?.querySelector("select");
+          if (!source) throw Error("Terrain source selector is unavailable");
+          source.value = "opentopodata";
+          source.dispatchEvent(new Event("change", {bubbles: true}));
+          await painted();
+        }
+        for (const failure of ["HTTP 500", "timeout", "offline"]) {
+          const message = `UARC network probe ${service.method} ${failure}`;
+          let called = false;
+          let rejectRequest;
+          api[service.method] = () => new Promise((_resolve, reject) => {
+            called = true;
+            rejectRequest = () => reject(Error(message));
+          });
+          await click("request unavailable service", "button", service.button);
+          await wait("network request started", () => called);
+          if (failure === "timeout") {
+            await openPanel("속성");
+            rejectRequest();
+            await painted();
+            await environment(service.tab);
+          } else rejectRequest();
+          await wait("local network warning and retry", () => called &&
+            warnings().some((node) => node.textContent.includes(message)) &&
+            [...document.querySelectorAll("button")]
+              .some((node) => visible(node) && !node.disabled && text(node) === service.button));
+          cases.push({service: service.method, failure});
+          await unchanged();
+          await environment(service.tab);
+        }
+        let called = false;
+        api[service.method] = async (payload) => {
+          called = true;
+          if (service.method === "get_terrain") return structuredClone(design.environment.terrain);
+          const request = JSON.parse(payload);
+          return {request, source: "Open-Meteo", retrieved_at: request.date,
+            grid_latitude: request.latitude, grid_longitude: request.longitude,
+            response_sha256: "a".repeat(64), notes: [],
+            levels: [
+              {altitude_m: 0, pressure_pa: 101325, temperature_k: 288, wind_u_m_s: 0, wind_v_m_s: 0},
+              {altitude_m: 20000, pressure_pa: 5500, temperature_k: 217, wind_u_m_s: 0, wind_v_m_s: 0},
+            ]};
+        };
+        await click("retry recovered service", "button", service.button);
+        await wait("recovered request", () => called &&
+          !warnings().length &&
+          [...document.querySelectorAll("button")]
+            .some((node) => visible(node) && !node.disabled && text(node) === service.button));
+        if (service.method === "get_weather")
+          await wait("weather recovery preview", () => [...document.querySelectorAll("button")]
+            .some((node) => visible(node) && !node.disabled && text(node) === "이 기상 적용"));
+        recovered.push(service.method);
+        await unchanged();
+      }
+      if (errors.length) throw Error(errors.join("\n"));
+      return {ok: true, phase: "network", cases, recovered, unchanged: true};
+    } finally {
+      Object.assign(api, original);
+    }
+  }
   let api;
   try {
     await wait("shipping frontend and bridge", () => document.querySelector(".app-header") && window.pywebview?.api?.list_runs);
     api = window.pywebview.api;
+    if (scenario.phase === "network") return await networkFailures();
     if (scenario.phase === "first") {
       // Only the startup terrain fixture is injected by the launcher.
       await editPayloadMass();

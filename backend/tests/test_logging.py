@@ -25,6 +25,44 @@ class LoggingTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
 
+    def test_text_log_upgrade_preserves_history_and_starts_valid_jsonl(self):
+        legacy = "Old diagnostic marker\n  old traceback\n"
+        (self.root / "uarc.log").write_text(legacy, encoding="utf-8")
+        with application_logging(self.root, "test"):
+            logging.info("new diagnostic marker")
+        self.assertEqual((self.root / "uarc.log.1").read_text(), legacy)
+        records = [
+            json.loads(line)
+            for line in (self.root / "uarc.log").read_text().splitlines()
+        ]
+        self.assertTrue(
+            any(row["message"] == "new diagnostic marker" for row in records)
+        )
+
+    def test_frontend_stack_and_component_context_survive_json_encoding(self):
+        report = {
+            "kind": "react",
+            "message": "render failed",
+            "stack": "s" * 8192,
+            "component_stack": "c" * 4096,
+        }
+        with application_logging(self.root, "test"):
+            DesktopBridge().report_frontend_error(json.dumps(report))
+        records = [
+            json.loads(line)
+            for line in (self.root / "uarc.log").read_text().splitlines()
+        ]
+        row = next(
+            row for row in records if row["message"].startswith("Frontend error ")
+        )
+        self.assertEqual(
+            json.loads(row["message"].removeprefix("Frontend error ")),
+            {
+                **report,
+                "source": "",
+            },
+        )
+
     def test_rotation_append_and_cleanup_preserve_other_handlers(self):
         root = logging.getLogger()
         previous = list(root.handlers), root.level, threading.excepthook
@@ -41,7 +79,9 @@ class LoggingTests(unittest.TestCase):
             logging.info("persistent Korean marker 한글")
         content = (self.root / "uarc.log").read_text(encoding="utf-8")
         self.assertIn("persistent Korean marker 한글", content)
-        self.assertIn("Z INFO pid=", content)
+        rows = [json.loads(line) for line in content.splitlines()]
+        self.assertTrue(all(row["timestamp"].endswith("Z") for row in rows))
+        self.assertTrue(all(row["pid"] == os.getpid() for row in rows))
         # An open file handle would prevent this on Windows.
         (self.root / "uarc.log").rename(self.root / "closed.log")
 
@@ -90,6 +130,8 @@ class LoggingTests(unittest.TestCase):
         self.assertIn("elapsed_ms=", content)
         self.assertNotIn("private-input", content)
         self.assertNotIn("private-key", content)
+        rows = [json.loads(line) for line in content.splitlines()]
+        self.assertTrue(any("bridge.py" in row.get("exception", "") for row in rows))
 
     def test_frontend_reports_are_bounded_validated_redacted_and_rate_limited(self):
         bridge = DesktopBridge()
