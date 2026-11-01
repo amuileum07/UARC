@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: ["**"]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -83,3 +83,4 @@ jobs:
           pnpm --dir frontend check
           pnpm --dir frontend test
           pnpm --dir frontend build
+          pnpm --dir frontend exec node scripts/build-workspace-check.mjs ../dist/workspace-check

@@ -70,6 +70,41 @@ resizes, unavailable WebGL, and context loss without losing the editable design;
 retain a usable 2D fallback. Measure latency on supported desktop WebEngine builds
 before setting a guaranteed frame rate or response target.
 
+## State subscriptions and history updates
+
+`workspaceContexts.tsx` separates design, environment, simulation, shared actions
+and playback subscriptions using React's built-in contexts. Memoized context
+values and stable callbacks keep unrelated domains unchanged. Playback state
+lives in its own provider: advancing time does not rerender the design/property
+or job-history subscribers. The terrain map reads environment, simulation and
+playback state without subscribing to the complete editable rocket. There is
+still one editable design; the environments in saved run results are snapshots.
+Rocket edits retain an existing launch-elevation check; environment changes
+invalidate that check and start a new one.
+
+`watchHistory` loads initial history and listens for `uarc:history-changed`.
+After a run/create/update or design/save transaction commits, a coalesced native
+notification tells the UI to reread authoritative metadata. Native JS execution
+does not wait for a JS result and runs outside storage/scheduler locks. The
+notification contains no payload. Window close stops the publisher; unmount
+removes UI listeners and ignores late replies. An event arriving during an IPC
+read causes one follow-up read, preserving the final transition. Unchanged
+50-row metadata lists retain their identity. A 30-second fallback and focus
+refresh recover from missed notifications; there is no 1.2-second idle polling.
+
+This does not remove the supervisor's 100 ms resource/exit/progress monitoring.
+The frontend never reads `progress.json` itself; the supervisor persists stage
+changes before notifying the UI. Resource limits and durable worker diagnostics
+remain independent of GUI availability.
+
+The isolated `scripts/workspace_check.tsx` browser probe uses 64 components,
+60 playback updates, 20 mass edits and a history transition to count actual React
+renders. It checks domain isolation and elevation-check retention, without
+claiming an end-user frame rate. The source CI builds this page separately;
+release/desktop acceptance run it on the exact extracted executable on each OS.
+The ordinary shipping UI/3D/relaunch checks remain required. The page is not part
+of the shipping frontend entry point or publication artifacts.
+
 ## Launch site, maps, and terrain data
 
 Use environment latitude/longitude as the launch marker and initial map center.

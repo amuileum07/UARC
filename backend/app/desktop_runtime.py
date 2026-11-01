@@ -10,8 +10,50 @@ import sysconfig
 import webbrowser
 from pathlib import Path
 from socketserver import TCPServer
+from threading import Event, Lock, Thread
 from urllib.parse import quote
 from wsgiref.simple_server import WSGIServer
+
+
+def attach_history_events(window, changed: Event):
+    """Coalesce committed history changes; never wait for JS while holding DB locks."""
+    stopped = Event()
+    lock = Lock()
+    thread = None
+
+    def publish():
+        from webview.errors import WebViewException
+
+        while not stopped.is_set():
+            if not changed.wait(0.5):
+                continue
+            changed.clear()
+            if stopped.is_set():
+                return
+            try:
+                # No result or payload: the UI reads authoritative history over IPC.
+                window.run_js("window.dispatchEvent(new Event('uarc:history-changed'))")
+            except (WebViewException, KeyError):
+                if not stopped.is_set():
+                    logging.getLogger(__name__).exception("History notification failed")
+
+    def start():
+        nonlocal thread
+        with lock:
+            if thread is None and not stopped.is_set():
+                thread = Thread(target=publish, name="history-notify", daemon=True)
+                thread.start()
+
+    def stop():
+        stopped.set()
+        changed.set()
+        with lock:
+            if thread is not None:
+                thread.join(timeout=1)
+
+    window.events.loaded += start
+    window.events.closed += stop
+    return stop
 
 
 class _LoopbackWSGIServer(WSGIServer):
@@ -44,8 +86,6 @@ def log_webview_document(window) -> None:
 
 def attach_ui_check(window, script: str, report: Path) -> dict:
     """Run a trusted acceptance script in the actual UI, then close normally."""
-    from threading import Lock, Thread
-
     from webview.errors import JavascriptException, WebViewException
 
     from app.storage import atomic_json

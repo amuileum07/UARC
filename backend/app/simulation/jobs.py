@@ -80,6 +80,7 @@ class JobManager:
         self._closed = False
         self._fatal: Exception | None = None
         self._store = RunStore(directory)
+        self.history_changed = self._store.history_changed
         self._thread = Thread(target=self._monitor, name="simulation-jobs", daemon=True)
         try:
             self._thread.start()

@@ -112,6 +112,14 @@ jobs:
           uv run --locked ruff check app scripts tests
           uv run --locked ruff format --check app scripts tests
           uv run --locked python -m unittest discover -s tests -v
+      - name: Build isolated workspace render check
+        run: pnpm --dir frontend exec node scripts/build-workspace-check.mjs ../dist/workspace-check
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-workspace-check
+          path: dist/workspace-check/
+          if-no-files-found: error
+          retention-days: 7
       - name: Verify generated DTO types
         working-directory: backend
         run: |
@@ -199,6 +207,10 @@ jobs:
         with:
           name: frontend-dist
           path: frontend/dist
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-workspace-check
+          path: dist/workspace-check/
       - name: Install locked backend dependencies
         working-directory: backend
         run: uv sync --locked
@@ -211,6 +223,7 @@ jobs:
           uv run --locked python -m unittest discover -s tests -p test_desktop_runtime.py -k WebviewURLTests -v
           uv run --locked python -m unittest discover -s tests -p test_logging.py -v
           uv run --locked python -m unittest discover -s tests -p test_native_output.py -v
+          uv run --locked python -m unittest discover -s tests -p test_history_events.py -v
       - name: Install Linux webview test libraries
         if: runner.os == 'Linux'
         run: |
@@ -298,9 +311,9 @@ jobs:
             export LIBGL_ALWAYS_SOFTWARE=true
             # Keep WebGL on llvmpipe, but avoid Qt's unsupported DMA-BUF sharing.
             export QTWEBENGINE_CHROMIUM_FLAGS="--ignore-gpu-blocklist --disable-gpu-compositing"
-            xvfb-run --auto-servernum --server-args="-screen 0 1280x1024x24" uv run --locked python scripts/smoke_desktop.py ../dist/release --output ../dist/desktop-checks
+            xvfb-run --auto-servernum --server-args="-screen 0 1280x1024x24" uv run --locked python scripts/smoke_desktop.py ../dist/release --output ../dist/desktop-checks --workspace-probe ../dist/workspace-check/workspace_check.html
           else
-            uv run --locked python scripts/smoke_desktop.py ../dist/release --output ../dist/desktop-checks
+            uv run --locked python scripts/smoke_desktop.py ../dist/release --output ../dist/desktop-checks --workspace-probe ../dist/workspace-check/workspace_check.html
           fi
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ always() && inputs.desktop_acceptance }}

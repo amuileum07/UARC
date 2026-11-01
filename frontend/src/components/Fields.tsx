@@ -1,5 +1,5 @@
 import { useEffect, useId, useState } from "react";
-import { useWorkspace } from "../workspace";
+import { useWorkspaceActions } from "../workspace";
 
 export function NumberField({
   label,
@@ -17,7 +17,7 @@ export function NumberField({
   readOnly?: boolean;
 }) {
   const id = useId();
-  const { fieldIssue } = useWorkspace();
+  const { fieldIssue } = useWorkspaceActions();
   const [text, setText] = useState(String(value));
   const [focused, setFocused] = useState(false);
   const valid =

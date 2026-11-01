@@ -1234,3 +1234,65 @@ was changed or published. Evidence is in `/tmp/uarc-ci-desktop-checks-20261101/`
 `/tmp/uarc-ci-` prefix. Hosted push/PR CI and Windows/macOS reruns are pending;
 clean OS, individual GPU drivers and real external API behavior remain outside
 this local validation.
+
+## Workspace isolation and native history notifications (2026-11-01)
+
+The architecture review found two concrete update costs: playback time was in the
+global context, and idle history fetched two lists every 1.2 seconds. Design,
+environment, simulation, shared actions and playback now have separate built-in
+React context subscriptions with memoized values/stable callbacks. Playback owns
+its state separately. No state-management dependency was added. A rocket edit
+also incorrectly cleared elevation verification without restarting its
+environment-dependent request; the reset now follows environment changes only.
+
+The native browser probe uses the real provider and a 64-component design. Both
+the Vite development page and the separately built production page passed. The
+final production-page deltas were:
+
+| Action | Design probe | Environment probe | Simulation probe | Playback probe |
+| --- | ---: | ---: | ---: | ---: |
+| 60 playback updates | 0 | 0 | 0 | 60 |
+| 20 payload-mass edits and latest preview | 22 | 0 | 0 | 0 |
+| One history transition | 0 | 0 | 1 | 0 |
+
+The check requires the latest edited design/preview and final playback time,
+without assuming every renderer must produce exactly 60 separate React commits.
+These counts demonstrate subscription isolation, not a guaranteed FPS or a
+full-vehicle numerical benchmark. The probe page is built outside the shipping
+entry point and passed to the same extracted executable as an additional check.
+
+Storage emits a coalesced event after successful run/create/update and design/save
+commits; failed writes do not notify. A window-owned publisher uses `run_js`
+without waiting for JS results or holding database locks. UI requests coalesce
+notifications arriving during a read, ignore replies after unmount, and retain
+unchanged list identities. A 30-second timer and focus refresh recover from lost
+events. Tests require no repeated IPC read during the first 29.999 idle seconds,
+cover failures/retry and late notifications, and verify native start/close cleanup.
+The supervisor still checks processes/resources/progress at 100 ms; frontend code
+does not read worker progress files.
+
+All 244 backend tests passed apart from five Windows GUI tests skipped on Linux;
+all 67 frontend tests, Ruff lint/format, Prettier, Biome/TypeScript, production UI
+and probe builds, and workflow YAML/shell/SHA-pin checks passed. The three source
+workflows build the probe; release and standalone acceptance deliver it separately
+to all three native jobs, which also run `test_history_events.py`. Publication
+artifact selection and exact-archive gates are preserved.
+
+A fresh Linux native archive passed CLI/worker/file checks and six phases:
+graphics, diagnostics, network, workspace, first and reopen. The first shipping-UI
+run received seven real native history notifications; its check requires a native
+notification within ten seconds, so the 30-second fallback cannot mask a broken
+publisher. Edited designs, 3D results, normal exit, log persistence and identical
+results after reopening passed under Xvfb/Mesa llvmpipe. The local archive is
+`UARC-v0.2.0-linux-x86_64.tar.gz`, SHA-256
+`e4713c1e6d8822dd9dbf3fd5b49ed87b2f1ce4e2436ca57f22d51809b8399427`;
+this validation filename does not replace the published v0.2.0 asset or tag.
+Evidence is in `/tmp/uarc-architecture-final-checks-20261101/` and
+`/tmp/uarc-architecture-probe-20261101/`, with test/build logs under the
+`/tmp/uarc-architecture-` prefix. Hosted CI and Windows/macOS execution of this
+patch remain unverified locally.
+
+Single-stage/axis-centered geometry, the 64-component limit and Python 3.13.x
+native packaging support remain explicit boundaries. Unsupported stages/pods and
+off-axis design surfaces already fail validation. No staging physics, new Python
+support range or runtime-library migration is implied by this performance work.

@@ -1,12 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { desktopApi } from "../../lib/bridge";
-import { useWorkspace } from "../../workspace";
+import {
+  useWorkspaceActions,
+  useSimulation,
+  usePlayback,
+} from "../../workspace";
 import type { TelemetryResult } from "../../lib/types";
 import { runStateLabels, telemetryLabels } from "../../lib/telemetry";
 import { TelemetryQuery } from "./Query";
 
 export function Jobs() {
-  const w = useWorkspace();
+  const w = { ...useWorkspaceActions(), ...useSimulation() };
   return (
     <div className="panel scroll">
       <table>
@@ -84,7 +88,7 @@ export function Jobs() {
   );
 }
 export function Results() {
-  const w = useWorkspace();
+  const w = { ...useWorkspaceActions(), ...useSimulation(), ...usePlayback() };
   const [variable, setVariable] = useState("z_asl_m");
   const [query, setQuery] = useState<{
     id: string;

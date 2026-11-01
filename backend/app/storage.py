@@ -10,7 +10,7 @@ import tempfile
 from bisect import bisect_left, bisect_right
 from datetime import UTC, datetime
 from pathlib import Path
-from threading import BoundedSemaphore, RLock
+from threading import BoundedSemaphore, Event, RLock
 from uuid import UUID, uuid4
 
 import numpy as np
@@ -112,6 +112,7 @@ class RunStore:
         self.designs.mkdir(exist_ok=True)
         self._lock = RLock()
         self._read_slots = BoundedSemaphore(2)
+        self.history_changed = Event()
         self._closed = False
         self._owner = (self.directory / ".owner.lock").open("a+b")
         try:
@@ -239,6 +240,7 @@ class RunStore:
         except Exception:
             shutil.rmtree(directory)
             raise
+        self.history_changed.set()
         return run_id
 
     def save_design(self, design: RocketDesign, config: SimulationConfig) -> dict:
@@ -267,6 +269,7 @@ class RunStore:
         except Exception:
             shutil.rmtree(directory)
             raise
+        self.history_changed.set()
         return record
 
     def get_saved_design(self, design_id: str) -> dict:
@@ -487,6 +490,7 @@ class RunStore:
                     run_id,
                 ),
             )
+        self.history_changed.set()
 
     def get_summary(self, run_id: str) -> dict:
         if self.get(run_id)["state"] != "succeeded":

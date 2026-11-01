@@ -5,7 +5,7 @@ import { reportFrontendError } from "../../lib/diagnostics";
 import { flightPath, nearestTimeIndex } from "../../lib/geography";
 import { runStateLabels } from "../../lib/telemetry";
 import { webglContextAttributes } from "../../lib/webgl";
-import { useWorkspace } from "../../workspace";
+import { useEnvironment, useSimulation, usePlayback } from "../../workspace";
 import { awsTerrainProvider } from "./awsTerrain";
 import {
   frameMap,
@@ -16,7 +16,7 @@ import {
 } from "./mapTerrain";
 
 export function TerrainMap() {
-  const w = useWorkspace();
+  const w = { ...useEnvironment(), ...useSimulation(), ...usePlayback() };
   const container = useRef<HTMLDivElement>(null);
   const viewer = useRef<Cesium.Viewer | null>(null);
   const marker = useRef<Cesium.Entity | null>(null);
@@ -34,7 +34,7 @@ export function TerrainMap() {
   const [attempt, setAttempt] = useState(0);
   const result = w.mapMode === "result" ? w.result : null;
   const waiting = w.mapMode === "result" && !result;
-  const env = result?.design.environment || w.design.environment;
+  const env = result?.design.environment || w.environment;
   const grid = env.terrain;
   const streamAWS =
     grid?.provider === "aws" || (!grid && w.terrainSource === "aws");
