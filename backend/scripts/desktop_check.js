@@ -79,6 +79,73 @@
       return current.value !== payload && JSON.parse(current.value).components.find((component) => component.id === "payload").mass === 1.05;
     });
   }
+  function componentProperties(part, index) {
+    const panel = [...document.querySelectorAll(".panel")].find((node) =>
+      visible(node) && node.querySelector(".eyebrow")?.textContent.trim() === "COMPONENT PROPERTIES" &&
+      node.querySelector("h2")?.textContent.trim() === (part.name || part.id));
+    if (!panel) return null;
+    const paths = [...panel.querySelectorAll("[data-field]")].map((node) => node.dataset.field);
+    if (!paths.length || paths.some((path) => !path.startsWith(`components.${index}.`)) || new Set(paths).size !== paths.length)
+      throw Error(`Stale or duplicate component properties: ${part.id}: ${JSON.stringify(paths)}`);
+    if (panel.querySelector(`[data-field="components.${index}.name"] input`)?.value !== (part.name || ""))
+      throw Error(`Component name field disagrees with selection: ${part.id}`);
+    return panel;
+  }
+  async function checkComponentProperties() {
+    async function readDesign() {
+      await openPanel("설계 JSON");
+      return JSON.parse(document.querySelector("#design-json").value);
+    }
+    const baseline = await readDesign();
+    await openPanel("프로젝트");
+    // Exercise every supported shape, including types absent from the flight fixture.
+    for (const name of ["타원형 핀", "테일", "줄 · 웨빙"])
+      await click(`add ${name}`, ".button-row button", name);
+    const design = await readDesign();
+    async function selected(part, index) {
+      await wait(`properties tab for ${part.id}`, () => [...document.querySelectorAll('[role="tab"]')]
+        .some((tab) => tab.getAttribute("aria-label") === "속성" && tab.getAttribute("aria-selected") === "true"));
+      return await wait(`properties for ${part.id}`, () => componentProperties(part, index));
+    }
+    async function select(part, index) {
+      await click(`select ${part.id}`, ".tree button", `◇ ${part.name || part.id}`);
+      return await selected(part, index);
+    }
+    for (const [index, part] of design.components.entries()) await select(part, index);
+    // The second click keeps the same selection ID and still must reveal the tab.
+    for (let repeat = 0; repeat < 2; repeat++) {
+      await openPanel("발사 환경");
+      await select(design.components[0], 0);
+    }
+    await click("design for selection", ".app-nav > button", "설계");
+    await wait("current selection preview", () => document.querySelector('fieldset[aria-label="로켓 보기"]')
+      ?.parentElement.querySelector('[role="status"]')?.textContent.trim() === "최신 설계");
+    const interior = [...document.querySelectorAll("label")].find((node) => visible(node) && text(node) === "내부 표시")?.querySelector("input");
+    if (!interior) throw Error("Missing rocket interior control");
+    if (!interior.checked) { interior.click(); await painted(); }
+    let outlines = 0;
+    for (const [index, part] of design.components.entries()) {
+      await openPanel("발사 환경");
+      const polygon = await wait(`2D component ${part.id}`, () => [...document.querySelectorAll(".rocket-svg polygon")]
+        .find((node) => node.getAttribute("aria-label") === (part.name || part.id)));
+      // Keyboard activation follows the same selection path as a pointer click.
+      polygon.dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", bubbles: true}));
+      await selected(part, index);
+      outlines++;
+    }
+    // Restore the flight fixture through the UI before the save/run/reopen checks.
+    const originalIds = new Set(baseline.components.map((part) => part.id));
+    for (const part of design.components.filter((part) => !originalIds.has(part.id)).reverse()) {
+      await click(`select added ${part.id}`, ".tree button", `◇ ${part.name}`);
+      const remove = document.querySelector(".tree").parentElement.querySelector("button.danger");
+      if (!remove || remove.disabled) throw Error(`Cannot remove temporary component ${part.id}`);
+      remove.click();
+      await wait(`removed ${part.id}`, () => ![...document.querySelectorAll(".tree button")].some((node) => text(node) === `◇ ${part.name}`));
+    }
+    if (JSON.stringify((await readDesign()).components) !== JSON.stringify(baseline.components))
+      throw Error("Component selection check changed the original flight components");
+    return {components: design.components.length, outlines, same_selection_reopens: true};
+  }
   async function canvas(selector) {
     const node = await wait("rendered 3D canvas", () => [...document.querySelectorAll(selector)]
       .find((element) => visible(element) && element.dataset.rendered === "true" && element.width > 0 && element.height > 0));
@@ -178,6 +245,7 @@
     }
   }
   let api;
+  let properties;
   try {
     await wait("shipping frontend and bridge", () => document.querySelector(".app-header") && window.pywebview?.api?.list_runs);
     api = window.pywebview.api;
@@ -185,6 +253,7 @@
     if (scenario.phase === "first") {
       // Only the startup terrain fixture is injected by the launcher.
       await editPayloadMass();
+      properties = await checkComponentProperties();
       await rename(scenario.name);
       await save(scenario.name);
       await rename(`${scenario.name} 다른 설계`);
@@ -242,7 +311,7 @@
     if (!(summary.max_altitude_agl_m > 0) || !(summary.duration_s > 0) || summary.ground_model !== "terrain") throw Error("Invalid flight result");
     mapInfo.querySelector("summary").click();
     await painted();
-    return {ok: true, phase: scenario.phase, name: scenario.name, run_id: run.run_id, summary, rocket, terrain, history_notifications: historyNotifications};
+    return {ok: true, phase: scenario.phase, name: scenario.name, run_id: run.run_id, summary, rocket, terrain, properties, history_notifications: historyNotifications};
   } catch (error) {
     return {ok: false, phase: scenario.phase, stage, error: String(error), errors,
       url: location.href, body: document.body?.innerText.slice(-12000),

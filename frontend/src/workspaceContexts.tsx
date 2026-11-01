@@ -19,6 +19,7 @@ export interface Workspace {
   preview: { design: RocketDesign; result: DesignPreview } | null;
   previewState: "pending" | "ready" | "invalid";
   selection: string;
+  propertiesView: number;
   setSelection: (id: string) => void;
   edit: (path: string[], value: unknown) => void;
   removeComponent: (id: string) => void;
@@ -71,6 +72,7 @@ type DesignWorkspace = Pick<
   | "preview"
   | "previewState"
   | "selection"
+  | "propertiesView"
   | "setSelection"
   | "edit"
   | "removeComponent"

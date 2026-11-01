@@ -260,7 +260,7 @@ export function Properties() {
           </label>
         )}
         <ConfigFields
-          key={component.id}
+          key={`fields:${component.id}`}
           object={component}
           schemaName={schemaName}
           path={base}
@@ -280,7 +280,7 @@ export function Properties() {
         {(component.component_type === "body_tube" ||
           component.component_type === "surface") && (
           <SurfaceFinishEditor
-            key={component.id}
+            key={`finish:${component.id}`}
             value={component.surface_finish}
             path={[...base, "surface_finish"]}
           />
