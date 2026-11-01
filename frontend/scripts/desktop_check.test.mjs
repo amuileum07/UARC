@@ -17,7 +17,7 @@ new Script(
 );
 // Exercise the same action helpers used by the full native scenario.
 const helpers = `${source.slice(0, source.indexOf("  let api;"))}
-return {click, openPanel, painted, editPayloadMass}; })()`;
+return {click, openPanel, painted, editPayloadMass, componentProperties}; })()`;
 
 function browser(document, frame, overrides = {}) {
   return runInNewContext(helpers, {
@@ -166,4 +166,47 @@ test("an ignored input event cannot pass from the imperative textarea value alon
   });
   await assert.rejects(api.editPayloadMass(), /Timed out: JSON edit applied/);
   assert.equal(JSON.parse(fixture.editor.value).components[0].mass, 1);
+});
+
+function propertyPanel(paths, shown = true) {
+  const panel = {
+    getClientRects: () => (shown ? [1] : []),
+    querySelector: (selector) =>
+      selector === ".eyebrow"
+        ? { textContent: "COMPONENT PROPERTIES" }
+        : selector === "h2"
+          ? { textContent: "Payload" }
+          : { value: "Payload" },
+    querySelectorAll: () => paths.map((field) => ({ dataset: { field } })),
+  };
+  return { panel, document: { querySelectorAll: () => [panel] } };
+}
+
+test("properties checks require a visible matching form", async () => {
+  const fixture = propertyPanel(["components.3.name", "components.3.mass"]);
+  const api = await browser(fixture.document);
+  const part = { id: "payload", name: "Payload" };
+  assert.equal(api.componentProperties(part, 3), fixture.panel);
+  assert.equal(api.componentProperties({ ...part, name: "Body" }, 3), null);
+  const hidden = propertyPanel(["components.3.name"], false);
+  const hiddenApi = await browser(hidden.document);
+  assert.equal(hiddenApi.componentProperties(part, 3), null);
+});
+
+test("properties checks reject orphaned fields from a previously selected component", async () => {
+  const fixture = propertyPanel(["components.3.name", "components.0.length"]);
+  const api = await browser(fixture.document);
+  assert.throws(
+    () => api.componentProperties({ id: "payload", name: "Payload" }, 3),
+    /Stale or duplicate component properties/,
+  );
+});
+
+test("properties checks reject duplicate fields for the selected component", async () => {
+  const fixture = propertyPanel(["components.3.name", "components.3.name"]);
+  const api = await browser(fixture.document);
+  assert.throws(
+    () => api.componentProperties({ id: "payload", name: "Payload" }, 3),
+    /Stale or duplicate component properties/,
+  );
 });

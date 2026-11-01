@@ -65,7 +65,13 @@ export function WorkspaceProvider({
   const [preview, setPreview] = useState<Workspace["preview"]>(null);
   const [previewState, setPreviewState] =
     useState<Workspace["previewState"]>("pending");
-  const [selection, setSelection] = useState(initial.components[0].id);
+  const [selection, setSelectedComponent] = useState(initial.components[0].id);
+  const [propertiesView, setPropertiesView] = useState(0);
+  const setSelection = useCallback((id: string) => {
+    setSelectedComponent(id);
+    // Re-selecting the same component must also reveal its properties tab.
+    setPropertiesView((value) => value + 1);
+  }, []);
   const [dirty, setDirty] = useState(false);
   const [problems, setProblems] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState<SavedDesignRecord[]>([]);
@@ -235,7 +241,7 @@ export function WorkspaceProvider({
       setDirty(true);
       fieldIssue("action", "");
     },
-    [fieldIssue],
+    [fieldIssue, setSelection],
   );
   const placeSite = useCallback((latitude: number, longitude: number) => {
     setDesign((old) => placeLaunchSite(old, latitude, longitude));
@@ -375,7 +381,7 @@ export function WorkspaceProvider({
       setMapMode("design");
       setPickingSite(false);
     },
-    [dirty, autoTerrain, autoWeather],
+    [dirty, autoTerrain, autoWeather, setSelection],
   );
   const save = useCallback(
     () =>
@@ -529,6 +535,7 @@ export function WorkspaceProvider({
       preview,
       previewState,
       selection,
+      propertiesView,
       setSelection,
       edit,
       removeComponent,
@@ -547,6 +554,8 @@ export function WorkspaceProvider({
       preview,
       previewState,
       selection,
+      propertiesView,
+      setSelection,
       edit,
       removeComponent,
       replace,

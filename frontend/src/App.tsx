@@ -132,6 +132,9 @@ function Workspace() {
     panel.api.setActive();
   }, []);
   useEffect(() => {
+    if (w.propertiesView) open("properties");
+  }, [w.propertiesView, open]);
+  useEffect(() => {
     if (w.pickingSite) open("map");
   }, [w.pickingSite, open]);
   useEffect(() => {
