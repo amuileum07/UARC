@@ -2,6 +2,8 @@ name: Desktop acceptance
 run-name: Desktop acceptance at ${{ github.sha }}
 
 on:
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:

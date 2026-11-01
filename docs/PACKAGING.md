@@ -307,7 +307,8 @@ availability, credentials, remote TLS/CORS policy or every GPU/OS combination.
 ## Final archive and actual UI acceptance
 
 [Desktop acceptance](../.github/workflows/desktop-acceptance.yml) is a separate,
-manually dispatched workflow with read-only repository permissions. It tests
+read-only workflow triggered by pull requests targeting `main`, with manual
+dispatch also available. It tests
 Windows x64, Ubuntu x64 and macOS arm64 without changing versions,
 creating tags or publishing releases. The existing release gates remain in
 place. Use it to verify changes without starting a release.

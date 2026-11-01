@@ -14,7 +14,7 @@ Intel Mac은 지원 대상에서 제외되어 있다. 지원 범위와 검증 �
 | 항목                                             | Desktop acceptance                                                    | Release UARC                                            |
 | ------------------------------------------------ | --------------------------------------------------------------------- | ------------------------------------------------------- |
 | 정의                                             | [desktop-acceptance.yml](../.github/workflows/desktop-acceptance.yml) | [release.yml](../.github/workflows/release.yml)         |
-| 실행 계기                                        | 수동 `workflow_dispatch`                                              | 수동 `workflow_dispatch`                                |
+| 실행 계기                                        | `main` 대상 PR 및 수동 `workflow_dispatch`                            | 수동 `workflow_dispatch`                                |
 | Ruff lint·format                                 | Linux prepare에서 실행                                                | Linux prepare에서 실행                                  |
 | Biome·TypeScript·프런트엔드 테스트·빌드          | 실행                                                                  | 실행                                                    |
 | 프런트엔드 `format:check`                        | 실행                                                                  | 실행                                                    |
@@ -26,11 +26,11 @@ Intel Mac은 지원 대상에서 제외되어 있다. 지원 범위와 검증 �
 | 최종 archive의 실제 UI·WebGL·3D·정상 종료·재실행 | 세 OS에서 필수                                                        | `desktop_acceptance=true`(기본값)일 때 세 OS에서 필수   |
 | 버전 변경·태그·GitHub Release·선택적 PyPI 게시   | 없음                                                                  | 모든 해당 release job 통과 후 실행                      |
 
-[CI](../.github/workflows/ci.yml)는 `main` push와 `main` 대상 PR에서 자동 실행된다. 백엔드와 프런트엔드 job이 병렬로 locked 설치, Ruff, Prettier, Biome, TypeScript, 테스트와 프런트엔드 빌드를 검사한다. 생성 DTO는 Python 스키마에서 재생성하고 Prettier로 정규화한 뒤 추적 파일 존재와 diff를 확인한다. 설치 캐시와 러너 상태에 따라 시간이 달라지므로 2분 완료를 보장하지 않는다. 수동 실행도 가능하다.
+[CI](../.github/workflows/ci.yml)는 모든 브랜치의 push와 `main` 대상 PR에서 자동 실행된다. 태그 push는 대상이 아니다. 백엔드와 프런트엔드 job이 병렬로 locked 설치, Ruff, Prettier, Biome, TypeScript, 테스트와 프런트엔드 빌드를 검사한다. 생성 DTO는 Python 스키마에서 재생성하고 Prettier로 정규화한 뒤 추적 파일 존재와 diff를 확인한다. 설치 캐시와 러너 상태에 따라 시간이 달라지므로 2분 완료를 보장하지 않는다. 수동 실행도 가능하다.
 **Release UARC의 `desktop_acceptance` 옵션은 기본값이 켜짐이다.** 이번 릴리스에서 만든 최종 archive를
 직접 검사하며, 세 플랫폼 중 하나라도 실패하면 `build`가 실패해 게시가 차단된다. 검증한 파일을 그대로 게시한다.
 옵션을 끄면 기존 worker·wheel·native-webview 검사는 유지하고, 전체 archive 검사 생략을 실행 요약과 릴리스 노트에 명시한다.
-별도 Desktop acceptance는 버전 변경·게시 없는 사전 점검용이며, 릴리스 전에 반드시 별도로 실행할 필요는 없다.
+별도 Desktop acceptance는 `main` 대상 PR에서 자동 실행되며 수동 실행도 가능한, 버전 변경·게시 없는 사전 점검이다. 릴리스에서는 최종 배포 압축본을 다시 검증한다.
 `smoke_gui.py`의 검사 페이지·bridge 검증과 `smoke_desktop.py`의 배포 UI 전체 흐름은 서로 다른 검사다.
 
 통합 로그와 실행별 솔버 로그도 검증한다. 두 workflow의 native job은 `test_logging.py`로
