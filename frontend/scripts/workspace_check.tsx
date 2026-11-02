@@ -109,6 +109,16 @@ async function verify() {
   if (!element) throw Error("Missing probe root");
   const root = createRoot(element);
   const listRuns = api.list_runs;
+  const checkElevation = api.check_elevation;
+  let elevationRequests = 0;
+  api.check_elevation = async (...args) => {
+    const request = ++elevationRequests;
+    const value = await checkElevation(...args);
+    // Keep the JSON replacement's elevation check in flight after its preview.
+    // This exercises slow IPC without depending on the host browser's timing.
+    if (request === 2) await new Promise((resolve) => setTimeout(resolve, 500));
+    return value;
+  };
   try {
     root.render(
       <WorkspaceProvider initial={initial} schema={schema}>
@@ -124,6 +134,7 @@ async function verify() {
     await wait(
       () =>
         controls?.design.previewState === "ready" &&
+        controls.design.preview?.design === controls.design.design &&
         !!controls.environment.elevation,
     );
     await painted();
@@ -135,6 +146,7 @@ async function verify() {
       ).mass !== 1.05
     )
       throw Error("Initial effects erased JSON input");
+    const previousElevation = current().environment.elevation;
     document.querySelector<HTMLButtonElement>(".json-panel button")?.click();
     await wait(() => {
       const workspace = current().design;
@@ -144,7 +156,12 @@ async function verify() {
       return (
         part?.component_type === "mass" &&
         part.mass === 1.05 &&
-        workspace.previewState === "ready"
+        workspace.previewState === "ready" &&
+        workspace.preview?.design === workspace.design &&
+        // JSON replacement also starts a new elevation check. Exclude both
+        // asynchronous completions from the playback-only render counters.
+        !!current().environment.elevation &&
+        current().environment.elevation !== previousElevation
       );
     });
     let before = { ...renders };
@@ -228,12 +245,14 @@ async function verify() {
       phase: "workspace",
       components: 64,
       json_input_preserved: true,
+      elevation_checks: elevationRequests,
       playback,
       editing,
       history,
     };
   } finally {
     api.list_runs = listRuns;
+    api.check_elevation = checkElevation;
     root.unmount();
   }
 }
